@@ -17,6 +17,7 @@ RISK_PCT    = 0.02
 MAX_TRADES  = 3
 SCAN_EVERY  = 900   # 15 minutes
 UPDATE_EVERY= 14400 # 4 hours
+TG_ALERTS   = False  # set True to resume Telegram trade alerts
 
 MARKETS = {
     # Major Forex
@@ -60,6 +61,8 @@ def reset_daily_if_needed(state):
 
 # ─── TELEGRAM ─────────────────────────────────────────────────────────────────
 def tg_send(text):
+    if not TG_ALERTS:
+        return  # alerts paused — execute on TL only until strategy is validated
     requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
                   json={"chat_id": TG_CHAT, "text": text}, timeout=10)
 
@@ -350,8 +353,7 @@ def send_engagement():
 
 # ─── MAIN LOOP ────────────────────────────────────────────────────────────────
 def run():
-    print("🤖 Agent starting...")
-    tg_send("🤖 AI Trading Agent is LIVE\n\nScanning markets every 15 minutes.\nMax 3 high-conviction trades per day.\nAll positions protected with trailing stops.\n\nLet's work! 📈")
+    print("🤖 Agent starting... (Telegram alerts PAUSED — TL execution only)")
 
     headers, aid = auth()
     token_time   = time.time()
@@ -397,9 +399,7 @@ def run():
                 if ok:
                     state["trades_today"] += 1
                     save_state(state)
-                    print(f"  ✅ Trade placed — order {oid}")
-                    send_alert(top)
-                    tg_send(f"⚠️ Trailing stop active on {top['name']}. Position managed automatically.")
+                    print(f"  ✅ Trade placed — order {oid} ({top['name']} {top['direction'].upper()} {top['risk_pips']}p risk)")
                 else:
                     print(f"  ❌ Trade failed")
             else:

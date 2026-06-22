@@ -29,6 +29,8 @@ PAIRS = {
     "USDJPY": {"id": 283, "routeId": 452, "is_jpy": True,  "spread": 1.0,  "pip_val_lot": 6.70,  "emoji": "🇯🇵"},
     "USDCAD": {"id": 281, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 7.30,  "emoji": "🇨🇦"},
     "GBPJPY": {"id": 243, "routeId": 452, "is_jpy": True,  "spread": 2.0,  "pip_val_lot": 6.70,  "emoji": "🏴󠁧󠁢󠁥󠁮󠁧󠁿"},
+    "AUDUSD": {"id": 277, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 10.00, "emoji": "🇦🇺"},
+    "EURJPY": {"id": 238, "routeId": 452, "is_jpy": True,  "spread": 1.5,  "pip_val_lot": 6.70,  "emoji": "🇪🇺"},
 }
 
 # ─── AUTH ─────────────────────────────────────────────────────────────────────
@@ -45,14 +47,23 @@ def auth():
 def fetch_bars(headers, instr_id, route_id, resolution, days=30):
     now_ms = int(time.time() * 1000)
     from_ms = now_ms - (days * 24 * 60 * 60 * 1000)
-    r = requests.get(f"{BASE}/trade/history", headers=headers, params={
-        "tradableInstrumentId": instr_id,
-        "routeId": route_id,
-        "resolution": resolution,
-        "from": from_ms,
-        "to": now_ms,
-    })
-    return r.json().get("d", {}).get("barDetails", [])
+    for attempt in range(4):
+        try:
+            r = requests.get(f"{BASE}/trade/history", headers=headers, params={
+                "tradableInstrumentId": instr_id,
+                "routeId": route_id,
+                "resolution": resolution,
+                "from": from_ms,
+                "to": now_ms,
+            }, timeout=15)
+            if r.status_code == 429 or not r.text.strip():
+                wait = 2 ** attempt
+                time.sleep(wait)
+                continue
+            return r.json().get("d", {}).get("barDetails", [])
+        except Exception:
+            time.sleep(2 ** attempt)
+    return []
 
 # ─── INDICATORS ───────────────────────────────────────────────────────────────
 
@@ -413,7 +424,9 @@ def run_scanner(auto_trade=False):
 
     for pair_name, cfg in PAIRS.items():
         print(f"  Scanning {pair_name}...", end=" ", flush=True)
+        time.sleep(1)
         bars_1h = fetch_bars(headers, cfg["id"], cfg["routeId"], "1H", 30)
+        time.sleep(0.5)
         bars_4h = fetch_bars(headers, cfg["id"], cfg["routeId"], "4H", 30)
 
         if not bars_1h or not bars_4h:

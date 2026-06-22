@@ -106,15 +106,47 @@ def market_structure(bars):
     return "neutral",0
 
 def find_ob(bars, d, lb=40):
-    r=bars[-lb:] if len(bars)>=lb else bars; n=len(r)
-    for i in range(n-4,1,-1):
-        if d=="bullish" and r[i]["c"]<r[i]["o"]:
-            if sum(1 for j in range(1,4) if i+j<n and r[i+j]["c"]>r[i+j]["o"])>=2:
-                return {"high":r[i]["h"],"low":r[i]["l"],"mid":(r[i]["h"]+r[i]["l"])/2}
-        if d=="bearish" and r[i]["c"]>r[i]["o"]:
-            if sum(1 for j in range(1,4) if i+j<n and r[i+j]["c"]<r[i+j]["o"])>=2:
-                return {"high":r[i]["h"],"low":r[i]["l"],"mid":(r[i]["h"]+r[i]["l"])/2}
+    """Find the most recent UNMITIGATED order block."""
+    r = bars[-lb:] if len(bars) >= lb else bars
+    n = len(r)
+    # Search from 5 bars back (need at least 4 bars after OB to confirm + leave room for current price)
+    for i in range(n - 5, 1, -1):
+        if d == "bullish" and r[i]["c"] < r[i]["o"]:
+            # Need 2 of next 3 bars bullish to confirm impulse
+            if sum(1 for j in range(1, 4) if i + j < n and r[i + j]["c"] > r[i + j]["o"]) >= 2:
+                ob = {"high": r[i]["o"], "low": r[i]["c"]}  # body of bearish candle
+                # Mitigation check: any subsequent candle CLOSED below OB low = mitigated
+                if any(r[j]["c"] < ob["low"] for j in range(i + 1, n)):
+                    continue  # consumed, skip
+                ob["mid"] = (ob["high"] + ob["low"]) / 2
+                return ob
+        if d == "bearish" and r[i]["c"] > r[i]["o"]:
+            if sum(1 for j in range(1, 4) if i + j < n and r[i + j]["c"] < r[i + j]["o"]) >= 2:
+                ob = {"high": r[i]["c"], "low": r[i]["o"]}  # body of bullish candle
+                if any(r[j]["c"] > ob["high"] for j in range(i + 1, n)):
+                    continue
+                ob["mid"] = (ob["high"] + ob["low"]) / 2
+                return ob
     return None
+
+
+def ob_rejection(bars, ob, d):
+    """Check if the last 1-2 candles show rejection from the OB (entry confirmation)."""
+    if not ob or len(bars) < 2:
+        return False
+    last = bars[-1]
+    prev = bars[-2]
+    if d == "bullish":
+        # Last candle: bullish close AND lower wick (rejection off OB low)
+        bullish_close = last["c"] > last["o"]
+        lower_wick = (min(last["o"], last["c"]) - last["l"]) > abs(last["c"] - last["o"]) * 0.3
+        touched_ob = last["l"] <= ob["high"] and last["c"] >= ob["low"]
+        return bullish_close and lower_wick and touched_ob
+    else:
+        bearish_close = last["c"] < last["o"]
+        upper_wick = (last["h"] - max(last["o"], last["c"])) > abs(last["c"] - last["o"]) * 0.3
+        touched_ob = last["h"] >= ob["low"] and last["c"] <= ob["high"]
+        return bearish_close and upper_wick and touched_ob
 
 def find_fvg(bars, d, lb=30):
     r=bars[-lb:] if len(bars)>=lb else bars
@@ -149,6 +181,8 @@ def momentum(bars, d):
     return all(b["c"]<b["o"] for b in last3[-2:])
 
 # ─── ANALYZE ──────────────────────────────────────────────────────────────────
+MIN_RISK_PIPS = 8   # below this SL gets crushed by spread/slippage
+
 def analyze(name, cfg, headers):
     time.sleep(1)
     b1 = fetch_bars(headers, cfg["id"], cfg["info"], "1H", 30)
@@ -166,63 +200,78 @@ def analyze(name, cfg, headers):
     if a==0: return None
 
     score=0; reasons=[]
-    # Structure (max 2)
     if str4>=2: score+=2; reasons.append("4H & 1H trend aligned")
     elif str4==1: score+=1
 
     ob = find_ob(b1, d4)
-    in_ob = ob and ob["low"]<=price<=ob["high"]
+    in_ob = ob and ob["low"] <= price <= ob["high"]
     approaching = ob and (
-        (d4=="bullish" and ob["low"]-a*0.5<=price<=ob["high"]+a*0.3) or
-        (d4=="bearish" and ob["low"]-a*0.3<=price<=ob["high"]+a*0.5)
+        (d4=="bullish" and ob["low"]-a*0.5 <= price <= ob["high"]+a*0.3) or
+        (d4=="bearish" and ob["low"]-a*0.3 <= price <= ob["high"]+a*0.5)
     )
-    if in_ob:         score+=2; reasons.append("price inside Order Block")
-    elif approaching: score+=1; reasons.append("approaching Order Block")
+    # Require rejection confirmation when inside OB — not just location
+    has_rejection = ob_rejection(b1, ob, d4)
+    if in_ob and has_rejection: score+=2; reasons.append("OB rejection confirmed")
+    elif in_ob:                 score+=1; reasons.append("price inside Order Block")
+    elif approaching:           score+=1; reasons.append("approaching Order Block")
 
     if find_fvg(b1,d4): score+=1; reasons.append("FVG confirmed")
     if liq_sweep(b1,d4):score+=2; reasons.append("liquidity sweep")
     if bos(b1,d4):      score+=1; reasons.append("BOS confirmed")
     if momentum(b1,d4): score+=1; reasons.append("momentum aligned")
 
-    if score<6: return None  # min 6/9 for execution
+    if score<6: return None
 
-    # Levels
-    pip = cfg["pip"]
-    if ob:
-        entry = ob["mid"]
-        sl    = (ob["low"]-a*0.1) if d4=="bullish" else (ob["high"]+a*0.1)
+    # ── LEVELS: SL anchored to recent structure, not OB boundary ──────────────
+    pip  = cfg["pip"]
+    entry = price  # always enter at current market price
+
+    if d4 == "bullish":
+        # SL = lowest low of last 15 bars minus 2-pip buffer
+        struct_low = min(b["l"] for b in b1[-15:])
+        sl = round(struct_low - 2 * pip, 5)
     else:
-        entry = price
-        sl    = (entry-a*0.8) if d4=="bullish" else (entry+a*0.8)
+        struct_high = max(b["h"] for b in b1[-15:])
+        sl = round(struct_high + 2 * pip, 5)
 
-    risk = abs(entry-sl)
-    risk_pips = round(risk/pip, 1)
-    if risk_pips<3: return None
+    risk      = abs(entry - sl)
+    risk_pips = round(risk / pip, 1)
+
+    # Hard floor: reject setups with SL too tight to survive spread/noise
+    if risk_pips < MIN_RISK_PIPS:
+        return None
 
     sign = 1 if d4=="bullish" else -1
-    tp1  = entry + risk*1.5*sign
-    tp2  = entry + risk*2.5*sign
-    rr   = "1:2.5"
+    tp1  = round(entry + risk*1.5*sign, 5)
+    tp2  = round(entry + risk*2.5*sign, 5)
 
     return {
-        "name":name,"direction":d4,"score":score,"entry":entry,
-        "sl":sl,"tp1":tp1,"tp2":tp2,"rr":rr,"risk_pips":risk_pips,
+        "name":name,"direction":d4,"score":score,"entry":round(entry,5),
+        "sl":round(sl,5),"tp1":tp1,"tp2":tp2,"rr":"1:2.5","risk_pips":risk_pips,
         "reasons":", ".join(reasons),"cfg":cfg
     }
 
 # ─── PLACE TRADE ──────────────────────────────────────────────────────────────
-def place_trade(headers, aid, setup):
+def calc_lots(risk_pips, pip_val, balance, risk_pct=RISK_PCT):
+    """Position size: lots = risk_dollars / (risk_pips * pip_value_per_lot)."""
+    risk_dollars = balance * risk_pct
+    raw = risk_dollars / (risk_pips * pip_val) if risk_pips * pip_val > 0 else 0.01
+    # Clamp to broker min/max and round to 2 dp
+    return round(max(0.01, min(raw, 10.0)), 2)
+
+def place_trade(headers, aid, setup, balance=25000.0):
     cfg  = setup["cfg"]
     side = "buy" if setup["direction"]=="bullish" else "sell"
+    lots = calc_lots(setup["risk_pips"], cfg["pip_val"], balance)
     body = {
         "tradableInstrumentId": cfg["id"],
         "routeId":              cfg["trade"],
         "type":                 "market",
         "side":                 side,
-        "qty":                  0.1,    # base qty; adjust per risk rules
+        "qty":                  lots,
         "validity":             "IOC",
-        "stopLoss":             round(setup["sl"],5),
-        "takeProfit":           round(setup["tp2"],5),
+        "stopLoss":             setup["sl"],
+        "takeProfit":           setup["tp2"],
         "stopLossType":         "absolute",
         "takeProfitType":       "absolute",
     }
@@ -338,7 +387,13 @@ def run():
             if setups:
                 top = setups[0]
                 print(f"\nBest setup: {top['name']} {top['direction']} score={top['score']}/9")
-                ok, oid = place_trade(headers, aid, top)
+                # Fetch live balance for correct position sizing
+                try:
+                    accs = requests.get(f"{BASE}/auth/jwt/all-accounts", headers=headers, timeout=10).json()
+                    live_bal = float(accs["accounts"][0]["accountBalance"])
+                except Exception:
+                    live_bal = 25000.0
+                ok, oid = place_trade(headers, aid, top, balance=live_bal)
                 if ok:
                     state["trades_today"] += 1
                     save_state(state)

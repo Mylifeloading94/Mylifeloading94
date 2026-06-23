@@ -18,11 +18,13 @@ from collections import defaultdict
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
+BASE = "https://live.tradelocker.com/backend-api"
 EMAIL = "carlinpool94@gmail.com"
 PASSWORD = "Tinapool321!?"
 SERVER = "GENFX"
-ACCOUNT_ID = 2265464
+ACCOUNT_ID = 756164
+INFO_ROUTE = 541038
+TRADE_ROUTE = 541039
 
 LOOKBACK_DAYS = 90
 RISK_PCT = 0.02            # 2% of equity per trade (aggressive)
@@ -43,9 +45,9 @@ PROP = {
 
 # pip_val = USD per 1 pip at 1.0 standard lot
 PAIRS = {
-    "EURUSD": {"id": 278, "routeId": 452, "is_jpy": False, "spread": 0.5,  "pip_val_lot": 10.00},
-    "USDJPY": {"id": 283, "routeId": 452, "is_jpy": True,  "spread": 1.0,  "pip_val_lot": 6.70},
-    "USDCAD": {"id": 281, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 7.30},
+    "EURUSD": {"id": 8463, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 0.5,  "pip_val_lot": 10.00},
+    "USDJPY": {"id": 8496, "routeId": INFO_ROUTE, "is_jpy": True,  "spread": 1.0,  "pip_val_lot": 6.70},
+    "USDCAD": {"id": 8492, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 7.30},
 }
 
 # ─── AUTH ─────────────────────────────────────────────────────────────────────

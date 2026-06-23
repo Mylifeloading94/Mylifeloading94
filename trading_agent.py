@@ -34,11 +34,11 @@ import matplotlib.pyplot as plt
 # CONFIG
 # ──────────────────────────────────────────────────────────────────────────────
 
-BASE_URL     = "https://bsb-oms.tradelocker.com:8443/backend-api"
+BASE_URL     = "https://live.tradelocker.com/backend-api"
 EMAIL        = os.environ["TL_EMAIL"]
 PASSWORD     = os.environ["TL_PASSWORD"]
 SERVER       = os.environ.get("TL_SERVER", "GENFX")
-ACCOUNT_ID   = int(os.environ.get("TL_ACCOUNT_ID", "2265464"))
+ACCOUNT_ID   = int(os.environ.get("TL_ACCOUNT_ID", "756164"))
 USER_ID      = os.environ.get("TL_USER_ID", "6fab173e-1a6c-4a97-a199-ea4eab9518c6")
 TG_TOKEN     = os.environ["TG_BOT_TOKEN"]
 TG_CHAT      = os.environ["TG_CHAT_ID"]
@@ -58,23 +58,27 @@ STATE_FILE   = "agent_state.json"
 # MARKETS
 # ──────────────────────────────────────────────────────────────────────────────
 
+INFO_ROUTE  = 541038
+TRADE_ROUTE = 541039
+
 MARKETS = {
-    # name       : {id, pip size, pip value per 1 lot in USD}
-    "EURUSD": {"id": 278, "pip": 0.0001, "pip_val": 10.00},
-    "GBPUSD": {"id": 279, "pip": 0.0001, "pip_val": 10.00},
-    "USDJPY": {"id": 283, "pip": 0.01,   "pip_val":  6.70},
-    "USDCHF": {"id": 280, "pip": 0.0001, "pip_val": 10.00},
-    "USDCAD": {"id": 281, "pip": 0.0001, "pip_val":  7.30},
-    "AUDUSD": {"id": 277, "pip": 0.0001, "pip_val": 10.00},
-    "NZDUSD": {"id": 284, "pip": 0.0001, "pip_val": 10.00},
-    "GBPJPY": {"id": 243, "pip": 0.01,   "pip_val":  6.70},
-    "EURJPY": {"id": 238, "pip": 0.01,   "pip_val":  6.70},
-    "AUDJPY": {"id": 229, "pip": 0.01,   "pip_val":  6.70},
-    "EURGBP": {"id": 235, "pip": 0.0001, "pip_val": 12.50},
-    "GBPCAD": {"id": 241, "pip": 0.0001, "pip_val":  7.30},
-    "XAUUSD": {"id": 314, "pip": 0.1,    "pip_val":  1.00},
-    "SPX500": {"id": 307, "pip": 1.0,    "pip_val":  1.00},
-    "NAS100": {"id": 306, "pip": 1.0,    "pip_val":  1.00},
+    # name       : {id, pip size, pip value per 1 lot in USD}  — GENFX live IDs
+    "EURUSD": {"id": 8463, "pip": 0.0001, "pip_val": 10.00},
+    "GBPUSD": {"id": 8520, "pip": 0.0001, "pip_val": 10.00},
+    "USDJPY": {"id": 8496, "pip": 0.01,   "pip_val":  6.70},
+    "USDCHF": {"id": 8484, "pip": 0.0001, "pip_val": 10.00},
+    "USDCAD": {"id": 8492, "pip": 0.0001, "pip_val":  7.30},
+    "AUDUSD": {"id": 8503, "pip": 0.0001, "pip_val": 10.00},
+    "NZDUSD": {"id": 8491, "pip": 0.0001, "pip_val": 10.00},
+    "GBPJPY": {"id": 8477, "pip": 0.01,   "pip_val":  6.70},
+    "EURJPY": {"id": 8487, "pip": 0.01,   "pip_val":  6.70},
+    "AUDJPY": {"id": 8453, "pip": 0.01,   "pip_val":  6.70},
+    "EURGBP": {"id": 8516, "pip": 0.0001, "pip_val": 12.50},
+    "GBPCAD": {"id": 8488, "pip": 0.0001, "pip_val":  7.30},
+    "XAUUSD": {"id": 8542, "pip": 0.1,    "pip_val":  1.00},
+    "SP500":  {"id": 8535, "pip": 1.0,    "pip_val":  1.00},
+    "NAS100": {"id": 8530, "pip": 1.0,    "pip_val":  1.00},
+    "US30":   {"id": 8536, "pip": 1.0,    "pip_val":  1.00},
 }
 
 # Map instrument IDs back to names for position tracking

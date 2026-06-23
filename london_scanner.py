@@ -9,7 +9,7 @@ import requests
 import time
 import datetime
 
-BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
+BASE = "https://live.tradelocker.com/backend-api"
 EMAIL = "carlinpool94@gmail.com"
 PASSWORD = "Tinapool321!?"
 SERVER = "GENFX"
@@ -24,14 +24,17 @@ DAILY_LOSS_LIMIT = 500
 MAX_DRAWDOWN_LIMIT = 1_000
 PROFIT_TARGET = 1_000
 
+INFO_ROUTE  = 541038
+TRADE_ROUTE = 541039
+
 PAIRS = {
-    "EURUSD": {"id": 278, "routeId": 452, "is_jpy": False, "spread": 0.5,  "pip_val_lot": 10.00, "emoji": "🇪🇺"},
-    "GBPUSD": {"id": 279, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 10.00, "emoji": "🇬🇧"},
-    "USDJPY": {"id": 283, "routeId": 452, "is_jpy": True,  "spread": 1.0,  "pip_val_lot": 6.70,  "emoji": "🇯🇵"},
-    "USDCAD": {"id": 281, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 7.30,  "emoji": "🇨🇦"},
-    "GBPJPY": {"id": 243, "routeId": 452, "is_jpy": True,  "spread": 2.0,  "pip_val_lot": 6.70,  "emoji": "🏴󠁧󠁢󠁥󠁮󠁧󠁿"},
-    "AUDUSD": {"id": 277, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 10.00, "emoji": "🇦🇺"},
-    "EURJPY": {"id": 238, "routeId": 452, "is_jpy": True,  "spread": 1.5,  "pip_val_lot": 6.70,  "emoji": "🇪🇺"},
+    "EURUSD": {"id": 8463, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 0.5,  "pip_val_lot": 10.00, "emoji": "🇪🇺"},
+    "GBPUSD": {"id": 8520, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 10.00, "emoji": "🇬🇧"},
+    "USDJPY": {"id": 8496, "routeId": INFO_ROUTE, "is_jpy": True,  "spread": 1.0,  "pip_val_lot": 6.70,  "emoji": "🇯🇵"},
+    "USDCAD": {"id": 8492, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 7.30,  "emoji": "🇨🇦"},
+    "GBPJPY": {"id": 8477, "routeId": INFO_ROUTE, "is_jpy": True,  "spread": 2.0,  "pip_val_lot": 6.70,  "emoji": "🏴󠁧󠁢󠁥󠁮󠁧󠁿"},
+    "AUDUSD": {"id": 8503, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 1.0,  "pip_val_lot": 10.00, "emoji": "🇦🇺"},
+    "EURJPY": {"id": 8487, "routeId": INFO_ROUTE, "is_jpy": True,  "spread": 1.5,  "pip_val_lot": 6.70,  "emoji": "🇪🇺"},
 }
 
 # ─── AUTH ─────────────────────────────────────────────────────────────────────

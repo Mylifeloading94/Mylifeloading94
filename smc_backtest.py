@@ -11,11 +11,11 @@ from collections import defaultdict
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
+BASE = "https://live.tradelocker.com/backend-api"
 EMAIL = "carlinpool94@gmail.com"
 PASSWORD = "Tinapool321!?"
 SERVER = "GENFX"
-ACCOUNT_ID = 2265464
+ACCOUNT_ID = 756164
 
 LOT_SIZE = 0.10
 LOOKBACK_DAYS = 90
@@ -34,13 +34,16 @@ PROP = {
 # pip_val = USD profit per 1 pip move at 0.10 lots
 # JPY pip = 0.01, at 10,000 units ≈ $0.67 @ 150 JPY/USD
 # USD pip = 0.0001, at 10,000 units = $1.00
+INFO_ROUTE  = 541038
+TRADE_ROUTE = 541039
+
 PAIRS = {
-    "EURUSD": {"id": 278, "routeId": 452, "is_jpy": False, "spread": 0.5,  "pip_val": 1.00},
-    "GBPUSD": {"id": 279, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val": 1.00},
-    "GBPJPY": {"id": 243, "routeId": 452, "is_jpy": True,  "spread": 2.0,  "pip_val": 0.67},
-    "USDJPY": {"id": 283, "routeId": 452, "is_jpy": True,  "spread": 1.0,  "pip_val": 0.67},
-    "AUDUSD": {"id": 277, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val": 0.70},
-    "USDCAD": {"id": 281, "routeId": 452, "is_jpy": False, "spread": 1.0,  "pip_val": 0.73},
+    "EURUSD": {"id": 8463, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 0.5,  "pip_val": 1.00},
+    "GBPUSD": {"id": 8520, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 1.0,  "pip_val": 1.00},
+    "GBPJPY": {"id": 8477, "routeId": INFO_ROUTE, "is_jpy": True,  "spread": 2.0,  "pip_val": 0.67},
+    "USDJPY": {"id": 8496, "routeId": INFO_ROUTE, "is_jpy": True,  "spread": 1.0,  "pip_val": 0.67},
+    "AUDUSD": {"id": 8503, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 1.0,  "pip_val": 0.70},
+    "USDCAD": {"id": 8492, "routeId": INFO_ROUTE, "is_jpy": False, "spread": 1.0,  "pip_val": 0.73},
     "EURJPY": {"id": 238, "routeId": 452, "is_jpy": True,  "spread": 2.0,  "pip_val": 0.67},
 }
 

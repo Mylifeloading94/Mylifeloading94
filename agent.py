@@ -7,11 +7,11 @@ Markets: Major/Minor Forex, Gold (XAUUSD), SPX500, NAS100
 import requests, time, datetime, json, os
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
-BASE        = "https://bsb-oms.tradelocker.com:8443/backend-api"
+BASE        = "https://live.tradelocker.com/backend-api"
 EMAIL       = os.environ["TL_EMAIL"]
 PASSWORD    = os.environ["TL_PASSWORD"]
 SERVER      = os.environ.get("TL_SERVER", "GENFX")
-ACCOUNT_ID  = int(os.environ.get("TL_ACCOUNT_ID", "2265464"))
+ACCOUNT_ID  = int(os.environ.get("TL_ACCOUNT_ID", "756164"))
 USER_ID     = os.environ.get("TL_USER_ID", "6fab173e-1a6c-4a97-a199-ea4eab9518c6")
 TG_TOKEN    = os.environ["TG_BOT_TOKEN"]
 TG_CHAT     = os.environ["TG_CHAT_ID"]
@@ -21,26 +21,31 @@ SCAN_EVERY  = 900   # 15 minutes
 UPDATE_EVERY= 14400 # 4 hours
 TG_ALERTS   = False  # set True to resume Telegram trade alerts
 
+INFO_ROUTE  = 541038
+TRADE_ROUTE = 541039
+
 MARKETS = {
     # Major Forex
-    "EURUSD": {"id":278, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇪🇺"},
-    "GBPUSD": {"id":279, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇬🇧"},
-    "USDJPY": {"id":283, "info":452, "trade":9912, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇯🇵"},
-    "USDCHF": {"id":280, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇨🇭"},
-    "USDCAD": {"id":281, "info":452, "trade":9912, "pip":0.0001, "pip_val":7.30,   "type":"forex",  "emoji":"🇨🇦"},
-    "AUDUSD": {"id":277, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇦🇺"},
-    "NZDUSD": {"id":284, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇳🇿"},
+    "EURUSD": {"id":8463, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇪🇺"},
+    "GBPUSD": {"id":8520, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇬🇧"},
+    "USDJPY": {"id":8496, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇯🇵"},
+    "USDCHF": {"id":8484, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇨🇭"},
+    "USDCAD": {"id":8492, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.0001, "pip_val":7.30,   "type":"forex",  "emoji":"🇨🇦"},
+    "AUDUSD": {"id":8503, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇦🇺"},
+    "NZDUSD": {"id":8491, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇳🇿"},
     # Minor Forex
-    "GBPJPY": {"id":243, "info":452, "trade":9912, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🏴󠁧󠁢󠁥󠁮󠁧󠁿"},
-    "EURJPY": {"id":238, "info":452, "trade":9912, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇪🇺"},
-    "AUDJPY": {"id":229, "info":452, "trade":9912, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇦🇺"},
-    "EURGBP": {"id":235, "info":452, "trade":9912, "pip":0.0001, "pip_val":12.50,  "type":"forex",  "emoji":"🇪🇺"},
-    "GBPCAD": {"id":241, "info":452, "trade":9912, "pip":0.0001, "pip_val":7.30,   "type":"forex",  "emoji":"🇬🇧"},
-    # Gold
-    "XAUUSD": {"id":314, "info":452, "trade":9912, "pip":0.1,    "pip_val":1.00,   "type":"metal",  "emoji":"🥇"},
+    "GBPJPY": {"id":8477, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🏴󠁧󠁢󠁥󠁮󠁧󠁿"},
+    "EURJPY": {"id":8487, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇪🇺"},
+    "AUDJPY": {"id":8453, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇦🇺"},
+    "EURGBP": {"id":8516, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.0001, "pip_val":12.50,  "type":"forex",  "emoji":"🇪🇺"},
+    "GBPCAD": {"id":8488, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.0001, "pip_val":7.30,   "type":"forex",  "emoji":"🇬🇧"},
+    # Gold / Silver
+    "XAUUSD": {"id":8542, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.1,    "pip_val":1.00,   "type":"metal",  "emoji":"🥇"},
+    "XAGUSD": {"id":8541, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":0.01,   "pip_val":1.00,   "type":"metal",  "emoji":"🥈"},
     # Indices
-    "SPX500": {"id":307, "info":452, "trade":9912, "pip":1.0,    "pip_val":1.00,   "type":"index",  "emoji":"📈"},
-    "NAS100": {"id":306, "info":452, "trade":9912, "pip":1.0,    "pip_val":1.00,   "type":"index",  "emoji":"💻"},
+    "SP500":  {"id":8535, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":1.0,    "pip_val":1.00,   "type":"index",  "emoji":"📈"},
+    "NAS100": {"id":8530, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":1.0,    "pip_val":1.00,   "type":"index",  "emoji":"💻"},
+    "US30":   {"id":8536, "info":INFO_ROUTE, "trade":TRADE_ROUTE, "pip":1.0,    "pip_val":1.00,   "type":"index",  "emoji":"🏦"},
 }
 
 STATE_FILE = "/home/user/agent_state.json"

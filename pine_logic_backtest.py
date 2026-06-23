@@ -10,19 +10,21 @@ This is the structural lever that pushes win rate up.
 
 import requests, time, datetime, itertools
 
-BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
+BASE = "https://live.tradelocker.com/backend-api"
 EMAIL = "carlinpool94@gmail.com"
 PASSWORD = "Tinapool321!?"
 SERVER = "GENFX"
-ACCOUNT_ID = 2265464
+ACCOUNT_ID = 756164
+INFO_ROUTE = 541038
+TRADE_ROUTE = 541039
 LOOKBACK_DAYS = 90
 
 PAIRS = {
-    "EURUSD": {"id": 278, "routeId": 452, "is_jpy": False},
-    "GBPUSD": {"id": 279, "routeId": 452, "is_jpy": False},
-    "USDJPY": {"id": 283, "routeId": 452, "is_jpy": True},
-    "USDCAD": {"id": 281, "routeId": 452, "is_jpy": False},
-    "AUDUSD": {"id": 277, "routeId": 452, "is_jpy": False},
+    "EURUSD": {"id": 8463, "routeId": INFO_ROUTE, "is_jpy": False},
+    "GBPUSD": {"id": 8520, "routeId": INFO_ROUTE, "is_jpy": False},
+    "USDJPY": {"id": 8496, "routeId": INFO_ROUTE, "is_jpy": True},
+    "USDCAD": {"id": 8492, "routeId": INFO_ROUTE, "is_jpy": False},
+    "AUDUSD": {"id": 8503, "routeId": INFO_ROUTE, "is_jpy": False},
 }
 
 def auth():

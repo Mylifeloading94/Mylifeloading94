@@ -7,14 +7,15 @@ quality filters, per-pair edge, and trade management.
 import requests, time, datetime
 from collections import defaultdict
 
-BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
-EMAIL="carlinpool94@gmail.com"; PASSWORD="Tinapool321!?"; SERVER="GENFX"; ACCOUNT_ID=2265464
+BASE = "https://live.tradelocker.com/backend-api"
+EMAIL="carlinpool94@gmail.com"; PASSWORD="Tinapool321!?"; SERVER="GENFX"; ACCOUNT_ID=756164
+INFO_ROUTE=541038; TRADE_ROUTE=541039
 LOOKBACK_DAYS=90
 
-PAIRS={"EURUSD":{"id":278,"r":452},"GBPUSD":{"id":279,"r":452},
-       "USDJPY":{"id":283,"r":452},"USDCAD":{"id":281,"r":452},
-       "AUDUSD":{"id":277,"r":452},"GBPJPY":{"id":243,"r":452},
-       "EURJPY":{"id":238,"r":452}}
+PAIRS={"EURUSD":{"id":8463,"r":INFO_ROUTE},"GBPUSD":{"id":8520,"r":INFO_ROUTE},
+       "USDJPY":{"id":8496,"r":INFO_ROUTE},"USDCAD":{"id":8492,"r":INFO_ROUTE},
+       "AUDUSD":{"id":8503,"r":INFO_ROUTE},"GBPJPY":{"id":8477,"r":INFO_ROUTE},
+       "EURJPY":{"id":8487,"r":INFO_ROUTE}}
 
 def auth():
     r=requests.post(f"{BASE}/auth/jwt/token",json={"email":EMAIL,"password":PASSWORD,"server":SERVER})

@@ -9,10 +9,11 @@ import requests
 import time
 import datetime
 
-BASE = "https://demo.tradelocker.com/backend-api"
+BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
 EMAIL = "carlinpool94@gmail.com"
 PASSWORD = "Tinapool321!?"
-SERVER = "GenFX"
+SERVER = "GENFX"
+ACCOUNT_ID = 2265464
 
 ACCOUNT_BALANCE = 10_000   # update daily
 RISK_PCT = 0.02            # 2% risk per trade

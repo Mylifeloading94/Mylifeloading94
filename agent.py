@@ -7,10 +7,12 @@ Markets: Major/Minor Forex, Gold (XAUUSD), SPX500, NAS100
 import requests, time, datetime, json, os
 
 # ─── CONFIG ───────────────────────────────────────────────────────────────────
-BASE        = "https://demo.tradelocker.com/backend-api"
+BASE        = "https://bsb-oms.tradelocker.com:8443/backend-api"
 EMAIL       = os.environ["TL_EMAIL"]
 PASSWORD    = os.environ["TL_PASSWORD"]
-SERVER      = os.environ.get("TL_SERVER", "PLEXY")
+SERVER      = os.environ.get("TL_SERVER", "GENFX")
+ACCOUNT_ID  = int(os.environ.get("TL_ACCOUNT_ID", "2265464"))
+USER_ID     = os.environ.get("TL_USER_ID", "6fab173e-1a6c-4a97-a199-ea4eab9518c6")
 TG_TOKEN    = os.environ["TG_BOT_TOKEN"]
 TG_CHAT     = os.environ["TG_CHAT_ID"]
 RISK_PCT    = 0.02

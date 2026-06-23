@@ -10,10 +10,11 @@ This is the structural lever that pushes win rate up.
 
 import requests, time, datetime, itertools
 
-BASE = "https://demo.tradelocker.com/backend-api"
+BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
 EMAIL = "carlinpool94@gmail.com"
 PASSWORD = "Tinapool321!?"
-SERVER = "GenFX"
+SERVER = "GENFX"
+ACCOUNT_ID = 2265464
 LOOKBACK_DAYS = 90
 
 PAIRS = {

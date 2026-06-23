@@ -7,8 +7,8 @@ quality filters, per-pair edge, and trade management.
 import requests, time, datetime
 from collections import defaultdict
 
-BASE = "https://demo.tradelocker.com/backend-api"
-EMAIL="carlinpool94@gmail.com"; PASSWORD="Tinapool321!?"; SERVER="GenFX"
+BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
+EMAIL="carlinpool94@gmail.com"; PASSWORD="Tinapool321!?"; SERVER="GENFX"; ACCOUNT_ID=2265464
 LOOKBACK_DAYS=90
 
 PAIRS={"EURUSD":{"id":278,"r":452},"GBPUSD":{"id":279,"r":452},

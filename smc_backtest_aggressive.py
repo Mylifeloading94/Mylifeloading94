@@ -18,10 +18,11 @@ from collections import defaultdict
 
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
-BASE = "https://demo.tradelocker.com/backend-api"
+BASE = "https://bsb-oms.tradelocker.com:8443/backend-api"
 EMAIL = "carlinpool94@gmail.com"
 PASSWORD = "Tinapool321!?"
-SERVER = "GenFX"
+SERVER = "GENFX"
+ACCOUNT_ID = 2265464
 
 LOOKBACK_DAYS = 90
 RISK_PCT = 0.02            # 2% of equity per trade (aggressive)

@@ -10,7 +10,7 @@ import requests, time, datetime, json, os
 BASE        = "https://demo.tradelocker.com/backend-api"
 EMAIL       = os.environ["TL_EMAIL"]
 PASSWORD    = os.environ["TL_PASSWORD"]
-SERVER      = os.environ.get("TL_SERVER", "GenFX")
+SERVER      = os.environ.get("TL_SERVER", "PLEXY")
 TG_TOKEN    = os.environ["TG_BOT_TOKEN"]
 TG_CHAT     = os.environ["TG_CHAT_ID"]
 RISK_PCT    = 0.02

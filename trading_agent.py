@@ -11,7 +11,7 @@ Risk     : 2% per trade, max 3 trades/day, 8-pip minimum SL
 Environment variables required:
   TL_EMAIL      — TradeLocker account email
   TL_PASSWORD   — TradeLocker account password
-  TL_SERVER     — TradeLocker broker server (default: GenFX)
+  TL_SERVER     — TradeLocker broker server (default: PLEXY)
   TG_BOT_TOKEN  — Telegram bot token
   TG_CHAT_ID    — Telegram group/channel chat ID
 
@@ -37,7 +37,7 @@ import matplotlib.pyplot as plt
 BASE_URL     = "https://demo.tradelocker.com/backend-api"
 EMAIL        = os.environ["TL_EMAIL"]
 PASSWORD     = os.environ["TL_PASSWORD"]
-SERVER       = os.environ.get("TL_SERVER", "GenFX")
+SERVER       = os.environ.get("TL_SERVER", "PLEXY")
 TG_TOKEN     = os.environ["TG_BOT_TOKEN"]
 TG_CHAT      = os.environ["TG_CHAT_ID"]
 

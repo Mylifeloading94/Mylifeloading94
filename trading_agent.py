@@ -38,7 +38,7 @@ EMAIL        = os.environ["TL_EMAIL"]
 PASSWORD     = os.environ["TL_PASSWORD"]
 SERVER       = os.environ.get("TL_SERVER", "GenFX")
 TG_TOKEN     = os.environ["TG_BOT_TOKEN"]
-TG_CHAT      = os.environ.get("TG_CHAT_ID", "")   # auto-discovered on first run
+TG_CHAT      = os.environ.get("TG_CHAT_ID", "-1001190707115")  # TRADING ROOM channel
 
 INFO_ROUTE   = 452        # bar history route (GenFX)
 TRADE_ROUTE  = 9912       # order submission route (GenFX)

@@ -261,7 +261,7 @@ def vwap_bias(bars, direction):
     """
     today = datetime.datetime.utcnow().date()
     day_bars = [b for b in bars
-                if datetime.datetime.utcfromtimestamp(b["t"]).date() == today]
+                if datetime.datetime.utcfromtimestamp(b["t"] / 1000).date() == today]
     if len(day_bars) < 2:
         return True  # Not enough data — don't block the trade
     total_tpv = sum(((b["h"] + b["l"] + b["c"]) / 3) * abs(b["c"] - b["o"] or 0.0001)
@@ -280,7 +280,7 @@ def prev_day_levels(bars):
     today = datetime.datetime.utcnow().date()
     yesterday = today - datetime.timedelta(days=1)
     yday = [b for b in bars
-            if datetime.datetime.utcfromtimestamp(b["t"]).date() == yesterday]
+            if datetime.datetime.utcfromtimestamp(b["t"] / 1000).date() == yesterday]
     if not yday:
         return None, None
     return max(b["h"] for b in yday), min(b["l"] for b in yday)

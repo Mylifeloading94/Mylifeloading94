@@ -10,35 +10,35 @@ import requests, time, datetime, json, os
 BASE        = "https://demo.tradelocker.com/backend-api"
 EMAIL       = os.environ["TL_EMAIL"]
 PASSWORD    = os.environ["TL_PASSWORD"]
-SERVER      = os.environ.get("TL_SERVER", "PLEXY")
+SERVER      = os.environ.get("TL_SERVER", "GenFX")
 TG_TOKEN    = os.environ["TG_BOT_TOKEN"]
-TG_CHAT     = os.environ["TG_CHAT_ID"]
+TG_CHAT     = os.environ.get("TG_CHAT_ID", "")
 RISK_PCT    = 0.02
 MAX_TRADES  = 3
 SCAN_EVERY  = 900   # 15 minutes
 UPDATE_EVERY= 14400 # 4 hours
-TG_ALERTS   = False  # set True to resume Telegram trade alerts
+TG_ALERTS   = True  # Telegram alerts enabled
 
 MARKETS = {
     # Major Forex
-    "EURUSD": {"id":278, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇪🇺"},
-    "GBPUSD": {"id":279, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇬🇧"},
-    "USDJPY": {"id":283, "info":452, "trade":9912, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇯🇵"},
-    "USDCHF": {"id":280, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇨🇭"},
-    "USDCAD": {"id":281, "info":452, "trade":9912, "pip":0.0001, "pip_val":7.30,   "type":"forex",  "emoji":"🇨🇦"},
-    "AUDUSD": {"id":277, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇦🇺"},
-    "NZDUSD": {"id":284, "info":452, "trade":9912, "pip":0.0001, "pip_val":10.00,  "type":"forex",  "emoji":"🇳🇿"},
+    "EURUSD": {"id":278, "pip":0.0001, "pip_val":10.00},
+    "GBPUSD": {"id":279, "pip":0.0001, "pip_val":10.00},
+    "USDJPY": {"id":283, "pip":0.01,   "pip_val": 6.70},
+    "USDCHF": {"id":280, "pip":0.0001, "pip_val":10.00},
+    "USDCAD": {"id":281, "pip":0.0001, "pip_val": 7.30},
+    "AUDUSD": {"id":277, "pip":0.0001, "pip_val":10.00},
+    "NZDUSD": {"id":284, "pip":0.0001, "pip_val":10.00},
     # Minor Forex
-    "GBPJPY": {"id":243, "info":452, "trade":9912, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🏴󠁧󠁢󠁥󠁮󠁧󠁿"},
-    "EURJPY": {"id":238, "info":452, "trade":9912, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇪🇺"},
-    "AUDJPY": {"id":229, "info":452, "trade":9912, "pip":0.01,   "pip_val":6.70,   "type":"forex",  "emoji":"🇦🇺"},
-    "EURGBP": {"id":235, "info":452, "trade":9912, "pip":0.0001, "pip_val":12.50,  "type":"forex",  "emoji":"🇪🇺"},
-    "GBPCAD": {"id":241, "info":452, "trade":9912, "pip":0.0001, "pip_val":7.30,   "type":"forex",  "emoji":"🇬🇧"},
+    "GBPJPY": {"id":243, "pip":0.01,   "pip_val": 6.70},
+    "EURJPY": {"id":238, "pip":0.01,   "pip_val": 6.70},
+    "AUDJPY": {"id":229, "pip":0.01,   "pip_val": 6.70},
+    "EURGBP": {"id":235, "pip":0.0001, "pip_val":12.50},
+    "GBPCAD": {"id":241, "pip":0.0001, "pip_val": 7.30},
     # Gold
-    "XAUUSD": {"id":314, "info":452, "trade":9912, "pip":0.1,    "pip_val":1.00,   "type":"metal",  "emoji":"🥇"},
+    "XAUUSD": {"id":314, "pip":0.1,    "pip_val": 1.00},
     # Indices
-    "SPX500": {"id":307, "info":452, "trade":9912, "pip":1.0,    "pip_val":1.00,   "type":"index",  "emoji":"📈"},
-    "NAS100": {"id":306, "info":452, "trade":9912, "pip":1.0,    "pip_val":1.00,   "type":"index",  "emoji":"💻"},
+    "NAS100": {"id":306, "pip":1.0,    "pip_val": 1.00},
+    "SPX500": {"id":307, "pip":1.0,    "pip_val": 1.00},
 }
 
 STATE_FILE = "/home/user/agent_state.json"
@@ -61,27 +61,54 @@ def reset_daily_if_needed(state):
 
 # ─── TELEGRAM ─────────────────────────────────────────────────────────────────
 def tg_send(text):
-    if not TG_ALERTS:
-        return  # alerts paused — execute on TL only until strategy is validated
-    requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
-                  json={"chat_id": TG_CHAT, "text": text}, timeout=10)
+    if not TG_ALERTS or not TG_CHAT:
+        return
+    try:
+        requests.post(f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+                      json={"chat_id": TG_CHAT, "text": text}, timeout=10)
+    except Exception:
+        pass
+
+
+def discover_tg_chat():
+    global TG_CHAT
+    if TG_CHAT:
+        return
+    try:
+        r = requests.get(f"https://api.telegram.org/bot{TG_TOKEN}/getUpdates?offset=-20",
+                         timeout=10)
+        for upd in r.json().get("result", []):
+            msg = upd.get("message") or upd.get("channel_post") or {}
+            cid = msg.get("chat", {}).get("id")
+            if cid:
+                TG_CHAT = str(cid)
+                return
+    except Exception:
+        pass
 
 # ─── AUTH ─────────────────────────────────────────────────────────────────────
 def auth():
     r = requests.post(f"{BASE}/auth/jwt/token",
                       json={"email":EMAIL,"password":PASSWORD,"server":SERVER}, timeout=15)
     h = {"Authorization": f"Bearer {r.json()['accessToken']}"}
-    acc = requests.get(f"{BASE}/auth/jwt/all-accounts", headers=h, timeout=15).json()["accounts"][0]
+    accs = requests.get(f"{BASE}/auth/jwt/all-accounts", headers=h, timeout=15).json()["accounts"]
+    target = os.environ.get("TL_ACCOUNT_ID", "")
+    acc = next((a for a in accs if a["id"] == target), None) if target else accs[0]
+    if not acc:
+        acc = accs[0]
     return {**h, "accNum": str(acc["accNum"])}, acc["id"]
 
 # ─── DATA ─────────────────────────────────────────────────────────────────────
-def fetch_bars(headers, iid, rid, res, days=30):
+INFO_ROUTE  = 452   # GenFX bar history route
+TRADE_ROUTE = 9912  # GenFX order route
+
+def fetch_bars(headers, iid, res, days=30):
     now_ms = int(time.time()*1000); frm_ms = now_ms - days*86400*1000
     for attempt in range(4):
         try:
             r = requests.get(f"{BASE}/trade/history", headers=headers, params={
-                "tradableInstrumentId":iid,"routeId":rid,"resolution":res,
-                "from":frm_ms,"to":now_ms}, timeout=15)
+                "tradableInstrumentId":iid,"routeId":INFO_ROUTE,"resolution":res,
+                "from":frm_ms,"to":now_ms}, timeout=20)
             if r.status_code==429 or not r.text.strip():
                 time.sleep(2**attempt); continue
             return r.json().get("d",{}).get("barDetails",[])
@@ -188,9 +215,9 @@ MIN_RISK_PIPS = 8   # below this SL gets crushed by spread/slippage
 
 def analyze(name, cfg, headers):
     time.sleep(1)
-    b1 = fetch_bars(headers, cfg["id"], cfg["info"], "1H", 30)
+    b1 = fetch_bars(headers, cfg["id"], "1H", 30)
     time.sleep(0.5)
-    b4 = fetch_bars(headers, cfg["id"], cfg["info"], "4H", 30)
+    b4 = fetch_bars(headers, cfg["id"], "4H", 30)
     if len(b1)<50 or len(b4)<20: return None
 
     d4, str4 = market_structure(b4)
@@ -268,7 +295,7 @@ def place_trade(headers, aid, setup, balance=25000.0):
     lots = calc_lots(setup["risk_pips"], cfg["pip_val"], balance)
     body = {
         "tradableInstrumentId": cfg["id"],
-        "routeId":              cfg["trade"],
+        "routeId":              TRADE_ROUTE,
         "type":                 "market",
         "side":                 side,
         "qty":                  lots,
@@ -353,8 +380,9 @@ def send_engagement():
 
 # ─── MAIN LOOP ────────────────────────────────────────────────────────────────
 def run():
-    print("🤖 Agent starting... (Telegram alerts PAUSED — TL execution only)")
+    print(f"🤖 Agent starting... server={SERVER}")
 
+    discover_tg_chat()
     headers, aid = auth()
     token_time   = time.time()
     state        = load_state()

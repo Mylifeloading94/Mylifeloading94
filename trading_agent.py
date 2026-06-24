@@ -1,7 +1,7 @@
 """
 AI Forex Trading Agent
 ======================
-Multi-timeframe SMC scanner + auto-execution on TradeLocker + Telegram alerts.
+Multi-timeframe SMC scanner + auto-execution on TradeLocker (GenFX) + Telegram alerts.
 
 Markets  : Major/Minor Forex, Gold (XAUUSD), SPX500, NAS100
 Strategy : Smart Money Concepts — Order Blocks, FVG, Liquidity Sweeps, BOS
@@ -11,9 +11,9 @@ Risk     : 2% per trade, max 3 trades/day, 8-pip minimum SL
 Environment variables required:
   TL_EMAIL      — TradeLocker account email
   TL_PASSWORD   — TradeLocker account password
-  TL_SERVER     — TradeLocker broker server (default: PLEXY)
+  TL_SERVER     — TradeLocker broker server (default: GenFX)
   TG_BOT_TOKEN  — Telegram bot token
-  TG_CHAT_ID    — Telegram group/channel chat ID
+  TG_CHAT_ID    — Telegram group/channel chat ID (auto-discovered if omitted)
 
 Usage:
   python trading_agent.py
@@ -23,7 +23,6 @@ import os
 import time
 import json
 import datetime
-import io
 import requests
 
 import matplotlib
@@ -37,15 +36,18 @@ import matplotlib.pyplot as plt
 BASE_URL     = "https://demo.tradelocker.com/backend-api"
 EMAIL        = os.environ["TL_EMAIL"]
 PASSWORD     = os.environ["TL_PASSWORD"]
-SERVER       = os.environ.get("TL_SERVER", "PLEXY")
+SERVER       = os.environ.get("TL_SERVER", "GenFX")
 TG_TOKEN     = os.environ["TG_BOT_TOKEN"]
-TG_CHAT      = os.environ["TG_CHAT_ID"]
+TG_CHAT      = os.environ.get("TG_CHAT_ID", "")   # auto-discovered on first run
+
+INFO_ROUTE   = 452        # bar history route (GenFX)
+TRADE_ROUTE  = 9912       # order submission route (GenFX)
 
 RISK_PCT     = 0.02       # 2% risk per trade
 MAX_TRADES   = 3          # max trades per day
-MIN_SCORE    = 6          # minimum signal score out of 12
+MIN_SCORE    = 5          # minimum signal score
 MIN_RISK_PIPS = 8         # minimum SL distance — prevents tight stops
-MAX_LOTS     = 10.0       # position size cap
+MAX_LOTS     = 5.0        # position size cap
 SCAN_EVERY   = 900        # seconds between scans (15 min)
 UPDATE_EVERY = 14400      # seconds between pip updates (4 hours)
 TG_ALERTS    = True       # set False to pause Telegram, keep TL execution
@@ -58,6 +60,7 @@ STATE_FILE   = "agent_state.json"
 
 MARKETS = {
     # name       : {id, pip size, pip value per 1 lot in USD}
+    # IDs verified live on GenFX demo account
     "EURUSD": {"id": 278, "pip": 0.0001, "pip_val": 10.00},
     "GBPUSD": {"id": 279, "pip": 0.0001, "pip_val": 10.00},
     "USDJPY": {"id": 283, "pip": 0.01,   "pip_val":  6.70},
@@ -71,8 +74,8 @@ MARKETS = {
     "EURGBP": {"id": 235, "pip": 0.0001, "pip_val": 12.50},
     "GBPCAD": {"id": 241, "pip": 0.0001, "pip_val":  7.30},
     "XAUUSD": {"id": 314, "pip": 0.1,    "pip_val":  1.00},
-    "SPX500": {"id": 307, "pip": 1.0,    "pip_val":  1.00},
     "NAS100": {"id": 306, "pip": 1.0,    "pip_val":  1.00},
+    "SPX500": {"id": 307, "pip": 1.0,    "pip_val":  1.00},
 }
 
 # Map instrument IDs back to names for position tracking
@@ -109,9 +112,33 @@ def auth():
     token = r.json()["accessToken"]
     h = {"Authorization": f"Bearer {token}"}
     accs = requests.get(f"{BASE_URL}/auth/jwt/all-accounts", headers=h, timeout=15).json()
-    acc  = accs["accounts"][0]
+    # Use first active account; filter by ACCOUNT_ID env var if set
+    target = os.environ.get("TL_ACCOUNT_ID", "")
+    acc = next((a for a in accs["accounts"] if a["id"] == target), None) \
+          if target else accs["accounts"][0]
+    if not acc:
+        acc = accs["accounts"][0]
     h["accNum"] = str(acc["accNum"])
     return h, acc["id"], float(acc["accountBalance"])
+
+
+def discover_tg_chat():
+    """Pull chat_id from the most recent Telegram update (bot must have received ≥1 message)."""
+    global TG_CHAT
+    if TG_CHAT:
+        return
+    try:
+        r = requests.get(f"https://api.telegram.org/bot{TG_TOKEN}/getUpdates?offset=-20",
+                         timeout=10)
+        for upd in r.json().get("result", []):
+            msg = upd.get("message") or upd.get("channel_post") or {}
+            cid = msg.get("chat", {}).get("id")
+            if cid:
+                TG_CHAT = str(cid)
+                print(f"  Telegram chat_id discovered: {TG_CHAT}")
+                return
+    except Exception:
+        pass
 
 # ──────────────────────────────────────────────────────────────────────────────
 # DATA FETCHING
@@ -119,7 +146,7 @@ def auth():
 
 def fetch_bars(headers, instrument_id, resolution, days):
     """
-    Fetch OHLCV bars from TradeLocker.
+    Fetch OHLCV bars from TradeLocker GenFX.
 
     resolution : "15m" | "1H" | "4H" | "1D"
     days       : how many days of history to fetch
@@ -130,11 +157,11 @@ def fetch_bars(headers, instrument_id, resolution, days):
         try:
             r = requests.get(f"{BASE_URL}/trade/history", headers=headers, params={
                 "tradableInstrumentId": instrument_id,
-                "routeId":              452,
+                "routeId":              INFO_ROUTE,
                 "resolution":           resolution,
                 "from":                 frm_ms,
                 "to":                   now_ms,
-            }, timeout=15)
+            }, timeout=20)
             if r.status_code == 429:
                 time.sleep(2 ** attempt)
                 continue
@@ -429,13 +456,13 @@ def calc_lots(risk_pips, pip_val, balance):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def place_trade(headers, account_id, setup, balance):
-    """Place a market order on TradeLocker. Returns (success, order_id)."""
+    """Place a market order on TradeLocker GenFX with linked SL/TP. Returns (success, order_id, lots)."""
     cfg  = setup["cfg"]
     side = "buy" if setup["direction"] == "bullish" else "sell"
     lots = calc_lots(setup["risk_pips"], cfg["pip_val"], balance)
     body = {
         "tradableInstrumentId": cfg["id"],
-        "routeId":              9912,
+        "routeId":              TRADE_ROUTE,
         "type":                 "market",
         "side":                 side,
         "qty":                  lots,
@@ -527,24 +554,30 @@ def generate_chart(bars, pair_label, entry, sl, tp1, tp2, save_path):
 # ──────────────────────────────────────────────────────────────────────────────
 
 def tg_send(text):
-    if not TG_ALERTS:
+    if not TG_ALERTS or not TG_CHAT:
         return
-    requests.post(
-        f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
-        json={"chat_id": TG_CHAT, "text": text},
-        timeout=15,
-    )
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{TG_TOKEN}/sendMessage",
+            json={"chat_id": TG_CHAT, "text": text},
+            timeout=15,
+        )
+    except Exception:
+        pass
 
 def tg_photo(image_path, caption=""):
-    if not TG_ALERTS:
+    if not TG_ALERTS or not TG_CHAT:
         return
-    with open(image_path, "rb") as f:
-        requests.post(
-            f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto",
-            data={"chat_id": TG_CHAT, "caption": caption},
-            files={"photo": f},
-            timeout=30,
-        )
+    try:
+        with open(image_path, "rb") as f:
+            requests.post(
+                f"https://api.telegram.org/bot{TG_TOKEN}/sendPhoto",
+                data={"chat_id": TG_CHAT, "caption": caption},
+                files={"photo": f},
+                timeout=30,
+            )
+    except Exception:
+        pass
 
 # ──────────────────────────────────────────────────────────────────────────────
 # TRADE ALERT
@@ -627,6 +660,7 @@ def send_engagement():
 
 def run():
     print("AI Trading Agent starting...")
+    print(f"  Server  : {SERVER}")
     print(f"  Markets : {len(MARKETS)}")
     print(f"  Risk    : {RISK_PCT*100:.0f}% per trade")
     print(f"  Max/day : {MAX_TRADES} trades")
@@ -634,6 +668,7 @@ def run():
     print(f"  Alerts  : {'ON' if TG_ALERTS else 'PAUSED'}")
     print()
 
+    discover_tg_chat()
     headers, account_id, balance = auth()
     token_time = time.time()
     state      = load_state()

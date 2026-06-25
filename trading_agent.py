@@ -678,6 +678,31 @@ def generate_chart(bars, pair_label, entry, sl, tp1, tp2, direction, save_path):
         ax.plot([i, i], [lo, hi], color=col, linewidth=0.8)
         ax.add_patch(plt.Rectangle((i-0.35, min(o, c)), 0.7,
                                    max(abs(c-o), (hi-lo)*0.01), color=col, zorder=3))
+
+    # ── Trend lines ───────────────────────────────────────────────────────
+    swings      = find_swings(disp, strength=3)
+    swing_highs = [s for s in swings if s["type"] == "high"]
+    swing_lows  = [s for s in swings if s["type"] == "low"]
+    x_end       = n - 1 + int(n * 0.18)
+
+    if len(swing_highs) >= 2:
+        x1, y1 = swing_highs[-2]["idx"], swing_highs[-2]["price"]
+        x2, y2 = swing_highs[-1]["idx"], swing_highs[-1]["price"]
+        if x2 != x1:
+            slope = (y2 - y1) / (x2 - x1)
+            ax.plot([x1, x_end], [y1, y2 + slope * (x_end - x2)],
+                    color="#FF6B6B", linestyle="--", linewidth=1.4, alpha=0.80, zorder=2)
+            ax.scatter([x1, x2], [y1, y2], color="#FF6B6B", s=22, zorder=4, alpha=0.95)
+
+    if len(swing_lows) >= 2:
+        x1, y1 = swing_lows[-2]["idx"], swing_lows[-2]["price"]
+        x2, y2 = swing_lows[-1]["idx"], swing_lows[-1]["price"]
+        if x2 != x1:
+            slope = (y2 - y1) / (x2 - x1)
+            ax.plot([x1, x_end], [y1, y2 + slope * (x_end - x2)],
+                    color="#4ECDC4", linestyle="--", linewidth=1.4, alpha=0.80, zorder=2)
+            ax.scatter([x1, x2], [y1, y2], color="#4ECDC4", s=22, zorder=4, alpha=0.95)
+
     lo_all = min(b["l"] for b in disp)
     hi_all = max(b["h"] for b in disp)
     pad    = (hi_all - lo_all) * 0.08

@@ -667,70 +667,93 @@ def manage_breakeven(headers, account_id, active_trades):
 # CHART
 # ──────────────────────────────────────────────────────────────────────────────
 def generate_chart(bars, pair_label, entry, sl, tp1, tp2, direction, save_path):
-    BG = "#131722"; BULL = "#26a69a"; BEAR = "#ef5350"
+    # ── Palette ───────────────────────────────────────────────────────────
+    BG          = "white"
+    BULL_BODY   = "#90bff9"
+    BEAR_BODY   = "#f48fb1"
+    WICK_COL    = "black"
+    BORDER_COL  = "black"
+    SCALE_COL   = "#0000ff"
+    LINE_COL    = "black"
+    LONG_COL    = "#2962ff"   # TradingView long blue
+    SHORT_COL   = "#f23645"   # TradingView short red
+
     disp = bars[-100:] if len(bars) >= 100 else bars
     n    = len(disp)
     fig, ax = plt.subplots(figsize=(16, 9), facecolor=BG)
     ax.set_facecolor(BG)
+
+    # ── Candles ───────────────────────────────────────────────────────────
     for i, b in enumerate(disp):
         o, c, hi, lo = b["o"], b["c"], b["h"], b["l"]
-        col = BULL if c >= o else BEAR
-        ax.plot([i, i], [lo, hi], color=col, linewidth=0.8)
-        ax.add_patch(plt.Rectangle((i-0.35, min(o, c)), 0.7,
-                                   max(abs(c-o), (hi-lo)*0.01), color=col, zorder=3))
-
-    # ── Trend lines ───────────────────────────────────────────────────────
-    swings      = find_swings(disp, strength=3)
-    swing_highs = [s for s in swings if s["type"] == "high"]
-    swing_lows  = [s for s in swings if s["type"] == "low"]
-    x_end       = n - 1 + int(n * 0.18)
-
-    if len(swing_highs) >= 2:
-        x1, y1 = swing_highs[-2]["idx"], swing_highs[-2]["price"]
-        x2, y2 = swing_highs[-1]["idx"], swing_highs[-1]["price"]
-        if x2 != x1:
-            slope = (y2 - y1) / (x2 - x1)
-            ax.plot([x1, x_end], [y1, y2 + slope * (x_end - x2)],
-                    color="#FF6B6B", linestyle="--", linewidth=1.4, alpha=0.80, zorder=2)
-            ax.scatter([x1, x2], [y1, y2], color="#FF6B6B", s=22, zorder=4, alpha=0.95)
-
-    if len(swing_lows) >= 2:
-        x1, y1 = swing_lows[-2]["idx"], swing_lows[-2]["price"]
-        x2, y2 = swing_lows[-1]["idx"], swing_lows[-1]["price"]
-        if x2 != x1:
-            slope = (y2 - y1) / (x2 - x1)
-            ax.plot([x1, x_end], [y1, y2 + slope * (x_end - x2)],
-                    color="#4ECDC4", linestyle="--", linewidth=1.4, alpha=0.80, zorder=2)
-            ax.scatter([x1, x2], [y1, y2], color="#4ECDC4", s=22, zorder=4, alpha=0.95)
+        col = BULL_BODY if c >= o else BEAR_BODY
+        # Wick
+        ax.plot([i, i], [lo, hi], color=WICK_COL, linewidth=0.8, zorder=2)
+        # Body with black border
+        body_h = max(abs(c - o), (hi - lo) * 0.01)
+        ax.add_patch(plt.Rectangle(
+            (i - 0.35, min(o, c)), 0.7, body_h,
+            facecolor=col, edgecolor=BORDER_COL, linewidth=0.5, zorder=3
+        ))
 
     lo_all = min(b["l"] for b in disp)
     hi_all = max(b["h"] for b in disp)
-    pad    = (hi_all - lo_all) * 0.08
-    lx     = n + n * 0.02
-    for lv, col, ls, lbl in [
-        (entry, "#FFD700", "-",  f"ENTRY  {entry:.5f}"),
-        (sl,    "#ef5350", "--", f"SL      {sl:.5f}"),
-        (tp1,   "#66BB6A", "--", f"TP1    {tp1:.5f}"),
-        (tp2,   "#00E676", "--", f"TP2    {tp2:.5f}"),
+    pad    = (hi_all - lo_all) * 0.10
+    y_min  = min(lo_all, sl, tp2) - pad
+    y_max  = max(hi_all, sl, tp2) + pad
+
+    # ── TradingView-style position tool ──────────────────────────────────
+    if direction == "bullish":
+        # Profit zone (entry → tp2): long blue
+        ax.fill_between([-1, n + n * 0.20], entry, tp2,
+                        color=LONG_COL, alpha=0.15, zorder=1)
+        # Loss zone (sl → entry): short red
+        ax.fill_between([-1, n + n * 0.20], sl, entry,
+                        color=SHORT_COL, alpha=0.15, zorder=1)
+    else:
+        # Profit zone (tp2 → entry): short red
+        ax.fill_between([-1, n + n * 0.20], tp2, entry,
+                        color=SHORT_COL, alpha=0.15, zorder=1)
+        # Loss zone (entry → sl): long blue
+        ax.fill_between([-1, n + n * 0.20], entry, sl,
+                        color=LONG_COL, alpha=0.15, zorder=1)
+
+    # ── Level lines & right-side labels ──────────────────────────────────
+    lx = n + n * 0.01
+    fmt = "%.5f" if entry < 1000 else "%.1f"
+
+    for lv, ls, lbl in [
+        (tp2,   "--", f"TP2  {fmt % tp2}"),
+        (tp1,   "--", f"TP1  {fmt % tp1}"),
+        (entry, "-",  f"ENTRY {fmt % entry}"),
+        (sl,    "--", f"SL   {fmt % sl}"),
     ]:
-        ax.axhline(lv, color=col, linestyle=ls, linewidth=1.6, alpha=0.9)
-        ax.text(lx, lv, lbl, color=col, fontsize=8, va="center", ha="left",
+        ax.axhline(lv, color=LINE_COL, linestyle=ls, linewidth=1.1, alpha=0.85, zorder=4)
+        ax.text(lx, lv, lbl, color=LINE_COL, fontsize=7.5, va="center", ha="left",
                 fontfamily="monospace",
-                bbox=dict(boxstyle="round,pad=0.2", facecolor=BG, edgecolor="none", alpha=0.8))
-    # Risk zone shading
-    lo_z = min(entry, sl); hi_z = max(entry, sl)
-    ax.axhspan(lo_z, hi_z, alpha=0.07, color="#ef5350")
-    ax.text(0.01, 0.97, pair_label, transform=ax.transAxes, color="white",
-            fontsize=13, fontweight="bold", va="top")
-    dlbl = "▲ BUY" if direction == "bullish" else "▼ SELL"
+                bbox=dict(boxstyle="round,pad=0.25", facecolor="white",
+                          edgecolor="black", linewidth=0.4, alpha=0.9))
+
+    # ── Header labels ─────────────────────────────────────────────────────
+    ax.text(0.01, 0.97, pair_label, transform=ax.transAxes,
+            color="black", fontsize=13, fontweight="bold", va="top")
+    dlbl  = "▲  LONG" if direction == "bullish" else "▼  SHORT"
+    dcol  = LONG_COL if direction == "bullish" else SHORT_COL
     ax.text(0.99, 0.97, dlbl, transform=ax.transAxes,
-            color=BULL if direction == "bullish" else BEAR,
-            fontsize=11, fontweight="bold", va="top", ha="right")
-    ax.yaxis.tick_right(); ax.tick_params(colors="gray", labelsize=8)
-    for sp in ax.spines.values(): sp.set_edgecolor("#2a2e39")
+            color=dcol, fontsize=11, fontweight="bold", va="top", ha="right")
+
+    # ── Axes styling ──────────────────────────────────────────────────────
+    ax.yaxis.tick_right()
+    ax.tick_params(axis="y", colors=SCALE_COL, labelsize=8)
+    ax.tick_params(axis="x", bottom=False, labelbottom=False)
+    for sp in ax.spines.values():
+        sp.set_edgecolor("black")
+        sp.set_linewidth(0.6)
     ax.set_xlim(-1, n + n * 0.22)
-    ax.set_ylim(min(lo_all, sl) - pad, max(hi_all, tp2) + pad)
-    ax.set_xticks([]); ax.grid(False)
+    ax.set_ylim(y_min, y_max)
+    ax.set_xticks([])
+    ax.grid(axis="y", color="#e0e0e0", linewidth=0.4, alpha=0.6)
+
     plt.tight_layout(pad=0.3)
     plt.savefig(save_path, dpi=150, facecolor=BG, bbox_inches="tight")
     plt.close()

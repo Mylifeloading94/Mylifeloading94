@@ -702,43 +702,56 @@ def generate_chart(bars, pair_label, entry, sl, tp1, tp2, direction, save_path):
     y_min  = min(lo_all, sl, tp2) - pad
     y_max  = max(hi_all, sl, tp2) + pad
 
-    # ── TradingView-style position tool ──────────────────────────────────
-    if direction == "bullish":
-        # Profit zone (entry → tp2): long blue
-        ax.fill_between([-1, n + n * 0.20], entry, tp2,
-                        color=LONG_COL, alpha=0.15, zorder=1)
-        # Loss zone (sl → entry): short red
-        ax.fill_between([-1, n + n * 0.20], sl, entry,
-                        color=SHORT_COL, alpha=0.15, zorder=1)
-    else:
-        # Profit zone (tp2 → entry): short red
-        ax.fill_between([-1, n + n * 0.20], tp2, entry,
-                        color=SHORT_COL, alpha=0.15, zorder=1)
-        # Loss zone (entry → sl): long blue
-        ax.fill_between([-1, n + n * 0.20], entry, sl,
-                        color=LONG_COL, alpha=0.15, zorder=1)
+    # ── TradingView-style position box (vertical rectangle, right side) ───
+    box_x  = n - 0.5          # starts just after last candle
+    box_w  = n * 0.13         # narrow vertical box width
+    fmt    = "%.5f" if entry < 1000 else "%.1f"
 
-    # ── Level lines & right-side labels ──────────────────────────────────
-    lx = n + n * 0.01
-    fmt = "%.5f" if entry < 1000 else "%.1f"
+    if direction == "bullish":
+        profit_col = LONG_COL    # blue profit zone (up)
+        loss_col   = SHORT_COL   # red loss zone (down)
+        profit_lo, profit_hi = entry, tp2
+        loss_lo,   loss_hi   = sl,    entry
+    else:
+        profit_col = SHORT_COL   # red profit zone (down)
+        loss_col   = LONG_COL    # blue loss zone (up)
+        profit_lo, profit_hi = tp2,   entry
+        loss_lo,   loss_hi   = entry, sl
+
+    # Profit rectangle
+    ax.add_patch(plt.Rectangle(
+        (box_x, profit_lo), box_w, profit_hi - profit_lo,
+        facecolor=profit_col, edgecolor=profit_col, linewidth=0.8, alpha=0.25, zorder=1
+    ))
+    # Loss rectangle
+    ax.add_patch(plt.Rectangle(
+        (box_x, loss_lo), box_w, loss_hi - loss_lo,
+        facecolor=loss_col, edgecolor=loss_col, linewidth=0.8, alpha=0.25, zorder=1
+    ))
+    # TP1 tick inside box
+    ax.plot([box_x, box_x + box_w], [tp1, tp1],
+            color=profit_col, linewidth=1.0, alpha=0.7, zorder=2)
+
+    # ── Level lines (full-width) & labels to the right of box ─────────────
+    lx = box_x + box_w + n * 0.005
 
     for lv, ls, lbl in [
-        (tp2,   "--", f"TP2  {fmt % tp2}"),
-        (tp1,   "--", f"TP1  {fmt % tp1}"),
+        (tp2,   "--", f"TP2   {fmt % tp2}"),
+        (tp1,   ":",  f"TP1   {fmt % tp1}"),
         (entry, "-",  f"ENTRY {fmt % entry}"),
-        (sl,    "--", f"SL   {fmt % sl}"),
+        (sl,    "--", f"SL    {fmt % sl}"),
     ]:
         ax.axhline(lv, color=LINE_COL, linestyle=ls, linewidth=1.1, alpha=0.85, zorder=4)
         ax.text(lx, lv, lbl, color=LINE_COL, fontsize=7.5, va="center", ha="left",
                 fontfamily="monospace",
-                bbox=dict(boxstyle="round,pad=0.25", facecolor="white",
-                          edgecolor="black", linewidth=0.4, alpha=0.9))
+                bbox=dict(boxstyle="square,pad=0.2", facecolor="white",
+                          edgecolor="none", alpha=0.0))
 
     # ── Header labels ─────────────────────────────────────────────────────
     ax.text(0.01, 0.97, pair_label, transform=ax.transAxes,
             color="black", fontsize=13, fontweight="bold", va="top")
-    dlbl  = "▲  LONG" if direction == "bullish" else "▼  SHORT"
-    dcol  = LONG_COL if direction == "bullish" else SHORT_COL
+    dlbl = "▲  LONG" if direction == "bullish" else "▼  SHORT"
+    dcol = LONG_COL if direction == "bullish" else SHORT_COL
     ax.text(0.99, 0.97, dlbl, transform=ax.transAxes,
             color=dcol, fontsize=11, fontweight="bold", va="top", ha="right")
 
@@ -749,7 +762,7 @@ def generate_chart(bars, pair_label, entry, sl, tp1, tp2, direction, save_path):
     for sp in ax.spines.values():
         sp.set_edgecolor("black")
         sp.set_linewidth(0.6)
-    ax.set_xlim(-1, n + n * 0.22)
+    ax.set_xlim(-1, n + n * 0.32)
     ax.set_ylim(y_min, y_max)
     ax.set_xticks([])
     ax.grid(axis="y", color="#e0e0e0", linewidth=0.4, alpha=0.6)

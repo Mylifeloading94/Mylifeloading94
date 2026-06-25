@@ -707,14 +707,15 @@ def generate_chart(bars, pair_label, entry, sl, tp1, tp2, direction, save_path):
     box_w  = n * 0.13         # narrow vertical box width
     fmt    = "%.5f" if entry < 1000 else "%.1f"
 
+    profit_col = LONG_COL    # always blue  (#2962ff)
+    loss_col   = SHORT_COL  # always red   (#f23645)
+
     if direction == "bullish":
-        profit_col = LONG_COL    # blue profit zone (up)
-        loss_col   = SHORT_COL   # red loss zone (down)
+        # Buy: blue on top (profit), red on bottom (loss)
         profit_lo, profit_hi = entry, tp2
         loss_lo,   loss_hi   = sl,    entry
     else:
-        profit_col = SHORT_COL   # red profit zone (down)
-        loss_col   = LONG_COL    # blue loss zone (up)
+        # Sell: blue on bottom (profit), red on top (loss)
         profit_lo, profit_hi = tp2,   entry
         loss_lo,   loss_hi   = entry, sl
 

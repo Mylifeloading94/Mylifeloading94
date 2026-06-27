@@ -1,0 +1,20 @@
+export const STR = {
+  mission1: "Deliver package to north district",
+  mission2: "Clear east block — reach the marker",
+  mission3: "Race to south plaza",
+  mission4: "Reach the boss hideout",
+  mission_prefix: "MISSION: ",
+  mission_done: "Mission Complete!",
+  wanted: "WANTED",
+  game_over: "BUSTED!",
+  final_score: "Score: $",
+  restart: "SPACE / Tap to restart",
+  you_win: "YOU WIN!",
+  notif_enter_car: "E to exit vehicle",
+  instructions: [
+    "WASD / arrows: move",
+    "E: enter / exit vehicle",
+    "F: punch",
+    "Collect $ — reach ! markers",
+  ],
+};

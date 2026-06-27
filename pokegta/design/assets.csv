@@ -1,0 +1,12 @@
+id,role,type,description,size/ratio,style_line_ref,source
+player_sprite,player character,sprite,pokemon trainer in emerald-green jacket and white shirt,1:1,block3 hero,generate job 86fd6f38
+cop_sprite,police enemy,sprite,police officer in dark blue uniform,1:1,block3 environment,procedural canvas
+car_sprite,civilian vehicle,sprite,red hatchback car top-down view,1:1,block3 environment,procedural canvas
+police_car_sprite,police vehicle,sprite,black and white police car top-down with roof lights,1:1,block3 environment,procedural canvas
+cash_pickup,collectible currency,sprite,gold poke-dollar bills bundle,1:1,block3 signal,procedural canvas
+road_tile,road surface,tile,dark charcoal asphalt with lane markings,1:1,block3 environment,procedural canvas
+sidewalk_tile,walkable path,tile,grey concrete pavement slabs,1:1,block3 environment,procedural canvas
+building_tile,city block,tile,dark grey brick wall exterior,1:1,block3 environment,procedural canvas
+grass_tile,park area,tile,dark green grass with tufts,1:1,block3 environment,procedural canvas
+thumbnail,deploy card 16:9,background,city night chase scene wide view,16:9,block3 all,generate job 86fd6f38
+favicon,deploy icon 1:1,ui,game logo icon,1:1,block3 all,generate job 86fd6f38

@@ -507,3 +507,43 @@ Colors are the same regardless of direction — **blue = profit zone, red = loss
 
 ### No trend lines.  
 Trend lines were removed. Do not re-add them.
+
+---
+
+## Entry Discipline — POST-MORTEM & RULES (learned from losing trades)
+
+### What went wrong (2026-06-29/30)
+Two trades sent to the channel lost because the agent **entered at market on the
+1H close without a 15M trigger**:
+
+| Trade | Entered at | 15M range pos | Outcome |
+|-------|-----------|----------------|---------|
+| EURUSD BUY 1.14258 | 1H close | **93%** (top of range) | SL hit −16.8p / −$55 |
+| GBPUSD BUY 1.32468 | 1H close | 56% (mid) | went −$40 underwater |
+
+Root causes:
+1. **`entry = price`** — bought wherever price was, even at the top of the local range.
+2. **15M was decorative** — only a +1 score, never gated the actual entry.
+3. **Premium/Discount too loose** — passed at exactly 50% (no real edge).
+4. **Correlation blind spot** — EURUSD + GBPUSD are both "short USD"; when the
+   dollar bounced overnight they fell together. The old filter put them in
+   different groups and allowed both.
+
+### The fix — every entry must now clear `fifteen_min_entry()`
+A trade is REJECTED unless ALL hold on the 15M timeframe:
+1. **Location** — buys only in 15M discount (**≤40%** of last-40-bar range);
+   sells only in premium (**≥60%**). Never chase the extreme.
+2. **Not extended** — price within **2.0×ATR(15M)** of the 15M EMA20.
+3. **Confirmation** — last closed 15M candle reacts in-direction
+   (rejection wick ≥50% of body, or close through a fresh 15M FVG).
+4. **SL anchored to the 15M swing** extreme + 2-pip buffer (tighter, better R:R).
+
+### Other guards added
+- **Premium/Discount** now needs a real edge: buy ≤45%, sell ≥55% (was bare 50%).
+- **USD-exposure cap** (`usd_exposure_ok`): max **1** open same-direction-USD trade.
+  Blocks stacking EURUSD+GBPUSD+AUDUSD all-long-EUR/short-USD at once.
+
+### Standing rule
+4H/1H confluence sets the **bias**; the **15M sets the entry**. High score is
+necessary but NOT sufficient — no clean 15M trigger means no trade, no alert,
+however good the higher-timeframe story looks.

@@ -223,10 +223,15 @@ def in_premium_discount(bars, direction, lookback=50):
     r = bars[-lookback:] if len(bars) >= lookback else bars
     hi  = max(b["h"] for b in r)
     lo  = min(b["l"] for b in r)
-    mid = (hi + lo) / 2
+    rng = hi - lo
+    if rng <= 0:
+        return False
     price = bars[-1]["c"]
-    if direction == "bullish": return price <= mid
-    return price >= mid
+    pos = (price - lo) / rng
+    # Require a genuine discount/premium, not just past the midpoint.
+    # EURUSD was let through at exactly 50% then reverted — demand a 5% edge.
+    if direction == "bullish": return pos <= 0.45
+    return pos >= 0.55
 
 # ──────────────────────────────────────────────────────────────────────────────
 # CHoCH — Change of Character  (improvement #4)
@@ -410,6 +415,112 @@ def passes_correlation(name, open_positions):
                 return False
     return True
 
+# Pairs grouped by their reaction to USD strength.
+# When USD moves, every pair in the same bloc moves together — so we cap
+# how many same-direction-USD trades can be open at once.
+USD_LONG_IF_BUY  = {"USDJPY", "USDCHF", "USDCAD"}              # buying = long USD
+USD_SHORT_IF_BUY = {"EURUSD", "GBPUSD", "AUDUSD", "NZDUSD"}    # buying = short USD
+
+def usd_exposure_ok(name, direction, open_trades, max_same=1):
+    """
+    Block stacking correlated USD bets (the EURUSD+GBPUSD mistake).
+    `open_trades` = list of (name, direction) tuples for live positions.
+    Counts net USD exposure; refuses a trade that would exceed `max_same`
+    open positions all betting the same way on the dollar.
+    """
+    def usd_side(nm, d):
+        buy = d in ("bullish", "buy")
+        if nm in USD_LONG_IF_BUY:  return "long_usd"  if buy else "short_usd"
+        if nm in USD_SHORT_IF_BUY: return "short_usd" if buy else "long_usd"
+        return None
+    mine = usd_side(name, direction)
+    if mine is None:
+        return True
+    same = sum(1 for nm, d in open_trades if usd_side(nm, d) == mine)
+    return same < max_same
+
+# ──────────────────────────────────────────────────────────────────────────────
+# 15-MINUTE ENTRY REFINEMENT  — the core fix
+# ──────────────────────────────────────────────────────────────────────────────
+def ema(values, period):
+    if not values: return 0
+    k = 2 / (period + 1)
+    e = values[0]
+    for v in values[1:]:
+        e = v * k + e * (1 - k)
+    return e
+
+def fifteen_min_entry(b15, direction, pip):
+    """
+    Refine the entry on the 15M timeframe instead of buying/selling the raw
+    1H close. Returns {entry, sl, pos, reason} or None to REJECT the trade.
+
+    This exists because the agent was entering at market mid-range — e.g.
+    EURUSD bought at 93% of the local 15M range, then reverted into the stop.
+
+    Three hard gates:
+      1. LOCATION  — price must sit in the 15M discount (<40%) for buys, or
+                     premium (>60%) for sells, over the last 40 bars.
+                     Never chase the top/bottom of the micro-range.
+      2. NOT EXTENDED — price must be within 2.0*ATR(15M) of the 15M EMA20,
+                     so we don't pile into an already-stretched move.
+      3. CONFIRMATION — the last CLOSED 15M candle must actually react in our
+                     direction (rejection wick, or close through a fresh FVG).
+    SL is anchored to the 15M swing extreme (tighter, structure-based) which
+    lifts realised R:R versus the old 1H-structure stop.
+    """
+    if len(b15) < 30:
+        return None
+
+    r     = b15[-40:]
+    hi    = max(b["h"] for b in r)
+    lo    = min(b["l"] for b in r)
+    rng   = hi - lo
+    if rng <= 0:
+        return None
+    price = b15[-1]["c"]
+    pos   = (price - lo) / rng                      # 0 = range low, 1 = range high
+
+    # Gate 1 — micro discount / premium
+    if direction == "bullish" and pos > 0.40:
+        return None
+    if direction == "bearish" and pos < 0.60:
+        return None
+
+    # Gate 2 — not extended from the 15M mean
+    e20 = ema([b["c"] for b in b15[-50:]], 20)
+    a15 = atr(b15[-30:], 14)
+    if a15 > 0 and abs(price - e20) > 2.0 * a15:
+        return None
+
+    # Gate 3 — confirmation candle in our direction
+    last = b15[-1]
+    body = abs(last["c"] - last["o"]) or (rng * 0.0001)
+    confirmed, why = False, ""
+    if direction == "bullish":
+        lower_wick = min(last["o"], last["c"]) - last["l"]
+        if last["c"] > last["o"] and lower_wick >= body * 0.5:
+            confirmed, why = True, "15M bullish rejection wick"
+        elif last["c"] > last["o"] and find_fvg(b15, "bullish", 6):
+            confirmed, why = True, "15M bullish FVG close"
+    else:
+        upper_wick = last["h"] - max(last["o"], last["c"])
+        if last["c"] < last["o"] and upper_wick >= body * 0.5:
+            confirmed, why = True, "15M bearish rejection wick"
+        elif last["c"] < last["o"] and find_fvg(b15, "bearish", 6):
+            confirmed, why = True, "15M bearish FVG close"
+    if not confirmed:
+        return None
+
+    # SL anchored to the 15M swing extreme + small buffer
+    if direction == "bullish":
+        sl = round(min(b["l"] for b in b15[-10:]) - 2 * pip, 5)
+    else:
+        sl = round(max(b["h"] for b in b15[-10:]) + 2 * pip, 5)
+
+    return {"entry": round(price, 5), "sl": sl,
+            "pos": round(pos * 100), "reason": why}
+
 # ──────────────────────────────────────────────────────────────────────────────
 # SIGNAL ANALYSIS  (multi-TF + all new confluences)
 # ──────────────────────────────────────────────────────────────────────────────
@@ -518,20 +629,15 @@ def analyze(name, cfg, headers):
     if score < MIN_SCORE:
         return None
 
-    # ── Levels ────────────────────────────────────────────────────────────
-    entry = price
-
-    # SL: just beyond the OB if available, else recent structure
-    if ob_1h and in_ob:
-        if direction == "bullish":
-            sl = round(ob_1h["l"] - 3 * pip, 5)
-        else:
-            sl = round(ob_1h["h"] + 3 * pip, 5)
-    else:
-        if direction == "bullish":
-            sl = round(min(b["l"] for b in b1[-15:]) - 3 * pip, 5)
-        else:
-            sl = round(max(b["h"] for b in b1[-15:]) + 3 * pip, 5)
+    # ── 15M ENTRY REFINEMENT (the fix) ────────────────────────────────────
+    # Confluence got us this far on 4H/1H; now demand a precise 15M trigger.
+    # No 15M discount/premium + confirmation → NO TRADE, however good the bias.
+    refined = fifteen_min_entry(b15, direction, pip)
+    if refined is None:
+        return None
+    entry = refined["entry"]
+    sl    = refined["sl"]
+    tags.append(f"15M entry @ {refined['pos']}% ({refined['reason']}) ✅")
 
     risk      = abs(entry - sl)
     risk_pips = round(risk / pip, 1)
@@ -911,13 +1017,15 @@ def run():
             else:
                 print(f"[{ts}] {sess} session — scanning {len(MARKETS)} markets...")
 
-                # Get open position names for correlation check
+                # Get open position names + directions for correlation checks
                 open_positions = get_positions(headers, account_id)
                 open_names = set()
+                open_dirs  = []   # (name, side) for USD-exposure filter
                 for p in open_positions:
                     nm = ID_TO_NAME.get(int(p[1]))
                     if nm:
                         open_names.add(nm)
+                        open_dirs.append((nm, p[3]))   # p[3] = "buy"/"sell"
 
                 setups = []
                 for name, cfg in MARKETS.items():
@@ -939,6 +1047,11 @@ def run():
                         print(f"  ⚠  {name}: {ex}")
 
                 setups.sort(key=lambda x: x["score"], reverse=True)
+
+                # Drop setups that would stack same-direction USD risk
+                # (the EURUSD + GBPUSD both-long mistake).
+                setups = [s for s in setups
+                          if usd_exposure_ok(s["name"], s["direction"], open_dirs, max_same=1)]
 
                 if setups:
                     top = setups[0]
@@ -974,7 +1087,7 @@ def run():
                         # Chart + alert
                         chart = f"/tmp/chart_{top['name'].lower()}.png"
                         try:
-                            generate_chart(top["bars_1h"], f"{top['name']} • H1",
+                            generate_chart(top["bars_1h"], f"{top['name']} • H1 · 15M entry",
                                            top["entry"], top["sl"],
                                            top["tp1"], top["tp2"],
                                            top["direction"], chart)

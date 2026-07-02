@@ -49,6 +49,18 @@ TP2_R      = 1.5
 SL_ATR     = 1.0
 MAX_HOLD   = 40
 
+# ── HARD RISK GUARDRAILS (strict validated-only mode) ─────────────────────────
+# Enforced after a forced 3.0-lot trade cost 14% of the account in one stop.
+MAX_RISK_PCT = 0.01     # never risk more than 1% of balance on a trade
+HARD_MAX_LOTS = 0.50    # absolute lot ceiling regardless of what is requested
+
+def safe_lots(risk_pips, pip_val, balance, risk_pct=MAX_RISK_PCT):
+    """Position size capped at MAX_RISK_PCT and HARD_MAX_LOTS. Cannot be overridden up."""
+    if risk_pips <= 0 or pip_val <= 0:
+        return 0.01
+    raw = (balance * risk_pct) / (risk_pips * pip_val)
+    return round(max(0.01, min(raw, HARD_MAX_LOTS)), 2)
+
 
 def in_edge_session(now=None):
     """UTC 07:00-10:45 or 12:30-15:45 only."""

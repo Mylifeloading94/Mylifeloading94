@@ -4,6 +4,7 @@ Fixes: pip value calculation, TP1+BE partial close logic, XAUUSD data
 Improvements: relaxed entry criteria, better SL placement, per-session scoring
 """
 
+import os
 import requests
 import time
 import datetime
@@ -12,9 +13,9 @@ from collections import defaultdict
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
 BASE = "https://demo.tradelocker.com/backend-api"
-EMAIL = "carlinpool94@gmail.com"
-PASSWORD = "Tinapool321!?"
-SERVER = "GenFX"
+EMAIL = os.environ["TL_EMAIL"]
+PASSWORD = os.environ["TL_PASSWORD"]
+SERVER = os.environ.get("TL_SERVER", "GenFX")
 
 LOT_SIZE = 0.10
 LOOKBACK_DAYS = 90

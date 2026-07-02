@@ -8,12 +8,12 @@ move to breakeven, a trade that hits TP1 then returns to BE = NET WIN.
 This is the structural lever that pushes win rate up.
 """
 
-import requests, time, datetime, itertools
+import os, requests, time, datetime, itertools
 
 BASE = "https://demo.tradelocker.com/backend-api"
-EMAIL = "carlinpool94@gmail.com"
-PASSWORD = "Tinapool321!?"
-SERVER = "GenFX"
+EMAIL = os.environ["TL_EMAIL"]
+PASSWORD = os.environ["TL_PASSWORD"]
+SERVER = os.environ.get("TL_SERVER", "GenFX")
 LOOKBACK_DAYS = 90
 
 PAIRS = {

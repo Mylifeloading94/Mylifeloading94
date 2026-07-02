@@ -4,11 +4,11 @@ Win rate is whatever it needs to be. Searches RR targets, runners,
 quality filters, per-pair edge, and trade management.
 """
 
-import requests, time, datetime
+import os, requests, time, datetime
 from collections import defaultdict
 
 BASE = "https://demo.tradelocker.com/backend-api"
-EMAIL="carlinpool94@gmail.com"; PASSWORD="Tinapool321!?"; SERVER="GenFX"
+EMAIL=os.environ["TL_EMAIL"]; PASSWORD=os.environ["TL_PASSWORD"]; SERVER=os.environ.get("TL_SERVER","GenFX")
 LOOKBACK_DAYS=90
 
 PAIRS={"EURUSD":{"id":278,"r":452},"GBPUSD":{"id":279,"r":452},

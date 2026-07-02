@@ -5,14 +5,15 @@ Finds the top 1-2 SMC setups for manual confirmation.
 Manual confirm adds the 60%+ win rate needed to pass FTMO.
 """
 
+import os
 import requests
 import time
 import datetime
 
 BASE = "https://demo.tradelocker.com/backend-api"
-EMAIL = "carlinpool94@gmail.com"
-PASSWORD = "Tinapool321!?"
-SERVER = "GenFX"
+EMAIL = os.environ["TL_EMAIL"]
+PASSWORD = os.environ["TL_PASSWORD"]
+SERVER = os.environ.get("TL_SERVER", "GenFX")
 
 ACCOUNT_BALANCE = 10_000   # update daily
 RISK_PCT = 0.02            # 2% risk per trade

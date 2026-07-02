@@ -11,6 +11,7 @@ Rules:
   - Trail SL to breakeven at TP1, target TP2 (2:1 RR)
 """
 
+import os
 import requests
 import time
 import datetime
@@ -19,9 +20,9 @@ from collections import defaultdict
 # ─── CONFIG ──────────────────────────────────────────────────────────────────
 
 BASE = "https://demo.tradelocker.com/backend-api"
-EMAIL = "carlinpool94@gmail.com"
-PASSWORD = "Tinapool321!?"
-SERVER = "GenFX"
+EMAIL = os.environ["TL_EMAIL"]
+PASSWORD = os.environ["TL_PASSWORD"]
+SERVER = os.environ.get("TL_SERVER", "GenFX")
 
 LOOKBACK_DAYS = 90
 RISK_PCT = 0.02            # 2% of equity per trade (aggressive)

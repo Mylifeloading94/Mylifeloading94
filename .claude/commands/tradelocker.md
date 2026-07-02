@@ -547,3 +547,57 @@ A trade is REJECTED unless ALL hold on the 15M timeframe:
 4H/1H confluence sets the **bias**; the **15M sets the entry**. High score is
 necessary but NOT sufficient — no clean 15M trigger means no trade, no alert,
 however good the higher-timeframe story looks.
+
+---
+
+## HONEST-EDGE STRATEGY (v4) — backtest-validated, `honest_edge.py`
+
+A 3-month backtest (867+ trades on real GenFX data), reproduced by two
+independent engines, proved the trend-continuation logic above wins only
+**29% (PF 0.82 — a losing system)**. The findings below are MEASURED.
+
+### Hard truths (do not ignore)
+1. **A profitable 70%+ win rate does not exist on this data.** You can
+   manufacture 70% WR with tiny 0.35R targets, but spread makes PF < 1 — it
+   bleeds money. Never sell a win-rate number without a profit-factor number.
+2. **Win rate is a geometry choice; profit factor is the real metric.**
+   Go-live gate = **PF > 1.2 out-of-sample over 40+ trades**, not a WR %.
+3. **The biggest fixable leak was the STOP.** Tight swing stops (`swing − 2 pips`)
+   got wicked; a **1.0–1.2×ATR buffer beyond the sweep roughly doubled win rate.**
+
+### 3-month per-pair result (ranked)
+| Pair | WR | PF | Use |
+|------|----|----|-----|
+| **USDCHF** | 76.7% | **1.54** | ✅ PRIMARY (parameter-robust) |
+| USDCAD | 65% | 0.85 | secondary watch |
+| AUDJPY | 65% | 0.92 | secondary watch |
+| EURUSD | 61% | 0.75 | secondary watch |
+| USDJPY / EURJPY / XAUUSD | 45–50% | <0.5 | ❌ BANNED — no edge |
+
+**Caveat:** USDCHF's edge is parameter-robust but recent-regime-driven
+(1st-half PF 0.60, 2nd-half PF 3.73). No pair is time-stable at this sample
+size. Treat as a live-demo hypothesis, not a guarantee. Re-run the backtest
+monthly — the regime will flip.
+
+### The v4 rules (coded in `honest_edge.py`)
+- **Session:** UTC 07:00–10:45 or 12:30–15:45 only. No dead-session trades.
+- **Entry = sweep-and-reclaim:** 15M wick beyond prior 20-bar extreme that
+  CLOSES back inside within 4 bars + displacement candle (body ≥ 0.5×ATR,
+  closes past the 3-bar pre-sweep extreme).
+- **Location:** ≤45% of 40-bar range (buys) / ≥55% (sells). Extension ≤ 1.5×ATR.
+- **SL:** sweep extreme ± **1.0×ATR(15M)** — beyond the liquidity pool.
+- **Exit:** TP1 +0.5R close **80%** → SL to breakeven; TP2 +1.5R runner;
+  time-stop at 40 bars.
+- **Pairs:** USDCHF primary; USDCAD/AUDJPY/EURUSD secondary; XAUUSD/USDJPY/EURJPY banned.
+- **Risk:** 0.5–1.0% until live PF > 1.2 over 40+ trades.
+
+Realistic expectation: **~60–65% portfolio WR at roughly breakeven-to-positive,
+USDCHF the standout** — a real edge, not a 70% fantasy.
+
+---
+
+## Security — credentials
+All repo scripts read credentials from env vars (`TL_EMAIL`, `TL_PASSWORD`,
+`TL_SERVER`) or `.env` (gitignored). Never hardcode credentials in source —
+they were previously committed in several backtest scripts and scrubbed on
+2026-07-02. **That password lives in git history and must be rotated.**

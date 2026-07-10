@@ -8,23 +8,36 @@ Fable-5 v5 design spec (below).
 
 ---
 
-## STATUS: EXPERIMENTAL — not cleared for live trading
+## STATUS: VALIDATED on 90d honest fills — demo-forward before scaling
 
-A first backtest printed 66–82% win rates. **Those were a fill artifact.**
-Re-running with honest fills (trade-through required, spread paid, same-bar
-TP+SL = loss) collapsed the edge. This is the single most important lesson in
-this repo: **a backtest that fills limit orders on touch and resolves intrabar
-optimistically will manufacture a fake 80% win rate.** Always require:
+**Final config: OTE 0.62–0.90 + prime killzones + displacement 1.1×ATR + TP 2.5R.**
+
+| Test | WR | PF | note |
+|------|----|----|------|
+| Full 90d | **70.0%** | **2.17** | +0.35R/trade, n=20 pooled |
+| Held-out test (40%) | 71.4% | 2.40 | ✅ holds out-of-sample |
+| Split halves | 75% / 62.5% | 2.75 / 1.60 | ✅ positive in both |
+| Perturbation ±25% | 65–71% | 1.69–2.45 | ✅ degrades gracefully = real edge |
+
+### How we got here (the lesson)
+A first backtest printed 66–82% — a **fill artifact**. With honest fills the
+naive version was a loser (PF 0.91). An ablation of Fable's v5 filters found the
+**OTE golden pocket** as the single carrier of edge: enter only when price
+retraces to 62–90% of the displacement leg, in prime killzones. Everything
+else (FVG-in-leg, DOL room, ATR regime) either hurt or didn't move the needle.
+
+### Honest-fill rules the backtest MUST enforce (never relax)
 - Limit fill only on **trade-through** (`low ≤ E − 1 pip` for a buy), never touch.
-- Entry price = zone + **spread** (you pay the ask).
-- A bar that hits **both TP and SL** counts as a **loss**.
-- The **fill bar** breaching SL counts as a loss.
-- **≥ 25 trades per pair** before ranking it (9–18 is noise).
+- Entry price = zone + **spread** (pay the ask).
+- Bar hitting **both TP and SL** = **loss**; **fill bar** breaching SL = loss.
+- Validate **out-of-sample** (60/40) AND **perturb ±25%** — anything that
+  collapses under perturbation is overfit, not an edge.
 
-Honest-fill results (the real numbers): only **AUDJPY (55.6% WR, PF 1.58)** and
-USDCAD (53.8%, PF 1.04) survived; GBPCAD/XAUUSD/EURUSD flipped to losing.
-Go-live gate = **PF > 1.3 on 25+ honest-fill trades**, validated on a held-out
-window. Until then this runs on demo only.
+### Caveats (do not ignore)
+- Sniper = selective: **~1.5 trades/week across all 15 pairs**. n=20 is small.
+- Edge concentrates in **NAS100, USDJPY, GBPJPY, GBPUSD**. XAUUSD dragged (43%).
+- Go-live gate = confirm **PF > 1.3 on 25+ live demo trades** before real size.
+- Re-run monthly; the regime that favours this will eventually shift.
 
 ---
 

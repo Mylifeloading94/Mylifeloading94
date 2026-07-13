@@ -2,3 +2,7 @@ __pycache__/
 *.pyc
 *.pyo
 .env
+
+# Runtime state (changes every autopilot iteration — not source)
+agent_state.json
+active_trades.json

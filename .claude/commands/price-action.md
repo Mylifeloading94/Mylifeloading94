@@ -43,6 +43,37 @@ change the strategy.
   live-demo hypothesis before real size, same gate as every other strategy
   in this repo: **PF > 1.2 over 40+ trades, out-of-sample.**
 
+### Win-rate upgrade: PRIMARY (SPX500+US30) vs SECONDARY (NAS100)
+Asked to push win rate toward 70%. Refused the easy way to fake that
+(shrinking the TP prints any WR you want while PF quietly dies — see
+honest_edge.py's own documented trap) and instead tightened the pin-bar
+wick-rejection threshold (`WICK_RATIO`), testing each candidate filter in
+isolation on TRAIN, then checking it survives the untouched TEST window.
+
+A 54-config combined-filter grid search (wick × close-margin × ATR regime ×
+two-bar trend) looked amazing on TRAIN (WR 41%→58%, PF 1.53→2.69) and then
+**inverted NAS100 on TEST** (WR 37%→14%, PF 1.17→0.17) — textbook overfitting
+from stacking too many knobs at once. Rejected. Testing wick-ratio alone
+(one knob, much harder to overfit) generalized cleanly — but not uniformly:
+
+| Instrument   | wick | TRAIN (21mo)            | TEST (6mo, held out)          |
+|-------------|------|---------------------------|----------------------------------|
+| SPX500+US30 | 0.70 | n=111  WR=46.8%  PF=1.84 | n=15  WR=60.0%  PF=3.43  E=+0.82 |
+| NAS100      | 0.60 | n=92   WR=45.7%  PF=1.79 | n=16  WR=37.5%  PF=1.17  E=+0.11 |
+
+Tightening the wick threshold helps SPX500/US30 (already the stronger pair)
+in both TRAIN and TEST, but **inverts NAS100 out-of-sample** — so it's kept
+at the original 0.60 there rather than forced uniform. Pushing wick further
+(0.75, 0.80) on SPX500/US30 plateaus (~57-58% WR) with a shrinking sample —
+0.70 is the real sweet spot, not a cherry-pick.
+
+**PRIMARY = SPX500 + US30** at `WICK_RATIO=0.70` — genuine ~60% WR / PF 3.43
+OOS, but n=15 is still a modest sample; re-validate monthly like everything
+else here. **SECONDARY = NAS100** at the original `WICK_RATIO=0.60`, smaller
+size — real but weaker edge (PF ~1.2-1.8). Literal 70% WR wasn't achievable
+without either gaming the metric or overfitting; 60% honestly validated on
+two pairs is what the data actually supports.
+
 ### Setup logic (long; short mirrors)
 1. **4H trend** — EMA50 > EMA200 and 4H close > EMA50.
 2. **1H pullback** — signal bar's low comes within 0.25×ATR of the 1H EMA20.

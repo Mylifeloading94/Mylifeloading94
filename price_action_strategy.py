@@ -153,6 +153,40 @@ down (0.49 pooled WR, 1.76-1.87 PF) for no return benefit; halved NAS100
 risk recovers most of the drawdown improvement (14.3% vs 20.2% max DD at
 2% base risk) at a near-identical return (+49.6% vs +51.4% over the same
 45-trade, 6-month test).
+
+FOREX PAIRS RESEARCH (2026-07-14) — 11 of 12 requested pairs BANNED
+=========================================================================
+Requested watchlist: EURUSD, AUDUSD, EURGBP, GBPJPY, GBPAUD, NZDUSD, USDJPY,
+USDCHF, USDCAD, NZDJPY, GBPCAD, XAUUSD. Ran the same method that worked for
+indices — isolate the wick-ratio quality filter (0.60/0.65/0.70/0.75),
+walk-forward TRAIN(21mo)/TEST(6mo) per pair — since it's the one lever
+already proven to generalize rather than overfit.
+
+Result: **11 of 12 pairs stay decisively negative (PF 0.5-0.95) across the
+entire wick range, on both TRAIN and TEST.** Tightening the filter does not
+rescue any of them — EURUSD, AUDUSD, EURGBP, GBPJPY, GBPAUD, NZDUSD, USDJPY,
+USDCHF, USDCAD, NZDJPY, GBPCAD are BANNED, joining the pairs banned earlier.
+This is the fourth independent confirmation (after the pooled EMA-pullback,
+OTE golden-pocket, and sweep-and-reclaim attempts) that this repo's FX data
+does not carry a free price-action edge on 1H bars for these pairs.
+
+**XAUUSD is the one exception** — smooth, monotonic improvement as wick
+tightens (not a lucky single point): TRAIN PF 1.20->1.40 (wick 0.60->0.75,
+n=205-267), TEST PF 0.76->1.17 (n=50-71). At wick=0.75: TRAIN n=205 WR=41%
+PF=1.40, TEST n=50 WR=38% PF=1.17 — clears the bar on real sample sizes,
+bigger than either index's TEST count.
+
+**But stress-testing found the same fragility as everything else here:**
+splitting the already-held-out TEST window in half shows BOTH halves
+individually weak (T1 n=21 PF=0.80, T2 n=24 PF=0.96) — the "PF=1.17 over 6
+months" is not two consistently-good halves, it's an aggregate over a bumpy
+path. A 3-fold split of TRAIN shows the same shape as SPX500/US30/NAS100:
+2 strong folds (PF 1.78, 1.38) and one weak/breakeven fold (PF 0.98).
+
+**Result: TERTIARY = XAUUSD at wick=0.75, quarter-size risk (weakest,
+least stable of the three tiers — smaller than even NAS100's SECONDARY
+sizing).** Real signal, but treat it as the most speculative of the four
+tradeable instruments, and re-validate monthly like everything else.
 """
 import os
 import numpy as np
@@ -160,29 +194,32 @@ import pandas as pd
 import pa_data
 
 DATA_DIR = pa_data.CACHE_DIR
-RECOMMENDED = ["NAS100", "SPX500", "US30"]
+RECOMMENDED = ["NAS100", "SPX500", "US30", "XAUUSD"]
 PRIMARY = ["SPX500", "US30"]       # stricter wick filter validated OOS: WR 60%, PF 3.43
 SECONDARY = ["NAS100"]             # weaker pair; stricter filter INVERTS it OOS, keep at baseline
+TERTIARY = ["XAUUSD"]              # only FX-list instrument with any edge; weaker/less stable than SECONDARY
 BANNED = [
     "EURUSD", "GBPUSD", "USDJPY", "USDCHF", "USDCAD", "AUDUSD", "NZDUSD",
     "EURJPY", "GBPJPY", "EURGBP", "AUDJPY", "EURAUD", "CADJPY", "CHFJPY",
-    "XAUUSD",
+    "GBPAUD", "NZDJPY", "GBPCAD",
 ]
 
-# LOCKED position sizing: PRIMARY gets full account risk, SECONDARY gets
-# half — see "STATUS: LOCKED" in the docstring above for why.
-RISK_TIER = {"SPX500": 1.0, "US30": 1.0, "NAS100": 0.5}
+# LOCKED position sizing: PRIMARY gets full account risk, SECONDARY half,
+# TERTIARY a quarter (weakest, least time-stable of the three tiers) — see
+# "STATUS: LOCKED" in the docstring above for why.
+RISK_TIER = {"SPX500": 1.0, "US30": 1.0, "NAS100": 0.5, "XAUUSD": 0.25}
 
 
 def risk_pct_for(name, base_risk_pct):
-    """Locked tiered sizing: base_risk_pct applies to PRIMARY, half to SECONDARY."""
+    """Locked tiered sizing: base_risk_pct applies to PRIMARY, half to SECONDARY, quarter to TERTIARY."""
     return base_risk_pct * RISK_TIER.get(name, 1.0)
 
 # pin-bar wick-rejection threshold, tuned per instrument (see docstring for
 # the validation behind this split — tightening improves SPX500/US30 both
 # in-sample and out-of-sample, but INVERTS NAS100 out-of-sample, so it's
-# deliberately NOT applied uniformly).
-WICK_RATIO = {"SPX500": 0.70, "US30": 0.70, "NAS100": 0.60}
+# deliberately NOT applied uniformly). XAUUSD gets its own tuned value from
+# the forex-pairs research round (see FOREX PAIRS RESEARCH in the docstring).
+WICK_RATIO = {"SPX500": 0.70, "US30": 0.70, "NAS100": 0.60, "XAUUSD": 0.75}
 
 # per-instrument cost model: round-trip spread in PRICE UNITS (not pips),
 # applied once at entry (pay the ask), matching sniper_smc's convention.
@@ -192,6 +229,7 @@ SPREAD = {
     "GBPJPY": 0.030, "EURGBP": 0.00016, "AUDJPY": 0.025, "EURAUD": 0.00022,
     "CADJPY": 0.020, "CHFJPY": 0.025, "XAUUSD": 0.35, "NAS100": 2.0,
     "SPX500": 0.6, "US30": 3.0,
+    "GBPAUD": 0.00030, "NZDJPY": 0.030, "GBPCAD": 0.00035,
 }
 
 RISK_PCT_LOW, RISK_PCT_HIGH = 0.01, 0.02
@@ -478,6 +516,8 @@ def main():
             flag = f"  <== PRIMARY (wick={WICK_RATIO[name]:.2f})"
         elif name in SECONDARY:
             flag = f"  <== SECONDARY (wick={WICK_RATIO[name]:.2f}, weaker)"
+        elif name in TERTIARY:
+            flag = f"  <== TERTIARY (wick={WICK_RATIO[name]:.2f}, weakest/least stable)"
         elif name in BANNED:
             flag = "  (banned - no edge)"
         else:
@@ -489,7 +529,8 @@ def main():
     print(f"PRIMARY (size here): {', '.join(PRIMARY)} — wick-ratio {WICK_RATIO[PRIMARY[0]]:.2f} filter, "
           f"validated OOS at ~60% WR / PF ~3.4 (n=15, still a modest sample).")
     print(f"SECONDARY (smaller size, optional): {', '.join(SECONDARY)} — baseline wick 0.60, weaker edge (PF ~1.2-1.8).")
-    print("Do not trade FX or XAUUSD with this system — no edge found after three independent attempts.")
+    print(f"TERTIARY (smallest size, optional): {', '.join(TERTIARY)} — wick=0.75, PF~1.15-1.40 but sub-splits weak, treat cautiously.")
+    print("Do not trade any other FX pair with this system — no edge found after four independent attempts (11 pairs banned).")
     return rows
 
 

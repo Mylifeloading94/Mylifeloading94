@@ -6,11 +6,21 @@ cache in `pa_data.py`).
 
 ---
 
-## STATUS: VALIDATED on indices only — NAS100 / SPX500 / US30
+## STATUS: LOCKED — SPX500/US30 (PRIMARY), NAS100 (SECONDARY), XAUUSD (TERTIARY)
 
-FX and XAUUSD are **banned** — no edge survived after three independently
-designed attempts. Run `python3 price_action_strategy.py` to reproduce (it
-auto-downloads 730 days of hourly bars into `pa_data/` on first run).
+11 FX pairs are **banned** — no edge survived after four independently
+designed attempts (see "Forex pairs research" below). Run
+`python3 price_action_strategy.py` to reproduce (it auto-downloads 730 days
+of hourly bars into `pa_data/` on first run).
+
+**Indices config is LOCKED as of 2026-07-14** — do not re-tune WICK_RATIO,
+TP/SL multiples, or the PRIMARY/SECONDARY/TERTIARY split against the same
+6-month TEST window; it's been reused across sessions and is no longer a
+clean holdout for these exact parameters. Wait for fresh months to
+accumulate, or draw a new holdout window, before touching this again.
+
+Locked risk sizing (`RISK_TIER` / `risk_pct_for()` in price_action_strategy.py):
+PRIMARY gets full account risk, SECONDARY half, TERTIARY a quarter.
 
 ### The validation that held up
 Walk-forward, not a naive split: **TRAIN = 21 months, TEST = the most recent
@@ -129,3 +139,38 @@ HTTPS proxy — TradeLocker/GenFX credentials were not available when this was
 built, so this is a Yahoo-data backtest, not a broker-tick backtest.
 Re-validate against TradeLocker history before trusting fills precisely
 (Yahoo FX/index bars are mid-price, no real bid/ask depth).
+
+---
+
+## Forex pairs research (2026-07-14) — 11 of 12 banned, XAUUSD → TERTIARY
+
+Requested watchlist: EURUSD, AUDUSD, EURGBP, GBPJPY, GBPAUD, NZDUSD, USDJPY,
+USDCHF, USDCAD, NZDJPY, GBPCAD, XAUUSD. Applied the one lever already proven
+to generalize rather than overfit — the isolated wick-ratio quality filter —
+sweeping 0.60/0.65/0.70/0.75 per pair, walk-forward TRAIN(21mo)/TEST(6mo).
+
+**11 of 12 stay decisively negative (PF 0.5-0.95) across the entire wick
+range, on both TRAIN and TEST.** Tightening doesn't rescue any of them:
+EURUSD, AUDUSD, EURGBP, GBPJPY, GBPAUD, NZDUSD, USDJPY, USDCHF, USDCAD,
+NZDJPY, GBPCAD are BANNED. This is the fourth independent confirmation
+(pooled EMA-pullback, OTE golden-pocket, sweep-and-reclaim, and this
+per-pair wick sweep) that this repo's FX data has no free price-action edge
+on 1H bars for these pairs.
+
+**XAUUSD is the one exception.** Smooth, monotonic improvement as wick
+tightens — not a lucky single point — TRAIN PF 1.20→1.40 (wick 0.60→0.75,
+n=205-267), TEST PF 0.76→1.17 (n=50-71). At wick=0.75: TRAIN n=205 WR=41%
+PF=1.40, TEST n=50 WR=38% PF=1.17 — real sample sizes, bigger than either
+index's TEST count.
+
+But stress-testing found the same fragility as everything else in this repo:
+splitting the held-out TEST window in half shows **both halves individually
+weak** (T1 n=21 PF=0.80, T2 n=24 PF=0.96) — the 6-month PF=1.17 is a bumpy
+aggregate, not two consistently-good halves. A 3-fold TRAIN split shows the
+same shape as the indices: 2 strong folds (PF 1.78, 1.38), one weak/
+breakeven fold (PF 0.98).
+
+**Result: XAUUSD → TERTIARY at wick=0.75, quarter-size risk** — smaller
+than even NAS100's SECONDARY sizing, because it's the weakest, least
+time-stable of the four tradeable instruments. Real, but the most
+speculative one; re-validate monthly.

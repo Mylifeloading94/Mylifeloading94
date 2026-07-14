@@ -132,6 +132,27 @@ Literal 70% WR was not achievable without either gaming the metric (shrink
 TP, rejected on principle) or overfitting (stacked filters, rejected on
 the TEST-set inversion). 60% on SPX500+US30, honestly validated, is what
 the data supports.
+
+STATUS: LOCKED (2026-07-14) — indices config finalized, do not re-tune
+=========================================================================
+SPX500 + US30 + NAS100, position sizing and setup logic above, is the
+locked reference configuration. Do not casually re-tune WICK_RATIO, TP/SL
+multiples, or the PRIMARY/SECONDARY split against this same 6-month TEST
+window again — that window has now been looked at multiple times across
+this repo's sessions and is no longer a clean holdout for THIS parameter
+set. Re-validation should wait for fresh out-of-sample months to
+accumulate, or use a newly-drawn holdout window.
+
+Locked position sizing (RISK_TIER, used by challenge/account simulations):
+  PRIMARY   (SPX500, US30) -> full account risk (1-2%, user's choice)
+  SECONDARY (NAS100)       -> HALF of PRIMARY's risk %
+Chosen over equal-weighting all three because NAS100's edge, while real,
+inverts under the same quality filter that helps SPX500/US30 and is
+structurally weaker (PF ~1.2-1.8 vs ~3.4) — equal risk drags portfolio PF
+down (0.49 pooled WR, 1.76-1.87 PF) for no return benefit; halved NAS100
+risk recovers most of the drawdown improvement (14.3% vs 20.2% max DD at
+2% base risk) at a near-identical return (+49.6% vs +51.4% over the same
+45-trade, 6-month test).
 """
 import os
 import numpy as np
@@ -147,6 +168,15 @@ BANNED = [
     "EURJPY", "GBPJPY", "EURGBP", "AUDJPY", "EURAUD", "CADJPY", "CHFJPY",
     "XAUUSD",
 ]
+
+# LOCKED position sizing: PRIMARY gets full account risk, SECONDARY gets
+# half — see "STATUS: LOCKED" in the docstring above for why.
+RISK_TIER = {"SPX500": 1.0, "US30": 1.0, "NAS100": 0.5}
+
+
+def risk_pct_for(name, base_risk_pct):
+    """Locked tiered sizing: base_risk_pct applies to PRIMARY, half to SECONDARY."""
+    return base_risk_pct * RISK_TIER.get(name, 1.0)
 
 # pin-bar wick-rejection threshold, tuned per instrument (see docstring for
 # the validation behind this split — tightening improves SPX500/US30 both

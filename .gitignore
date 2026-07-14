@@ -7,3 +7,4 @@ __pycache__/
 agent_state.json
 active_trades.json
 pa_data/
+pa_data_5m/

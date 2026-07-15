@@ -143,8 +143,8 @@ if not na(pendingBar) and strategy.position_size == 0 and (bar_index - pendingBa
     pendingDir   := 0
     pendingBar   := na
 
-float riskUnit = na(pendingEntry) ? na(float) : math.abs(pendingEntry - pendingStop)
-float qty = na(riskUnit) or riskUnit <= 0 ? na(float) : (strategy.equity * riskPct / 100) / riskUnit
+float riskUnit = na(pendingEntry) ? float(na) : math.abs(pendingEntry - pendingStop)
+float qty = na(riskUnit) or riskUnit <= 0 ? float(na) : (strategy.equity * riskPct / 100) / riskUnit
 
 if pendingDir == 1 and strategy.position_size == 0
     strategy.entry("Long", strategy.long, qty=qty, stop=pendingEntry)

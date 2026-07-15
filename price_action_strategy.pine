@@ -63,8 +63,9 @@ timeStopBars = input.int(40, "Time-Stop (bars, ~1 week on 1H)", group=grpRisk)
 riskPct      = input.float(1.0, "Risk % per Trade", minval=0.1, maxval=5, step=0.1, group=grpRisk)
 
 grpViz    = "── Visuals ──"
-showLabels = input.bool(true, "Show Entry/SL/TP Labels", group=grpViz)
-showLevels = input.bool(true, "Show SL/TP Lines While Trade Is Open", group=grpViz)
+showLabels = input.bool(false, "Show Entry/SL/TP Labels (redundant with TradingView's own trade markers -- off by default)", group=grpViz)
+showLevels = input.bool(false, "Show SL/TP Lines While Trade Is Open", group=grpViz)
+showBias   = input.bool(false, "Shade Background by 4H Bias", group=grpViz)
 
 // ─── HTF TREND BIAS (4H EMA50 vs EMA200, no repaint) ─────────────────────
 htfClose = request.security(syminfo.tickerid, htfTF, close[1], lookahead=barmerge.lookahead_off)
@@ -114,7 +115,7 @@ plotshape(shortSignal, title="SELL signal", style=shape.triangledown, location=l
      color=color.new(color.red, 0), size=size.small, text="SELL")
 
 plot(ema20, "EMA20 (pullback zone)", color=color.new(color.orange, 40))
-bgcolor(bias == 1 ? color.new(color.green, 92) : bias == -1 ? color.new(color.red, 92) : na, title="4H bias")
+bgcolor(showBias ? (bias == 1 ? color.new(color.green, 95) : bias == -1 ? color.new(color.red, 95) : na) : na, title="4H bias")
 
 // ─── ENTRY / STOP / TARGETS (matches simulate() honest-fill logic) ──────
 var float pendingEntry = na

@@ -65,7 +65,7 @@ riskPct       = input.float(1.0, "Risk % per Trade", minval=0.1, maxval=5, step=
 
 grpViz     = "── Visuals ──"
 showBox    = input.bool(true, "Show Opening Range Box", group=grpViz)
-showLabels = input.bool(true, "Show Entry Labels", group=grpViz)
+showLabels = input.bool(false, "Show Entry Labels (redundant with TradingView's own trade markers -- off by default)", group=grpViz)
 
 // ─── BAR SIZE / WINDOW CONVERSION (assumes chart TF divides evenly) ─────
 barMinutes    = timeframe.in_seconds(timeframe.period) / 60

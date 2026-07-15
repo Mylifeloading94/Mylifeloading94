@@ -27,7 +27,7 @@
 //  apply it to. Expect small differences in exact fills — same caveat
 //  already documented for the live TradeLocker execution in this repo.
 // ════════════════════════════════════════════════════════════════════════
-strategy("Price Action Strategy (Locked)",
+strategy("Lazy Signal V1",
      overlay              = true,
      initial_capital      = 10000,
      default_qty_type     = strategy.percent_of_equity,

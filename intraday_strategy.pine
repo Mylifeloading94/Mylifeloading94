@@ -33,7 +33,7 @@
 //  reversion was also tested and lost on every single pair — this ORB
 //  version is the only one worth running.
 // ════════════════════════════════════════════════════════════════════════
-strategy("Intraday ORB Strategy (FX, Locked)",
+strategy("Lazy Signal V2",
      overlay              = true,
      initial_capital      = 10000,
      default_qty_type     = strategy.percent_of_equity,

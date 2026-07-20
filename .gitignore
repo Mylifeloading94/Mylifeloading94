@@ -8,6 +8,7 @@ agent_state.json
 active_trades.json
 pa_data/
 pa_data_5m/
+pa_data_5m_live/
 pa_data_15m/
 live_monitor_log.json
 intraday_active.json

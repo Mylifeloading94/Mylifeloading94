@@ -38,6 +38,7 @@ import sys
 import json
 import datetime
 import requests
+import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
 import price_action_strategy as pa
@@ -79,13 +80,25 @@ def log_event(event):
     json.dump(events, open(LOG_PATH, "w"), indent=2)
 
 
+LIVE_DATA_DIR = os.path.join(os.path.dirname(__file__), "pa_data_5m_live")
+
+
 def fetch_fresh_5m(name):
+    """Uses its own cache dir (pa_data_5m_live/), never pa_data_5m/ --
+    that path is the shared 60-day backtest dataset intraday_strategy.py's
+    validation numbers are computed from; overwriting it with a short live
+    fetch here would silently corrupt that dataset (this happened once --
+    a 10-day live fetch truncated the committed 60-day EURUSD/USDCHF
+    backtest cache from the shell)."""
+    os.makedirs(LIVE_DATA_DIR, exist_ok=True)
     symbol = pa_data.WATCHLIST[name]
     data = pa_data.fetch(symbol, range_="10d", interval="5m")
-    path = os.path.join(ist.DATA_DIR_5M, f"{name}.csv")
-    os.makedirs(ist.DATA_DIR_5M, exist_ok=True)
+    path = os.path.join(LIVE_DATA_DIR, f"{name}.csv")
     pa_data.to_csv(data, path)
-    df = ist.load_5m(name)
+    df = pd.read_csv(path)
+    df["time"] = pd.to_datetime(df["timestamp"], unit="s", utc=True)
+    df = df.set_index("time").drop(columns=["timestamp"]).sort_index()
+    df = df[~df.index.duplicated(keep="first")].dropna(subset=["open", "high", "low", "close"])
     return ist.tag_sessions(df)
 
 

@@ -82,10 +82,68 @@ CAVEATS — this is thinner evidence than the swing-strategy validation:
   start grid-searching these parameters per pair; that would undermine the
   one thing lending this result credibility.
 
-Risk sizing: treat ORB_PRIMARY at the same tier as this repo's SECONDARY
+Risk sizing: treat ORB_CORE at the same tier as this repo's SECONDARY
 convention (smaller than the swing-strategy PRIMARY/SECONDARY, given the
 thinner validation) and ORB_WATCH at half that again. Not wired into
 RISK_TIER yet — decide sizing before trading this live.
+
+UPDATE (2026-07-20) — Tuesday-Thursday filter locked in, tiers re-cut
+=========================================================================
+Two follow-up questions were tested and answered on this same 5-minute ORB
+data:
+
+1. "Does adding an SMC liquidity-sweep precondition to the breakout
+   improve it?" No — decisively no. A separate module (sweep below/above a
+   recent range, reclaim, then break-of-structure with a displacement
+   candle) was grid-searched across 36 parameter combinations on 15-minute
+   bars: every single combination came back with PF < 1 (best PF=0.68).
+   Isolating the pieces: sweep+reclaim alone PF=0.51, full SMC+breakout
+   PF=0.64, but the plain ORB in this file with no sweep precondition at
+   all scored PF=1.23 on the identical data/window. The liquidity-sweep
+   filter actively hurts a breakout entry here — it does not add
+   confirmation, it just introduces lag and gets faded before the real
+   breakout. Not incorporated; documented so it isn't retried.
+
+2. "Does day-of-week matter?" Yes, materially. Re-running every pair's ORB
+   signals filtered to Tuesday/Wednesday/Thursday only (dropping Monday
+   gap risk and Friday's liquidity drop-off) and split-half validating
+   (first half of the 60-day window vs second half) found:
+   - EURUSD + USDCHF pooled, Tue-Thu only: TRAIN n=62 WR=61.3% PF=1.92,
+     TEST n=55 WR=60.0% PF=1.85 — consistent across both halves, clears
+     60% win rate in both. Unfiltered (all weekdays) the same two pairs
+     pool to WR=57.1%/PF=1.53 — the filter is a genuine improvement, not
+     a coin flip that happened to land right.
+   - AUDUSD, GBPAUD, NZDUSD stay profitable Tue-Thu (PF 1.4-2.1 both
+     halves) but don't consistently clear 60% WR — kept as a smaller-size
+     WATCH tier, not CORE.
+   - XAUUSD gets WORSE under this filter (PF 1.13 -> 0.82 second half) —
+     dropped from WATCH entirely, despite being on it in the original
+     (unfiltered) split-half table below.
+   - USDCAD is sign-inconsistent even Tue-Thu-only (PF 0.96 -> 1.95) —
+     stays banned.
+
+   Pooled CORE (EURUSD+USDCHF, Tue-Thu, n=117, WR=60.7%, PF=1.89) account
+   challenge, chronological compounding, one simulated account trading
+   both pairs:
+   | Account | Risk | End balance | Return | Max drawdown |
+   |---------|------|-------------|--------|---------------|
+   | $500    | 1%   | $678.59     | +35.7% | $36.50        |
+   | $500    | 2%   | $910.25     | +82.0% | $95.84        |
+   | $1,000  | 1%   | $1,357.18   | +35.7% | $73.01        |
+   | $1,000  | 2%   | $1,820.49   | +82.0% | $191.69       |
+   | $10,000 | 1%   | $13,571.81  | +35.7% | $730.08       |
+   | $10,000 | 2%   | $18,204.93  | +82.0% | $1,916.87     |
+
+   Caveat (same one that applies everywhere in this file): this is 117
+   trades over ~84 calendar days on 2 correlated pairs (EURUSD/USDCHF are
+   both USD legs and often move together), one volatility regime, no
+   true out-of-sample data beyond Yahoo's 60-day intraday ceiling. Treat
+   the return figures as illustrative of the edge's shape, not a promise —
+   re-validate weekly like the rest of this file.
+
+Original unfiltered tiers (ORB_PRIMARY, table below) are kept for
+reference/comparison; ORB_CORE below is the currently-recommended,
+higher-conviction, Tue-Thu-filtered set.
 """
 import os
 import numpy as np
@@ -121,6 +179,13 @@ ORB_PRIMARY = ["EURUSD", "AUDUSD", "GBPAUD", "USDCHF"]      # PF>1.1 in BOTH hal
 ORB_WATCH = ["NZDUSD", "XAUUSD"]                            # real in H1, fades hard in H2 — smaller size only
 ORB_BANNED = ["USDCAD", "USDJPY", "GBPCAD", "NZDJPY", "GBPJPY", "EURGBP"]  # unstable or no edge in both halves
 TWAP_BANNED_ALL = True   # TWAP reversion lost or was flat on every single pair tested — do not trade
+
+# Tuesday-Thursday-only re-cut (2026-07-20) — the currently-recommended
+# tier set. Weekday=1,2,3 is Tue/Wed/Thu (Mon=0). See docstring "UPDATE"
+# section for the full validation numbers.
+ALLOWED_WEEKDAYS = {1, 2, 3}
+ORB_CORE = ["EURUSD", "USDCHF"]              # WR>=60%, PF>1.8, BOTH split halves, Tue-Thu only
+ORB_CORE_WATCH = ["AUDUSD", "GBPAUD", "NZDUSD"]  # PF>1.4 both halves but WR 45-57%, half size only
 
 
 def fetch_intraday_data(force=False):
@@ -232,12 +297,16 @@ def simulate_single_target(name, o, h, l, c, signals, spread):
     return trades
 
 
-def generate_orb_signals(df):
+def generate_orb_signals(df, weekdays=None):
+    """weekdays: optional set of allowed pandas weekday ints (Mon=0..Sun=6)
+    to filter signals to, e.g. ALLOWED_WEEKDAYS for the validated Tue-Thu
+    cut. None (default) keeps all weekdays."""
     o, h, l, c = df["open"].values, df["high"].values, df["low"].values, df["close"].values
     session_open_i = df["session_open_i"].values
     session_id = df["session_id"].values
     atr_ = pa.atr(df, 14).values
     n = len(df)
+    weekday = df.index.weekday.values
 
     signals = []
     seen_sessions = set()
@@ -255,6 +324,8 @@ def generate_orb_signals(df):
         if i != range_end:
             continue
         seen_sessions.add(sid)
+        if weekdays is not None and weekday[i] not in weekdays:
+            continue
 
         r_high = h[open_i:range_end].max()
         r_low = l[open_i:range_end].min()
@@ -326,13 +397,13 @@ def generate_twap_signals(df):
     return signals
 
 
-def run_pair(name, strategy):
+def run_pair(name, strategy, weekdays=None):
     df = load_5m(name)
     df = tag_sessions(df)
     o, h, l, c = df["open"].values, df["high"].values, df["low"].values, df["close"].values
     spread = pa.SPREAD.get(name, 0.0002)
     if strategy == "orb":
-        signals = generate_orb_signals(df)
+        signals = generate_orb_signals(df, weekdays=weekdays)
     elif strategy == "twap":
         signals = generate_twap_signals(df)
     else:
@@ -366,11 +437,27 @@ def main():
             tier = "  (banned - unstable or no edge)"
         print(f"{name:8s}  ORB: {orb_s:36s}  TWAP: {twap_s:36s}{tier}")
 
-    print("\n=== Verdict ===")
+    print("\n=== Verdict (unfiltered, all weekdays) ===")
     print(f"ORB PRIMARY: {', '.join(ORB_PRIMARY)} — real, split-half-consistent edge, same params on all 4.")
     print(f"ORB WATCH (smaller size): {', '.join(ORB_WATCH)} — real in first half, fades hard in second, treat cautiously.")
     print("TWAP reversion: banned on every pair tested, do not trade.")
-    print("Only 60 days of data available (Yahoo's intraday ceiling) — re-validate weekly, not monthly.")
+
+    print("\n=== Tuesday-Thursday-only re-cut (currently recommended) ===")
+    core_trades = []
+    for name in ORB_CORE:
+        trades, m = run_pair(name, "orb", weekdays=ALLOWED_WEEKDAYS)
+        core_trades.extend(trades)
+        s = f"n={m['n']:3d} WR={m['win_rate']:4.0f}% PF={m['pf']:5.2f} E={m['expectancy_R']:+.2f}" if m else "0 trades"
+        print(f"{name:8s}  Tue-Thu ORB: {s}")
+    pooled = pa.metrics(core_trades)
+    if pooled:
+        print(f"POOLED CORE ({'+'.join(ORB_CORE)}): n={pooled['n']} WR={pooled['win_rate']:.1f}% PF={pooled['pf']:.2f} E={pooled['expectancy_R']:+.2f}")
+    for name in ORB_CORE_WATCH:
+        trades, m = run_pair(name, "orb", weekdays=ALLOWED_WEEKDAYS)
+        s = f"n={m['n']:3d} WR={m['win_rate']:4.0f}% PF={m['pf']:5.2f} E={m['expectancy_R']:+.2f}" if m else "0 trades"
+        print(f"{name:8s}  Tue-Thu ORB (WATCH, half size): {s}")
+
+    print("\nOnly 60 days of data available (Yahoo's intraday ceiling) — re-validate weekly, not monthly.")
     return results
 
 

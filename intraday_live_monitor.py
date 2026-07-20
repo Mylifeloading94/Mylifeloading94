@@ -49,10 +49,43 @@ import live_monitor as lm  # reuse auth/instrument/position/quote plumbing
 STATE_PATH = os.path.join(os.path.dirname(__file__), "intraday_active.json")
 LOG_PATH = os.path.join(os.path.dirname(__file__), "intraday_live_monitor_log.json")
 BASE = lm.BASE
-BASE_RISK_PCT = 0.005  # 0.5% base risk — below the swing SECONDARY tier, per this file's thinner validation
+BASE_RISK_PCT = 0.02  # 2% risk per trade, explicit user choice (2026-07-20)
 MIN_QTY = 0.01
 FRESH_BAR_TOLERANCE = 2  # signal must be within the last N closed 5m bars (~10 min)
 BAR_MINUTES = 5
+LOT_STEP = 0.01
+
+# Lot-size math confirmed against this account's real fill history (see
+# trading_backtest_full_stats.xlsx "Lot Size" column, 2026-07-20). Both
+# ORB_CORE pairs use the standard 100,000-unit FX contract; USDCHF needs
+# a CHF->USD adjustment by current price since USD is the base currency
+# but CHF is the quote currency.
+CONTRACT_SIZE = 100_000
+
+
+def get_account_balance(env):
+    r = requests.post(f"{BASE}/auth/jwt/token", json={
+        "email": env["TL_EMAIL"], "password": env["TL_PASSWORD"], "server": env["TL_SERVER"],
+    })
+    r.raise_for_status()
+    token = r.json()["accessToken"]
+    resp = requests.get(f"{BASE}/auth/jwt/all-accounts", headers={"Authorization": f"Bearer {token}"}).json()
+    acct = resp["accounts"][0]
+    return float(acct["accountBalance"])
+
+
+def compute_lot_size(name, risk_amt, stop_dist, ref_price):
+    if stop_dist <= 0:
+        return MIN_QTY
+    if name == "EURUSD":
+        value_per_unit_per_lot = CONTRACT_SIZE
+    elif name == "USDCHF":
+        value_per_unit_per_lot = CONTRACT_SIZE / ref_price
+    else:
+        raise ValueError(f"no confirmed lot formula for {name}")
+    lots = risk_amt / (stop_dist * value_per_unit_per_lot)
+    lots = max(MIN_QTY, round(lots / LOT_STEP) * LOT_STEP)
+    return round(lots, 2)
 
 
 def load_state():
@@ -139,7 +172,7 @@ def check_fresh_signal(name):
     return sig, "fresh signal"
 
 
-def place_trade(headers, account_id, instrument, sig, name):
+def place_trade(headers, account_id, instrument, sig, name, balance):
     instrument_id = instrument["tradableInstrumentId"]
     trade_route = lm.find_route(instrument, "TRADE")
     info_route = lm.find_route(instrument, "INFO")
@@ -152,12 +185,16 @@ def place_trade(headers, account_id, instrument, sig, name):
     stop = round(ref_price - r_unit, 5) if direction == 1 else round(ref_price + r_unit, 5)
     target = round(ref_price + ist.TARGET_R * r_unit, 5) if direction == 1 else round(ref_price - ist.TARGET_R * r_unit, 5)
 
+    risk_amt = balance * BASE_RISK_PCT
+    stop_dist = abs(ref_price - stop)
+    qty = compute_lot_size(name, risk_amt, stop_dist, ref_price)
+
     body = {
         "tradableInstrumentId": instrument_id,
         "routeId": trade_route,
         "type": "market",
         "side": side,
-        "qty": MIN_QTY,
+        "qty": qty,
         "validity": "IOC",
         "stopLoss": stop,
         "stopLossType": "absolute",
@@ -167,7 +204,8 @@ def place_trade(headers, account_id, instrument, sig, name):
     resp = requests.post(f"{BASE}/trade/accounts/{account_id}/orders", headers=headers, json=body)
     result = resp.json()
     log_event({
-        "action": "place_trade", "pair": name, "side": side, "qty": MIN_QTY,
+        "action": "place_trade", "pair": name, "side": side, "qty": qty,
+        "risk_pct": BASE_RISK_PCT, "risk_amt": round(risk_amt, 2), "balance_at_entry": balance,
         "ref_price": ref_price, "stop": stop, "target_1_5R": target,
         "signal_time": sig["signal_time"], "deadline_time": sig["deadline_time"], "result": result,
     })
@@ -198,11 +236,13 @@ def main():
     instruments = lm.get_instruments(headers, account_id)
     positions = lm.get_positions(headers, account_id)
     open_by_iid = {str(p[1]): p for p in positions}
+    balance = get_account_balance(env)
 
     state = load_state()
     now = datetime.datetime.utcnow()
 
     print(f"=== Intraday (ORB_CORE) live monitor run {now.isoformat()} UTC ===")
+    print(f"Account balance: ${balance:,.2f}  |  risk per trade: {BASE_RISK_PCT*100:.0f}% = ${balance*BASE_RISK_PCT:,.2f}")
     print(f"Open positions on account: {len(positions)}")
 
     # 1) time-stop: flatten any tracked intraday position past its deadline
@@ -236,7 +276,7 @@ def main():
 
         print(f"{name}: FRESH SIGNAL dir={'LONG' if sig['dir']==1 else 'SHORT'} "
               f"(bar {sig['signal_time']}, deadline {sig['deadline_time']}) -> placing trade")
-        result = place_trade(headers, account_id, instrument, sig, name)
+        result = place_trade(headers, account_id, instrument, sig, name, balance)
         print(f"  order result: {result}")
         if result.get("s") == "ok" or "d" in result:
             state[iid] = {"pair": name, "deadline_time": sig["deadline_time"]}

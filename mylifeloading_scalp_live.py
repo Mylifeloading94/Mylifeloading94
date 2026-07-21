@@ -290,7 +290,12 @@ def main():
             print(f"{name}: position already open, skipping (one at a time)")
             continue
 
-        sig, reason = check_fresh_signal(name)
+        try:
+            sig, reason = check_fresh_signal(name)
+        except Exception as e:
+            print(f"{name}: ERROR checking signal ({e}) -- skipping this pair this cycle")
+            log_event({"action": "check_error", "pair": name, "error": str(e)})
+            continue
         if sig is None:
             print(f"{name}: no trade ({reason})")
             continue

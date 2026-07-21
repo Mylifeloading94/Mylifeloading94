@@ -1,8 +1,10 @@
 """
-Live monitor for the intraday ORB scalp strategy — ORB_CORE pairs
-(EURUSD, USDCHF) only, Tuesday-Thursday, session-gated, same-day
-time-stop. See intraday_strategy.py's docstring "UPDATE (2026-07-20)"
-section for the full validation numbers (n=117, WR=60.7%, PF=1.89).
+Live monitor for the intraday ORB scalp strategy — EURUSD, AUDUSD,
+USDCHF, USDCAD, NZDUSD (LIVE_PAIRS), Tuesday-Thursday, session-gated,
+same-day time-stop. Expanded from the original 2-pair ORB_CORE set to
+this 5-pair set on 2026-07-21 to match the backtest validated against
+the $150,000 AQUA account (268 trades taken, WR=60.4%, PF=2.21,
++147.72% with a 2% daily-loss cap, see aqua_backtest_report.xlsx).
 
 This is deliberately separate from live_monitor.py (the swing strategy's
 live executor) rather than merged into it: different timeframe (5m vs
@@ -55,12 +57,17 @@ FRESH_BAR_TOLERANCE = 2  # signal must be within the last N closed 5m bars (~10 
 BAR_MINUTES = 5
 LOT_STEP = 0.01
 
+# 5-pair set backtested and approved 2026-07-21 (aqua_backtest_report.xlsx).
+LIVE_PAIRS = ["EURUSD", "AUDUSD", "USDCHF", "USDCAD", "NZDUSD"]
+
 # Lot-size math confirmed against this account's real fill history (see
-# trading_backtest_full_stats.xlsx "Lot Size" column, 2026-07-20). Both
-# ORB_CORE pairs use the standard 100,000-unit FX contract; USDCHF needs
-# a CHF->USD adjustment by current price since USD is the base currency
-# but CHF is the quote currency.
+# trading_backtest_full_stats.xlsx "Lot Size" column, 2026-07-20).
+# EURUSD/AUDUSD/NZDUSD: base=non-USD, quote=USD -> standard 100k contract.
+# USDCHF/USDCAD: base=USD, quote=CHF/CAD -> adjust by current price to
+# convert the quote-currency P&L back to USD.
 CONTRACT_SIZE = 100_000
+USD_BASE_PAIRS = {"USDCHF", "USDCAD"}
+USD_QUOTE_PAIRS = {"EURUSD", "AUDUSD", "NZDUSD"}
 
 
 def get_account_balance(env):
@@ -84,9 +91,9 @@ def get_account_balance(env):
 def compute_lot_size(name, risk_amt, stop_dist, ref_price):
     if stop_dist <= 0:
         return MIN_QTY
-    if name == "EURUSD":
+    if name in USD_QUOTE_PAIRS:
         value_per_unit_per_lot = CONTRACT_SIZE
-    elif name == "USDCHF":
+    elif name in USD_BASE_PAIRS:
         value_per_unit_per_lot = CONTRACT_SIZE / ref_price
     else:
         raise ValueError(f"no confirmed lot formula for {name}")
@@ -248,7 +255,7 @@ def main():
     state = load_state()
     now = datetime.datetime.utcnow()
 
-    print(f"=== Intraday (ORB_CORE) live monitor run {now.isoformat()} UTC ===")
+    print(f"=== Intraday (LIVE_PAIRS) live monitor run {now.isoformat()} UTC ===")
     print(f"Account balance: ${balance:,.2f}  |  risk per trade: {BASE_RISK_PCT*100:.0f}% = ${balance*BASE_RISK_PCT:,.2f}")
     print(f"Open positions on account: {len(positions)}")
 
@@ -265,8 +272,8 @@ def main():
             state.pop(iid, None)
     save_state(state)
 
-    # 2) look for fresh entries on ORB_CORE pairs only
-    for name in ist.ORB_CORE:
+    # 2) look for fresh entries on LIVE_PAIRS only
+    for name in LIVE_PAIRS:
         if name not in instruments:
             print(f"{name}: not found on broker, skipping")
             continue

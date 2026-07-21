@@ -243,6 +243,7 @@ def close_position(headers, account_id, position_id, name):
 
 
 def main():
+    no_new_entries = os.environ.get("INTRADAY_NO_NEW_ENTRIES") == "1"
     env = lm.load_env()
     headers = lm.auth(env)
     account_id = env["TL_ACCOUNT_ID"]
@@ -273,6 +274,9 @@ def main():
     save_state(state)
 
     # 2) look for fresh entries on LIVE_PAIRS only
+    if no_new_entries:
+        print("INTRADAY_NO_NEW_ENTRIES=1 set -- skipping new-entry scan, time-stops above still apply.")
+        return
     for name in LIVE_PAIRS:
         if name not in instruments:
             print(f"{name}: not found on broker, skipping")

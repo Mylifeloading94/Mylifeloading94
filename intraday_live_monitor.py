@@ -172,7 +172,7 @@ def check_fresh_signal(name):
     weekday = df.index[-1].weekday()
     if weekday not in ist.ALLOWED_WEEKDAYS:
         return None, f"weekday={weekday} not in Tue-Thu"
-    signals = ist.generate_orb_signals(df, weekdays=ist.ALLOWED_WEEKDAYS)
+    signals = ist.generate_orb_signals(df, weekdays=ist.ALLOWED_WEEKDAYS, pair=name, session_banned=ist.SESSION_BANNED)
     last_i = len(df) - 1
     recent = [s for s in signals if s["i"] >= last_i - FRESH_BAR_TOLERANCE]
     if not recent:

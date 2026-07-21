@@ -297,10 +297,23 @@ def simulate_single_target(name, o, h, l, c, signals, spread):
     return trades
 
 
-def generate_orb_signals(df, weekdays=None):
+SESSION_BANNED = {("AUDUSD", "London"), ("USDCAD", "London")}
+# Validated 2026-07-21 (83-day dataset): both combos split-half confirmed
+# weak/losing on their own -- AUDUSD-London PF 1.31->1.08 (weakening),
+# USDCAD-London PF 0.73/0.82 (losing both halves). Dropping them keeps
+# ~99.7% of the total gain (+112.5% vs +112.7% unfiltered, $150k/1% risk)
+# while cutting max drawdown from 14.7% to 11.9% and removing 60 of 299
+# trades -- same return, meaningfully less risk and fewer trades needed.
+
+
+def generate_orb_signals(df, weekdays=None, pair=None, session_banned=None):
     """weekdays: optional set of allowed pandas weekday ints (Mon=0..Sun=6)
     to filter signals to, e.g. ALLOWED_WEEKDAYS for the validated Tue-Thu
-    cut. None (default) keeps all weekdays."""
+    cut. None (default) keeps all weekdays.
+    pair + session_banned: optional pair-name + set of (pair, session_name)
+    tuples to exclude, e.g. SESSION_BANNED. Both must be provided together;
+    session_name is the SESSIONS label ("London"/"NY"), not the full
+    session_id (which also carries the date)."""
     o, h, l, c = df["open"].values, df["high"].values, df["low"].values, df["close"].values
     session_open_i = df["session_open_i"].values
     session_id = df["session_id"].values
@@ -326,6 +339,10 @@ def generate_orb_signals(df, weekdays=None):
         seen_sessions.add(sid)
         if weekdays is not None and weekday[i] not in weekdays:
             continue
+        if session_banned and pair:
+            session_name = sid.split("_", 1)[1] if "_" in sid else sid
+            if (pair, session_name) in session_banned:
+                continue
 
         r_high = h[open_i:range_end].max()
         r_low = l[open_i:range_end].min()
@@ -397,13 +414,13 @@ def generate_twap_signals(df):
     return signals
 
 
-def run_pair(name, strategy, weekdays=None):
+def run_pair(name, strategy, weekdays=None, session_banned=None):
     df = load_5m(name)
     df = tag_sessions(df)
     o, h, l, c = df["open"].values, df["high"].values, df["low"].values, df["close"].values
     spread = pa.SPREAD.get(name, 0.0002)
     if strategy == "orb":
-        signals = generate_orb_signals(df, weekdays=weekdays)
+        signals = generate_orb_signals(df, weekdays=weekdays, pair=name, session_banned=session_banned)
     elif strategy == "twap":
         signals = generate_twap_signals(df)
     else:

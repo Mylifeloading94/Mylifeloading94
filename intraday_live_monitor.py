@@ -201,7 +201,11 @@ def place_trade(headers, account_id, instrument, sig, name, balance):
 
     risk_amt = balance * BASE_RISK_PCT
     stop_dist = abs(ref_price - stop)
-    qty = compute_lot_size(name, risk_amt, stop_dist, ref_price)
+    fixed_lot = os.environ.get("INTRADAY_FIXED_LOT")
+    if fixed_lot:
+        qty = round(float(fixed_lot), 2)
+    else:
+        qty = compute_lot_size(name, risk_amt, stop_dist, ref_price)
 
     body = {
         "tradableInstrumentId": instrument_id,
@@ -219,6 +223,7 @@ def place_trade(headers, account_id, instrument, sig, name, balance):
     result = resp.json()
     log_event({
         "action": "place_trade", "pair": name, "side": side, "qty": qty,
+        "fixed_lot_override": bool(fixed_lot),
         "risk_pct": BASE_RISK_PCT, "risk_amt": round(risk_amt, 2), "balance_at_entry": balance,
         "ref_price": ref_price, "stop": stop, "target_1_5R": target,
         "signal_time": sig["signal_time"], "deadline_time": sig["deadline_time"], "result": result,

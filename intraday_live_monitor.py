@@ -49,7 +49,7 @@ import live_monitor as lm  # reuse auth/instrument/position/quote plumbing
 STATE_PATH = os.path.join(os.path.dirname(__file__), "intraday_active.json")
 LOG_PATH = os.path.join(os.path.dirname(__file__), "intraday_live_monitor_log.json")
 BASE = lm.BASE
-BASE_RISK_PCT = 0.02  # 2% risk per trade, explicit user choice (2026-07-20)
+BASE_RISK_PCT = 0.01  # 1% risk per trade, explicit user choice (2026-07-21, new AQUA account)
 MIN_QTY = 0.01
 FRESH_BAR_TOLERANCE = 2  # signal must be within the last N closed 5m bars (~10 min)
 BAR_MINUTES = 5
@@ -64,14 +64,21 @@ CONTRACT_SIZE = 100_000
 
 
 def get_account_balance(env):
+    """Match on TL_ACCOUNT_ID explicitly -- accounts[0] silently picked the
+    wrong sub-account when a login has more than one (e.g. this AQUA login
+    has both a $100k and a $150k demo account under the same credentials)."""
     r = requests.post(f"{BASE}/auth/jwt/token", json={
         "email": env["TL_EMAIL"], "password": env["TL_PASSWORD"], "server": env["TL_SERVER"],
     })
     r.raise_for_status()
     token = r.json()["accessToken"]
     resp = requests.get(f"{BASE}/auth/jwt/all-accounts", headers={"Authorization": f"Bearer {token}"}).json()
-    acct = resp["accounts"][0]
-    return float(acct["accountBalance"])
+    accounts = resp["accounts"]
+    target_id = str(env["TL_ACCOUNT_ID"])
+    for acct in accounts:
+        if str(acct["id"]) == target_id:
+            return float(acct["accountBalance"])
+    raise RuntimeError(f"TL_ACCOUNT_ID={target_id} not found among accounts: {[a['id'] for a in accounts]}")
 
 
 def compute_lot_size(name, risk_amt, stop_dist, ref_price):

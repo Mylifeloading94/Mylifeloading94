@@ -62,6 +62,10 @@ import live_monitor as lm
 STATE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_active.json")
 LOG_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_log.json")
 TRADED_SESSIONS_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_traded_sessions.json")
+# Presence of this file halts all NEW entries (user instruction, 2026-07-22,
+# after a 0-for-7 day). Time-stop closes on any already-open position still
+# run -- this only blocks opening anything new. Delete the file to resume.
+PAUSE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_PAUSED")
 BASE = lm.BASE
 
 FX_LOT = 0.50  # explicit user choice, 2026-07-22
@@ -339,6 +343,10 @@ def main():
             close_position(headers, account_id, pos[0], rec["pair"])
             state.pop(iid, None)
     save_state(state)
+
+    if os.path.exists(PAUSE_PATH):
+        print("PAUSED: new entries disabled by user (delete mylifeloading_scalp_PAUSED to resume) -- skipping all pairs")
+        return
 
     for name in PAIR_CONFIG:
         if name not in instruments:

@@ -67,10 +67,15 @@ FX_LOT = 0.20
 INDEX_LOT = 0.01
 INDEX_PAIRS = {"NAS100", "SPX500", "US30"}
 
+# BANNED 2026-07-22 (explicit, locked-in user instruction): these 6 pairs
+# came out net-negative in the 1% risk backtest (mylifeloading_scalp_1pct_backtest.xlsx)
+# and must never be traded on this account -- SPX500, US30, AUDJPY, NAS100,
+# NZDJPY, AUDUSD. Do not re-add without a fresh backtest showing they've
+# turned profitable AND explicit user sign-off.
+BANNED_PAIRS = {"SPX500", "US30", "AUDJPY", "NAS100", "NZDJPY", "AUDUSD"}
+
 # One validated (timeframe, session) setup per pair -- see module docstring.
 PAIR_CONFIG = {
-    "AUDJPY": {"timeframe": "15m", "session": "NY"},
-    "AUDUSD": {"timeframe": "15m", "session": "NY"},
     "CADJPY": {"timeframe": "15m", "session": "London"},
     "EURAUD": {"timeframe": "15m", "session": "London"},   # Low confidence
     "EURJPY": {"timeframe": "15m", "session": "London"},
@@ -78,15 +83,12 @@ PAIR_CONFIG = {
     "GBPAUD": {"timeframe": "15m", "session": "London"},   # Low confidence
     "GBPCAD": {"timeframe": "15m", "session": "London"},
     "GBPUSD": {"timeframe": "15m", "session": "London"},
-    "NAS100": {"timeframe": "15m", "session": "NY"},
-    "NZDJPY": {"timeframe": "15m", "session": "NY"},
     "NZDUSD": {"timeframe": "15m", "session": "Asian"},
-    "SPX500": {"timeframe": "15m", "session": "NY"},
-    "US30": {"timeframe": "15m", "session": "NY"},
     "USDCHF": {"timeframe": "15m", "session": "NY"},
     "USDJPY": {"timeframe": "15m", "session": "London"},
     "XAUUSD": {"timeframe": "15m", "session": "NY"},
 }
+assert not (BANNED_PAIRS & set(PAIR_CONFIG)), "a banned pair is still in PAIR_CONFIG"
 SESSION_HOURS = {"Asian": (0, 3), "London": (7, 10), "NY": (12, 15)}
 
 ORB_MINUTES = 30

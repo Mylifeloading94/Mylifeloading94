@@ -34,6 +34,16 @@ original 5-pair Tue-Thu ORB_CORE system) -- runs independently, its own
 state/log files, checks the broker's live position list before opening
 anything so it can't double up on an instrument the other scripts hold.
 
+DATA SOURCE (updated 2026-07-21): live signal detection pulls bars from
+TradeLocker's own /trade/history endpoint -- the actual feed trades
+fill against -- instead of Yahoo Finance. This removes both a feed-
+mismatch risk (Yahoo vs. the broker's own intrabar highs/lows) and the
+recurring Yahoo 500/404/connection-reset errors seen in this account's
+first hours live. scalp_scan.py (backtesting) still uses Yahoo, since
+its multi-month history depth isn't something TradeLocker's history
+endpoint has been tested for -- only live detection changed here, which
+only ever needs the last ~2 days of bars to find today's session range.
+
 Run manually (intended to run every few minutes):
     python3 mylifeloading_scalp_live.py
 """
@@ -47,7 +57,6 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
 import price_action_strategy as pa
-import pa_data
 import live_monitor as lm
 
 STATE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_active.json")
@@ -93,16 +102,36 @@ def load_env():
     return lm.load_env()
 
 
-def fetch_bars(name, timeframe):
-    symbol = pa_data.WATCHLIST[name]
-    interval = timeframe
-    data = pa_data.fetch(symbol, range_="10d", interval=interval)
-    result = data["chart"]["result"][0]
-    ts = result["timestamp"]
-    q = result["indicators"]["quote"][0]
-    df = pd.DataFrame({"open": q["open"], "high": q["high"], "low": q["low"], "close": q["close"]})
-    df.index = pd.to_datetime(ts, unit="s", utc=True)
-    df = df[~df.index.duplicated(keep="first")].dropna()
+TL_RESOLUTION = {"5m": "5m", "15m": "15m"}
+
+
+def fetch_bars(headers, instrument, timeframe):
+    """Pulls bars from TradeLocker's own /trade/history endpoint -- the
+    actual price feed trades fill against -- instead of Yahoo Finance.
+    Backtesting (scalp_scan.py) still uses Yahoo for its deep multi-month
+    history; this is live-signal-detection only, where 2 days of bars is
+    plenty to find the current session's opening range and breakout."""
+    iid = instrument["tradableInstrumentId"]
+    route = lm.find_route(instrument, "INFO")
+    end = datetime.datetime.utcnow()
+    start = end - datetime.timedelta(days=2)
+    params = {
+        "tradableInstrumentId": iid, "routeId": route,
+        "resolution": TL_RESOLUTION[timeframe],
+        "from": int(start.timestamp() * 1000), "to": int(end.timestamp() * 1000),
+    }
+    r = requests.get(f"{BASE}/trade/history", headers=headers, params=params)
+    r.raise_for_status()
+    resp = r.json()
+    if resp.get("s") == "error":
+        raise RuntimeError(f"TradeLocker history error: {resp.get('errmsg')}")
+    bars = resp["d"]["barDetails"]
+    df = pd.DataFrame({
+        "open": [b["o"] for b in bars], "high": [b["h"] for b in bars],
+        "low": [b["l"] for b in bars], "close": [b["c"] for b in bars],
+    })
+    df.index = pd.to_datetime([b["t"] for b in bars], unit="ms", utc=True)
+    df = df[~df.index.duplicated(keep="first")].dropna().sort_index()
     return df
 
 
@@ -164,9 +193,9 @@ def scan_for_signal(df, bar_min, open_i, range_end, window_end):
     return None
 
 
-def check_fresh_signal(name):
+def check_fresh_signal(name, headers, instrument):
     cfg = PAIR_CONFIG[name]
-    df = fetch_bars(name, cfg["timeframe"])
+    df = fetch_bars(headers, instrument, cfg["timeframe"])
     bar_min = 5 if cfg["timeframe"] == "5m" else 15
     sh, eh = SESSION_HOURS[cfg["session"]]
     session_id, session_open_i = tag_session(df, sh, eh)
@@ -291,7 +320,7 @@ def main():
             continue
 
         try:
-            sig, reason = check_fresh_signal(name)
+            sig, reason = check_fresh_signal(name, headers, instrument)
         except Exception as e:
             print(f"{name}: ERROR checking signal ({e}) -- skipping this pair this cycle")
             log_event({"action": "check_error", "pair": name, "error": str(e)})

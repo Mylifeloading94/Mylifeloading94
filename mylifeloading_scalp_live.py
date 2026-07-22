@@ -61,6 +61,7 @@ import live_monitor as lm
 
 STATE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_active.json")
 LOG_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_log.json")
+TRADED_SESSIONS_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_traded_sessions.json")
 BASE = lm.BASE
 
 FX_LOT = 0.50  # explicit user choice, 2026-07-22
@@ -183,15 +184,20 @@ def scan_for_signal(df, bar_min, open_i, range_end, window_end):
     r_low = l[open_i:range_end].min()
     if r_high - r_low <= 0:
         return None
-    deadline_offset = max(1, SESSION_END_OFFSET_MIN // bar_min)
-    deadline_i = min(open_i + deadline_offset, n - 1)
+    # Deadline is a wall-clock time (session open + 3h), NOT a bar index --
+    # a bar-index deadline clamped to len(df)-1 collapses to "now" whenever
+    # the fetch window doesn't yet contain a bar that far in the future,
+    # which is always true right when a signal first fires. That bug made
+    # every position's deadline equal its own entry time, triggering an
+    # immediate time-stop close on the very next cycle. Found live 2026-07-22.
+    deadline_time = df.index[open_i] + pd.Timedelta(minutes=SESSION_END_OFFSET_MIN)
     for j in range(range_end, window_end):
         if np.isnan(atr_[j]) or atr_[j] <= 0:
             continue
         if c[j] > r_high:
-            return {"i": j, "dir": 1, "entry": r_high + 1e-9, "stop": r_low - STOP_BUFFER_ATR * atr_[j], "deadline_i": deadline_i}
+            return {"i": j, "dir": 1, "entry": r_high + 1e-9, "stop": r_low - STOP_BUFFER_ATR * atr_[j], "deadline_time": deadline_time}
         if c[j] < r_low:
-            return {"i": j, "dir": -1, "entry": r_low - 1e-9, "stop": r_high + STOP_BUFFER_ATR * atr_[j], "deadline_i": deadline_i}
+            return {"i": j, "dir": -1, "entry": r_low - 1e-9, "stop": r_high + STOP_BUFFER_ATR * atr_[j], "deadline_time": deadline_time}
     return None
 
 
@@ -214,7 +220,7 @@ def check_fresh_signal(name, headers, instrument):
         return None, "signal is stale (older than freshness tolerance)"
     sig["r_unit"] = abs(sig["entry"] - sig["stop"])
     sig["signal_time"] = str(df.index[sig["i"]])
-    sig["deadline_time"] = str(df.index[sig["deadline_i"]])
+    sig["deadline_time"] = str(sig["deadline_time"])
     return sig, "fresh signal"
 
 
@@ -241,6 +247,27 @@ def load_state():
 
 def save_state(state):
     json.dump(state, open(STATE_PATH, "w"), indent=2)
+
+
+def load_traded_sessions():
+    """Tracks (pair, date, session) combos already traded today, so a
+    position that gets stopped out fast can't re-enter on the same
+    breakout while the signal is still within the freshness window --
+    the backtest only ever allows one trade per pair per session
+    (busy_until in generate_orb), so live must match that exactly.
+    Pruned to the last 3 days on every load to stay small."""
+    if not os.path.exists(TRADED_SESSIONS_PATH):
+        return set()
+    try:
+        raw = json.load(open(TRADED_SESSIONS_PATH))
+    except Exception:
+        return set()
+    cutoff = (datetime.datetime.utcnow() - datetime.timedelta(days=3)).date().isoformat()
+    return {k for k in raw if k.split("|")[1] >= cutoff}
+
+
+def save_traded_sessions(keys):
+    json.dump(sorted(keys), open(TRADED_SESSIONS_PATH, "w"), indent=2)
 
 
 def place_trade(headers, account_id, instrument, sig, name):
@@ -294,7 +321,9 @@ def main():
     open_by_iid = {str(p[1]): p for p in positions}
 
     state = load_state()
+    traded_sessions = load_traded_sessions()
     now = datetime.datetime.utcnow()
+    today = now.date().isoformat()
 
     print(f"=== Mylifeloading Scalp live monitor run {now.isoformat()} UTC ===")
     print(f"Open positions on account: {len(positions)}")
@@ -321,6 +350,11 @@ def main():
             print(f"{name}: position already open, skipping (one at a time)")
             continue
 
+        session_key = f"{name}|{today}|{PAIR_CONFIG[name]['session']}"
+        if session_key in traded_sessions:
+            print(f"{name}: already traded this session today, skipping (one trade per pair per session, matches backtest)")
+            continue
+
         try:
             sig, reason = check_fresh_signal(name, headers, instrument)
         except Exception as e:
@@ -339,6 +373,8 @@ def main():
         if result.get("s") == "ok" or "d" in result:
             state[iid] = {"pair": name, "deadline_time": sig["deadline_time"]}
             save_state(state)
+            traded_sessions.add(session_key)
+            save_traded_sessions(traded_sessions)
 
 
 if __name__ == "__main__":

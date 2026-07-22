@@ -63,7 +63,7 @@ STATE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_active
 LOG_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_scalp_log.json")
 BASE = lm.BASE
 
-FX_LOT = 0.20
+FX_LOT = 0.50  # explicit user choice, 2026-07-22
 INDEX_LOT = 0.01
 INDEX_PAIRS = {"NAS100", "SPX500", "US30"}
 

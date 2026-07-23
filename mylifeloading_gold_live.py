@@ -1,29 +1,47 @@
 """
-"Mylifeloading Gold" live monitor -- XAUUSD-only, 15m Breakout + Retest
-strategy, locked in 2026-07-22 after a dedicated 90-day backtest
-(mylifeloading_gold_strategy_backtest.xlsx, S3 sheet).
+"Mylifeloading Gold" live monitor -- XAUUSD-only, "Edge Model v2" strategy,
+locked in 2026-07-23, REPLACING the earlier Breakout+Retest strategy (user
+disliked it) after a dedicated 90-day backtest
+(mylifeloading_gold_edgemodel_100k_2pct_backtest.xlsx).
 
-Setup: on the 15m chart, find N-bar consolidation ranges (width < a
-multiple of ATR), wait for a strong-bodied close beyond the range
-(breakout), then wait up to K bars for price to pull back and retest the
-broken level with a confirmation candle back in the breakout direction --
-that retest candle is the entry.
+Origin: rules extracted from a YouTube course promo's narration (BOS +
+Fair Value Gap + retest). The video's own claimed results (6 wins/1 loss,
+11R) were cherry-picked marketing footage and were explicitly NOT used as
+validation -- the rules were backtested honestly from scratch. The first
+attempt (video's rules exactly as described, 2-bar swing fractals) FAILED
+split-half validation: every parameter variation tried lost money in the
+first half of the 90-day window and won in the second half -- a sign of
+regime-luck, not a real edge. Widening swing detection to 4-bar fractals
+and tightening the target to a fixed 0.5R fixed this: 128 trades, 71.9%
+win rate on BOTH the first and second 45-day halves independently (PF 1.28
+vs 1.34) -- the most consistent split-half result of any gold strategy
+tested this session, and both directions traded (72 short / 56 long, no
+one-sided bias).
 
-Target was deliberately shrunk to a fixed 0.3R (instead of the original
-measured-move target) to hit the user's explicit ">=60%, aim for 80%"
-win-rate request. This is a real tradeoff, not a free upgrade: at 0.3R
-target / 1R stop, breakeven win rate is 76.9%, so the strategy only nets
-out profitable (PF 1.22 in the 90-day backtest, both directions, 114
-trades, split-half consistent at ~80% WR on each half) because it clears
-that bar -- a single stop-out erases about 3-4 average wins. This is a
-thinner, more streak-sensitive edge than the 60%-WR / PF-1.72 version of
-the same setup (measured-move target) that was also tested; see the
-Summary tab of the backtest workbook for that comparison.
+Setup:
+1. Track swing structure on 15m via 4-bar fractals.
+2. Break of Structure (BOS) = a close beyond the most recent relevant
+   swing high/low, in the direction away from the most recently-consumed
+   BOS ("fresh" structure only -- a stale/already-acted-on BOS is skipped).
+3. Displacement = the BOS must leave a real 3-candle Fair Value Gap (FVG).
+   No FVG = "no real displacement" (the video's own invalidation case) --
+   skip, and don't retry that BOS.
+4. Entry: price retraces into the FVG, then a confirmation candle closes
+   back outside the FVG in the BOS direction. Session-filtered to
+   Asian/London/NY hours only (per the video's explicit tip).
+5. Stop: beyond the swing point the impulse originated from, + small ATR
+   buffer. Target: fixed 0.5R.
+6. Invalidated if price trades back through the origin swing before an
+   entry is triggered.
 
-Sizing: 2% of current account equity per trade (explicit user choice,
-2026-07-22), NOT a fixed lot like the FX scalp bot -- position size scales
-with the account balance every trade, same compounding-risk methodology
-used in the backtest spreadsheet.
+An earlier variant added a 4H trend filter on top of this and got a
+better PF (2.13) but only ever fired short trades over this window --
+same one-directional red flag seen on other gold/FX strategies this
+session -- so it was NOT used live. This version trades both directions.
+
+Sizing: 2% of current account equity per trade (user's explicit choice,
+carried over unchanged from the prior gold strategy), NOT a fixed lot --
+position size scales with the account balance every trade.
 
 Separate from mylifeloading_scalp_live.py (11-pair FX ORB scalp, paused)
 and live_monitor.py/intraday_live_monitor.py -- runs independently, own
@@ -58,19 +76,22 @@ PIP = 0.01  # XAUUSD "cent-pip" convention (see backtest workbook note)
 DOLLAR_PER_PIP_PER_LOT = 1.0  # 100oz/lot x $0.01 = $1/pip/1.00 lot -- standard
 # convention, not separately confirmed against this broker's contract spec.
 
-# Strategy params -- must stay identical to strat3_breakout_retest.py's
-# locked-in config (range_n=20, mult=4.0, body=0.5, tol=0.3, K=20,
-# target_R fixed at 0.3, stop_buf=0.10) or live drifts from the backtest.
-RANGE_N = 20
-RANGE_ATR_MULT = 4.0
-BODY_FRAC = 0.5
-RETEST_K = 20
-RETEST_TOL_ATR = 0.3
-STOP_BUF_ATR = 0.10
-TARGET_R = 0.3
-COOLDOWN_BARS = 8
+# Strategy params -- must stay identical to strat4_edge_model.py's
+# locked-in config (swing_left=4, swing_right=4, fixed_R=0.5, min_fvg_atr=0.0,
+# session_filter=True) or live drifts from the backtest.
+SWING_LEFT = 4
+SWING_RIGHT = 4
+STOP_BUF_ATR = 0.15
+RETEST_K = 40
+TARGET_R = 0.5
 MAX_HOLD_BARS = 96  # 24h time-stop, matches backtest's simulate_trades default
 FRESH_TOLERANCE_MIN = 20  # a confirmed entry bar older than this is stale, skip it
+SESSION_HOURS = {"Asian": (0, 8), "London": (7, 16), "NY": (12, 21)}  # UTC
+
+
+def in_session(ts):
+    h = ts.hour
+    return any(lo <= h < hi for lo, hi in SESSION_HOURS.values())
 
 
 def atr(df, n=14):
@@ -79,6 +100,23 @@ def atr(df, n=14):
     prev_c[0] = c[0]
     tr = np.maximum(h - l, np.maximum(np.abs(h - prev_c), np.abs(l - prev_c)))
     return pd.Series(tr, index=df.index).rolling(n).mean()
+
+
+def find_fractals(df, left, right):
+    """Swing highs/lows confirmed `right` bars after the pivot (no
+    lookahead -- a fractal at position i is only usable starting at
+    i+right)."""
+    h, l = df["high"].values, df["low"].values
+    n = len(df)
+    highs, lows = [], []
+    for i in range(left, n - right):
+        window_h = h[i - left:i + right + 1]
+        if h[i] == window_h.max() and np.argmax(window_h) == left:
+            highs.append((i, i + right, h[i]))
+        window_l = l[i - left:i + right + 1]
+        if l[i] == window_l.min() and np.argmin(window_l) == left:
+            lows.append((i, i + right, l[i]))
+    return highs, lows
 
 
 def load_state():
@@ -121,10 +159,11 @@ def log_event(event):
     json.dump(events[-2000:], open(LOG_PATH, "w"), indent=2)
 
 
-def fetch_bars(headers, instrument, days=6):
+def fetch_bars(headers, instrument, days=15):
     """15m bars from TradeLocker's own /trade/history -- same feed trades
-    fill against. days=6 comfortably covers RANGE_N + ATR warmup + the
-    RETEST_K lookback window with margin for weekends/thin sessions."""
+    fill against. days=15 gives the swing-structure tracking (fractals,
+    fresh-BOS state) enough history to have converged by the time we
+    reach "now", not just enough to cover the RETEST_K lookback window."""
     iid = instrument["tradableInstrumentId"]
     route = lm.find_route(instrument, "INFO")
     end = datetime.datetime.utcnow()
@@ -149,78 +188,107 @@ def fetch_bars(headers, instrument, days=6):
 
 
 def find_latest_signal(df):
-    """Ports strat3_breakout_retest.py's generate_signals() -- range ->
-    breakout -> retest+confirmation -> fixed 0.3R target -- but only scans
-    forward far enough to report the single most recent signal (if any),
-    since live only cares about "is there a fresh entry right now". Kept
-    parameter-identical to the backtest so live doesn't drift from it."""
+    """Ports strat4_edge_model.py's generate_signals() -- 4-bar swing
+    structure -> fresh BOS -> real 3-candle FVG (displacement) -> retrace
+    into the FVG -> confirmation close back outside it -> fixed 0.5R
+    target -- but only scans forward far enough to report the single most
+    recent signal (if any), since live only cares about "is there a fresh
+    entry right now". Kept parameter-identical to the backtest so live
+    doesn't drift from it."""
     df = df.copy()
     df["atr"] = atr(df, 14)
     o, h, l, c = df["open"].values, df["high"].values, df["low"].values, df["close"].values
     atr_ = df["atr"].values
     n = len(df)
 
+    highs, lows = find_fractals(df, SWING_LEFT, SWING_RIGHT)
+    piv = sorted([(ci, p, "H") for _, ci, p in highs] + [(ci, p, "L") for _, ci, p in lows])
+
     latest = None
-    last_entry_i = -999
-    i = RANGE_N + 20
+    last_bos_i = -1
+    piv_ptr = 0
+    cur_high_pivot = cur_low_pivot = None
+    cur_high_origin = cur_low_origin = None
+    last_piv_price = {"H": None, "L": None}
+
+    busy_until = 0
+    i = SWING_LEFT + SWING_RIGHT + 5
     while i < n - 1:
-        if np.isnan(atr_[i]) or atr_[i] <= 0:
-            i += 1
-            continue
-        if i - last_entry_i < COOLDOWN_BARS:
-            i += 1
-            continue
-        lo = i - RANGE_N
-        rng_high = h[lo:i].max()
-        rng_low = l[lo:i].min()
-        rng_width = rng_high - rng_low
-        if rng_width <= 0 or rng_width > RANGE_ATR_MULT * atr_[i]:
-            i += 1
-            continue
-        body = abs(c[i] - o[i])
-        bar_range = h[i] - l[i]
-        if bar_range <= 0 or body / bar_range < BODY_FRAC:
-            i += 1
-            continue
-
-        direction = None
-        if c[i] > rng_high:
-            direction = 1
-        elif c[i] < rng_low:
-            direction = -1
-        if direction is None:
-            i += 1
-            continue
-
-        level = rng_high if direction == 1 else rng_low
-        tol = RETEST_TOL_ATR * atr_[i]
-        entry_i = None
-        for j in range(i + 1, min(n, i + 1 + RETEST_K)):
-            if direction == 1:
-                touched = l[j] <= level + tol
-                confirm = c[j] > o[j] and c[j] > level - tol
+        while piv_ptr < len(piv) and piv[piv_ptr][0] <= i:
+            ci, p, typ = piv[piv_ptr]
+            if typ == "H":
+                cur_high_origin = last_piv_price["L"]
+                cur_high_pivot = p
             else:
-                touched = h[j] >= level - tol
-                confirm = c[j] < o[j] and c[j] < level + tol
+                cur_low_origin = last_piv_price["H"]
+                cur_low_pivot = p
+            last_piv_price[typ] = p
+            piv_ptr += 1
+
+        if i < busy_until or np.isnan(atr_[i]) or atr_[i] <= 0:
+            i += 1
+            continue
+
+        direction = origin = None
+        if cur_high_pivot is not None and c[i] > cur_high_pivot and i > last_bos_i:
+            direction, origin = 1, cur_low_origin
+        elif cur_low_pivot is not None and c[i] < cur_low_pivot and i > last_bos_i:
+            direction, origin = -1, cur_high_origin
+        if direction is None or origin is None:
+            i += 1
+            continue
+
+        bos_i = i
+        fvg = None
+        for k in range(bos_i, max(1, bos_i - 6), -1):
+            if k - 2 < 0:
+                continue
+            if direction == 1 and h[k - 2] < l[k]:
+                fvg = {"top": l[k], "bottom": h[k - 2]}
+                break
+            if direction == -1 and l[k - 2] > h[k]:
+                fvg = {"top": l[k - 2], "bottom": h[k]}
+                break
+        if fvg is None:
+            last_bos_i = bos_i  # no real displacement -- invalidated
+            i += 1
+            continue
+
+        entry_i = None
+        for j in range(bos_i + 1, min(n, bos_i + 1 + RETEST_K)):
+            if direction == 1:
+                touched = l[j] <= fvg["top"]
+                confirm = c[j] > o[j] and c[j] > fvg["top"]
+            else:
+                touched = h[j] >= fvg["bottom"]
+                confirm = c[j] < o[j] and c[j] < fvg["bottom"]
+            if direction == 1 and l[j] < origin:
+                break
+            if direction == -1 and h[j] > origin:
+                break
             if touched and confirm:
                 entry_i = j
                 break
+        last_bos_i = bos_i
         if entry_i is None:
             i += 1
             continue
+        if not in_session(df.index[entry_i]):
+            i = entry_i + 1
+            continue
 
-        stop = (rng_low - STOP_BUF_ATR * atr_[entry_i]) if direction == 1 else (rng_high + STOP_BUF_ATR * atr_[entry_i])
-        risk = (c[entry_i] - stop) if direction == 1 else (stop - c[entry_i])
+        entry_price = c[entry_i]
+        stop = origin - STOP_BUF_ATR * atr_[entry_i] if direction == 1 else origin + STOP_BUF_ATR * atr_[entry_i]
+        risk = entry_price - stop if direction == 1 else stop - entry_price
         if risk <= 0:
-            last_entry_i = entry_i
             i = entry_i + 1
             continue
 
         latest = {
             "entry_time": df.index[entry_i], "dir": direction,
-            "bar_entry": c[entry_i], "stop": stop, "r_unit": risk,
+            "bar_entry": entry_price, "stop": stop, "r_unit": risk,
         }
-        last_entry_i = entry_i
+        busy_until = entry_i + 1
         i = entry_i + 1
 
     return latest
@@ -265,7 +333,7 @@ def place_trade(headers, account_id, instrument, sig):
     log_event({
         "action": "place_trade", "side": side, "qty": qty, "balance": balance,
         "risk_pct": RISK_PCT, "dollar_risk": round(dollar_risk, 2),
-        "ref_price": ref_price, "stop": stop, "target_0_3R": target,
+        "ref_price": ref_price, "stop": stop, "target_0_5R": target,
         "signal_entry_time": str(sig["entry_time"]), "result": result,
     })
     return result, qty
@@ -331,7 +399,7 @@ def main():
         return
 
     if sig is None:
-        print(f"{INSTRUMENT_NAME}: no trade (no breakout+retest signal in current window)")
+        print(f"{INSTRUMENT_NAME}: no trade (no fresh BOS+FVG+retest signal in current window)")
         return
 
     age_min = (now - sig["entry_time"].tz_localize(None)).total_seconds() / 60

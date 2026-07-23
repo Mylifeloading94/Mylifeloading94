@@ -1,8 +1,6 @@
 """
-"Mylifeloading Gold" live monitor -- XAUUSD-only, "Edge Model v2" strategy,
-locked in 2026-07-23, REPLACING the earlier Breakout+Retest strategy (user
-disliked it) after a dedicated 90-day backtest
-(mylifeloading_gold_edgemodel_100k_2pct_backtest.xlsx).
+"Mylifeloading Gold" live monitor -- XAUUSD-only, "Edge Model v3 (STRICT)"
+strategy, locked in 2026-07-23.
 
 Origin: rules extracted from a YouTube course promo's narration (BOS +
 Fair Value Gap + retest). The video's own claimed results (6 wins/1 loss,
@@ -10,13 +8,16 @@ Fair Value Gap + retest). The video's own claimed results (6 wins/1 loss,
 validation -- the rules were backtested honestly from scratch. The first
 attempt (video's rules exactly as described, 2-bar swing fractals) FAILED
 split-half validation: every parameter variation tried lost money in the
-first half of the 90-day window and won in the second half -- a sign of
-regime-luck, not a real edge. Widening swing detection to 4-bar fractals
-and tightening the target to a fixed 0.5R fixed this: 128 trades, 71.9%
-win rate on BOTH the first and second 45-day halves independently (PF 1.28
-vs 1.34) -- the most consistent split-half result of any gold strategy
-tested this session, and both directions traded (72 short / 56 long, no
-one-sided bias).
+first half of the 90-day window and won in the second half. Widening
+swing detection to 4-bar fractals and a fixed 0.5R target fixed this
+(v2: 128 trades, 71.9% WR both halves). Two further "strict" quality
+filters (v3, this version) then cut weaker setups: the confirmation
+candle must close with a real body (>=30% of its range) and the stop
+distance can't exceed 2x ATR (rejects sloppy/illiquid structure). This
+dropped signal count from 128 to 53 but improved every stat: win rate
+71.9%->75.5%, PF 1.31->1.54, split-half consistency got TIGHTER (first
+45 days PF 1.57, last 45 days PF 1.50), far fewer stop-outs (13 of 53 vs
+~34 of 128), max 3 consecutive losses, zero time-stops.
 
 Setup:
 1. Track swing structure on 15m via 4-bar fractals.
@@ -24,24 +25,28 @@ Setup:
    swing high/low, in the direction away from the most recently-consumed
    BOS ("fresh" structure only -- a stale/already-acted-on BOS is skipped).
 3. Displacement = the BOS must leave a real 3-candle Fair Value Gap (FVG).
-   No FVG = "no real displacement" (the video's own invalidation case) --
-   skip, and don't retry that BOS.
+   No FVG = "no real displacement" -- skip, don't retry that BOS.
 4. Entry: price retraces into the FVG, then a confirmation candle closes
-   back outside the FVG in the BOS direction. Session-filtered to
-   Asian/London/NY hours only (per the video's explicit tip).
-5. Stop: beyond the swing point the impulse originated from, + small ATR
-   buffer. Target: fixed 0.5R.
+   back outside the FVG in the BOS direction WITH a real body (>=30% of
+   its range -- CONFIRM_BODY_FRAC). Session-filtered to Asian/London/NY.
+5. Stop: beyond the origin swing point, + small ATR buffer, REJECTED if
+   that distance exceeds 2x ATR (MAX_RISK_ATR) -- sloppy/illiquid
+   structure. Target: fixed 0.5R.
 6. Invalidated if price trades back through the origin swing before an
    entry is triggered.
 
-An earlier variant added a 4H trend filter on top of this and got a
-better PF (2.13) but only ever fired short trades over this window --
-same one-directional red flag seen on other gold/FX strategies this
-session -- so it was NOT used live. This version trades both directions.
+Tested and explicitly rejected for live use: a 4H trend filter (better
+PF but 100% one-directional over this window); adding the same strategy
+to 10 major/cross FX pairs (CADJPY, EURAUD, EURJPY, EURUSD, GBPAUD,
+GBPCAD, GBPUSD, NZDUSD, USDCHF, USDJPY) -- 8 of 10 lost money outright
+and the best one (CADJPY) failed split-half consistency (H1 PF 1.21).
+The edge does not generalize past XAUUSD with these parameters; gold-only
+until/unless a properly re-validated FX version exists.
 
-Sizing: 2% of current account equity per trade (user's explicit choice,
-carried over unchanged from the prior gold strategy), NOT a fixed lot --
-position size scales with the account balance every trade.
+Sizing: 2% of current account equity per trade, with a 2% max daily loss
+cap -- once today's realized loss reaches 2% of today's opening balance,
+no new entries until the next UTC day (tracked in
+mylifeloading_gold_daily.json). Both explicit user choices.
 
 Separate from mylifeloading_scalp_live.py (11-pair FX ORB scalp, paused)
 and live_monitor.py/intraday_live_monitor.py -- runs independently, own
@@ -65,6 +70,7 @@ import live_monitor as lm
 STATE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_gold_active.json")
 LOG_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_gold_log.json")
 TRADED_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_gold_traded.json")
+DAILY_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_gold_daily.json")
 # Presence of this file halts all NEW entries. Time-stop closes on any
 # already-open position still run. Delete the file to resume.
 PAUSE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_gold_PAUSED")
@@ -72,18 +78,26 @@ BASE = lm.BASE
 
 INSTRUMENT_NAME = "XAUUSD"
 RISK_PCT = 0.02  # explicit user choice, 2026-07-22
+DAILY_LOSS_CAP = 0.02  # once today's realized loss hits this % of today's opening balance, no new entries
 PIP = 0.01  # XAUUSD "cent-pip" convention (see backtest workbook note)
 DOLLAR_PER_PIP_PER_LOT = 1.0  # 100oz/lot x $0.01 = $1/pip/1.00 lot -- standard
 # convention, not separately confirmed against this broker's contract spec.
 
-# Strategy params -- must stay identical to strat4_edge_model.py's
-# locked-in config (swing_left=4, swing_right=4, fixed_R=0.5, min_fvg_atr=0.0,
-# session_filter=True) or live drifts from the backtest.
+# Strategy params -- STRICT v3 (locked 2026-07-23), must stay identical to
+# strat4_edge_model.py's locked-in strict config (swing_left=4,
+# swing_right=4, fixed_R=0.5, min_fvg_atr=0.0, confirm_body_frac=0.3,
+# max_risk_atr=2.0, session_filter=True) or live drifts from the backtest.
+# The two "strict" filters (CONFIRM_BODY_FRAC, MAX_RISK_ATR) cut signal
+# count from 128 to 53 in the 90-day backtest but improved every stat:
+# win rate 71.9%->75.5%, PF 1.31->1.54, tighter split-half consistency,
+# far fewer stop-outs (13 of 53 vs ~34 of 128).
 SWING_LEFT = 4
 SWING_RIGHT = 4
 STOP_BUF_ATR = 0.15
 RETEST_K = 40
 TARGET_R = 0.5
+CONFIRM_BODY_FRAC = 0.3  # confirmation candle must close with a real body, not a weak wick-heavy close
+MAX_RISK_ATR = 2.0  # reject setups whose stop distance exceeds 2x ATR -- sloppy/illiquid structure
 MAX_HOLD_BARS = 96  # 24h time-stop, matches backtest's simulate_trades default
 FRESH_TOLERANCE_MIN = 20  # a confirmed entry bar older than this is stale, skip it
 SESSION_HOURS = {"Asian": (0, 8), "London": (7, 16), "NY": (12, 21)}  # UTC
@@ -130,6 +144,19 @@ def load_state():
 
 def save_state(state):
     json.dump(state, open(STATE_PATH, "w"), indent=2)
+
+
+def load_daily_state():
+    if not os.path.exists(DAILY_PATH):
+        return {}
+    try:
+        return json.load(open(DAILY_PATH))
+    except Exception:
+        return {}
+
+
+def save_daily_state(state):
+    json.dump(state, open(DAILY_PATH, "w"), indent=2)
 
 
 def load_traded():
@@ -256,12 +283,14 @@ def find_latest_signal(df):
 
         entry_i = None
         for j in range(bos_i + 1, min(n, bos_i + 1 + RETEST_K)):
+            bar_range = h[j] - l[j]
+            body_ok = bar_range > 0 and abs(c[j] - o[j]) / bar_range >= CONFIRM_BODY_FRAC
             if direction == 1:
                 touched = l[j] <= fvg["top"]
-                confirm = c[j] > o[j] and c[j] > fvg["top"]
+                confirm = c[j] > o[j] and c[j] > fvg["top"] and body_ok
             else:
                 touched = h[j] >= fvg["bottom"]
-                confirm = c[j] < o[j] and c[j] < fvg["bottom"]
+                confirm = c[j] < o[j] and c[j] < fvg["bottom"] and body_ok
             if direction == 1 and l[j] < origin:
                 break
             if direction == -1 and h[j] > origin:
@@ -282,6 +311,9 @@ def find_latest_signal(df):
         risk = entry_price - stop if direction == 1 else stop - entry_price
         if risk <= 0:
             i = entry_i + 1
+            continue
+        if risk > MAX_RISK_ATR * atr_[entry_i]:
+            i = entry_i + 1  # invalidation too far away -- sloppy/illiquid structure, skip
             continue
 
         latest = {
@@ -379,6 +411,19 @@ def main():
 
     if os.path.exists(PAUSE_PATH):
         print("PAUSED: new entries disabled by user (delete mylifeloading_gold_PAUSED to resume) -- skipping")
+        return
+
+    today = now.date().isoformat()
+    daily = load_daily_state()
+    current_balance = get_balance(headers, account_id)
+    if daily.get("date") != today:
+        daily = {"date": today, "day_start_balance": current_balance}
+        save_daily_state(daily)
+    day_start_balance = daily["day_start_balance"]
+    day_realized_pnl = current_balance - day_start_balance
+    if day_realized_pnl <= -DAILY_LOSS_CAP * day_start_balance:
+        print(f"DAILY LOSS CAP HIT: today's realized P&L is {day_realized_pnl:.2f} "
+              f"({day_realized_pnl / day_start_balance:.1%} of {day_start_balance:.2f}) -- no new entries until tomorrow")
         return
 
     if INSTRUMENT_NAME not in instruments:

@@ -248,6 +248,9 @@ def close_position(headers, account_id, position_id, name):
 
 
 def main():
+    if os.path.exists(os.path.join(os.path.dirname(__file__), "ALL_STRATEGIES_PAUSED")):
+        print("PAUSED: mylifeloading_portfolio_live.py is now the only live strategy -- delete ALL_STRATEGIES_PAUSED to override")
+        return
     no_new_entries = os.environ.get("INTRADAY_NO_NEW_ENTRIES") == "1"
     env = lm.load_env()
     headers = lm.auth(env)

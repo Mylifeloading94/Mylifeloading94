@@ -163,6 +163,9 @@ def place_trade(headers, account_id, instrument, sig, risk_mult, name):
 
 
 def main():
+    if os.path.exists(os.path.join(os.path.dirname(__file__), "ALL_STRATEGIES_PAUSED")):
+        print("PAUSED: mylifeloading_portfolio_live.py is now the only live strategy -- delete ALL_STRATEGIES_PAUSED to override")
+        return
     env = load_env()
     headers = auth(env)
     account_id = env["TL_ACCOUNT_ID"]

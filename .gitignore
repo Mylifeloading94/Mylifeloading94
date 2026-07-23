@@ -22,3 +22,9 @@ mylifeloading_gold_log.json
 mylifeloading_gold_traded.json
 mylifeloading_gold_PAUSED
 mylifeloading_gold_daily.json
+mylifeloading_portfolio_active.json
+mylifeloading_portfolio_log.json
+mylifeloading_portfolio_traded.json
+mylifeloading_portfolio_daily.json
+mylifeloading_portfolio_PAUSED
+ALL_STRATEGIES_PAUSED

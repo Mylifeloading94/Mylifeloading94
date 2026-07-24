@@ -62,14 +62,12 @@ import live_monitor as lm
 STATE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_portfolio_active.json")
 LOG_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_portfolio_log.json")
 TRADED_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_portfolio_traded.json")
-DAILY_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_portfolio_daily.json")
 # Presence of this file halts all NEW entries on every instrument. Time-stop
 # closes on already-open positions still run. Delete the file to resume.
 PAUSE_PATH = os.path.join(os.path.dirname(__file__), "mylifeloading_portfolio_PAUSED")
 BASE = lm.BASE
 
 RISK_PCT = 0.02
-DAILY_LOSS_CAP = 0.02
 STOP_BUF_ATR = 0.15
 RETEST_K = 40
 MAX_HOLD_BARS = 96  # 24h time-stop
@@ -140,19 +138,6 @@ def load_state():
 
 def save_state(state):
     json.dump(state, open(STATE_PATH, "w"), indent=2)
-
-
-def load_daily_state():
-    if not os.path.exists(DAILY_PATH):
-        return {}
-    try:
-        return json.load(open(DAILY_PATH))
-    except Exception:
-        return {}
-
-
-def save_daily_state(state):
-    json.dump(state, open(DAILY_PATH, "w"), indent=2)
 
 
 def load_traded():
@@ -414,19 +399,6 @@ def main():
 
     if os.path.exists(PAUSE_PATH):
         print("PAUSED: new entries disabled by user (delete mylifeloading_portfolio_PAUSED to resume) -- skipping")
-        return
-
-    today = now.date().isoformat()
-    daily = load_daily_state()
-    current_balance = get_balance(headers, account_id)
-    if daily.get("date") != today:
-        daily = {"date": today, "day_start_balance": current_balance}
-        save_daily_state(daily)
-    day_start_balance = daily["day_start_balance"]
-    day_realized_pnl = current_balance - day_start_balance
-    if day_realized_pnl <= -DAILY_LOSS_CAP * day_start_balance:
-        print(f"DAILY LOSS CAP HIT (account-wide): today's realized P&L is {day_realized_pnl:.2f} "
-              f"({day_realized_pnl / day_start_balance:.1%} of {day_start_balance:.2f}) -- no new entries until tomorrow")
         return
 
     for name, cfg in INSTRUMENTS.items():

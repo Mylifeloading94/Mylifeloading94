@@ -205,10 +205,17 @@ def main():
                 skipped += 1
                 continue
             r_multiple, exit_time, exit_reason, exit_i = simulate_trade(df, sig)
+            direction = sig["dir"]
+            target_price = (sig["bar_entry"] + sig["target_R"] * sig["r_unit"] if direction == 1
+                             else sig["bar_entry"] - sig["target_R"] * sig["r_unit"])
+            stop_pips = sig["r_unit"] / cfg["pip"]
             trades.append({
-                "pair": name, "dir": "LONG" if sig["dir"] == 1 else "SHORT",
+                "pair": name, "dir": "LONG" if direction == 1 else "SHORT",
                 "entry_time": sig["entry_time"], "exit_time": exit_time,
+                "entry_price": sig["bar_entry"], "stop_price": sig["stop"], "target_price": target_price,
+                "r_unit": sig["r_unit"], "stop_pips": stop_pips, "target_R": sig["target_R"],
                 "r_multiple": r_multiple, "exit_reason": exit_reason,
+                "pip": cfg["pip"], "pip_val": cfg["pip_val"],
             })
             busy_until_i = exit_i
         per_instrument[name] = trades
@@ -231,7 +238,14 @@ def main():
     for t in all_trades:
         dollar_risk = balance * RISK_PCT
         pnl = dollar_risk * t["r_multiple"]
+        qty = round(dollar_risk / (t["stop_pips"] * t["pip_val"]), 2) if t["stop_pips"] > 0 else 0.01
+        qty = max(qty, 0.01)
+        t["balance_before"] = round(balance, 2)
+        t["dollar_risk"] = round(dollar_risk, 2)
+        t["qty_lots"] = qty
+        t["pnl_dollars"] = round(pnl, 2)
         balance += pnl
+        t["balance_after"] = round(balance, 2)
         equity_curve.append(balance)
         if pnl > 0:
             gross_win += pnl

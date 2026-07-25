@@ -4,6 +4,11 @@ tradingview-mcp/
 # Node
 node_modules/
 
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
 # Secrets / credentials — never commit
 .env
 *.key
@@ -11,6 +16,10 @@ node_modules/
 
 # Container-specific MCP config (paths differ per machine)
 .mcp.json
+
+# Runtime state (changes every autopilot iteration — not source)
+agent_state.json
+active_trades.json
 
 # OS / editor
 .DS_Store

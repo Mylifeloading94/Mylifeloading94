@@ -82,11 +82,17 @@ f_findFvg(_dir) =>
 
 // ---- LONG-side + SHORT-side pending setups (independent, retry FVG each bar) ----
 var int   Lstate = 0
-var float Lorigin = na, LfvgTop = na, LfvgBot = na, Latr = na
+var float Lorigin = na
+var float LfvgTop = na
+var float LfvgBot = na
+var float Latr = na
 var int   LbosBar = na
 var float LbrokenPivot = na
 var int   Sstate = 0
-var float Sorigin = na, SfvgTop = na, SfvgBot = na, Satr = na
+var float Sorigin = na
+var float SfvgTop = na
+var float SfvgBot = na
+var float Satr = na
 var int   SbosBar = na
 var float SbrokenPivot = na
 

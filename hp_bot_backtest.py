@@ -58,8 +58,14 @@ def fetch_tradelocker(symbol, start, end):
                         json={"email": email, "password": pw, "server": server},
                         timeout=20).json()
     access = tok["accessToken"]
-    headers = {"Authorization": f"Bearer {access}", "accept": "application/json",
-               "accNum": str(acct)}
+    base_headers = {"Authorization": f"Bearer {access}", "accept": "application/json"}
+    # resolve accNum for this account id (header the API requires)
+    all_acc = requests.get(f"{BASE}/auth/jwt/all-accounts", headers=base_headers, timeout=20).json()["accounts"]
+    accnum = next((a["accNum"] for a in all_acc if str(a["id"]) == str(acct)), None)
+    if accnum is None:
+        raise RuntimeError(f"account {acct} not found for this login")
+    headers = dict(base_headers)
+    headers["accNum"] = str(accnum)
     instruments = requests.get(f"{BASE}/trade/accounts/{acct}/instruments",
                                headers=headers, timeout=20).json()["d"]["instruments"]
     iid = None
@@ -99,6 +105,10 @@ def get_data(symbol, start, end):
     if df is None:
         df = fetch_tradelocker(symbol, start, end)
         src = "tradelocker"
+        os.makedirs(DATA_DIR, exist_ok=True)          # cache so we never refetch
+        out = df.copy()
+        out.insert(0, "time", out.index)
+        out.to_csv(os.path.join(DATA_DIR, f"{symbol}_M15.csv"), index=False)
     return df, src
 
 
@@ -193,10 +203,12 @@ def simulate(cfg, start, end):
             i = bar.index.get_loc(ts)
             if i < 20:
                 continue
-            m15_slice = bar.iloc[:i + 1]
-            d1 = closed_slice(data[sym]["d1"], ts)
-            h4 = closed_slice(data[sym]["h4"], ts)
-            h1 = closed_slice(data[sym]["h1"], ts)
+            # trailing windows only — the strategy never looks back more than a
+            # few hundred bars, so this bounds cost (was O(n^2) over full history)
+            m15_slice = bar.iloc[max(0, i - 400):i + 1]
+            d1 = closed_slice(data[sym]["d1"], ts).tail(cfg.ema_slow + 60)
+            h4 = closed_slice(data[sym]["h4"], ts).tail(cfg.ema_slow + 60)
+            h1 = closed_slice(data[sym]["h1"], ts).tail(cfg.ema_slow + 60)
             if len(d1) < cfg.ema_slow + 2:
                 continue
             trade = bot.evaluate(sym, d1, h4, h1, m15_slice, cfg, ts, spread_pips=0.0)

@@ -1,0 +1,16 @@
+# Third-party MCP clone (install locally on your own machine, do not vendor)
+tradingview-mcp/
+
+# Node
+node_modules/
+
+# Secrets / credentials — never commit
+.env
+*.key
+*.pem
+
+# Container-specific MCP config (paths differ per machine)
+.mcp.json
+
+# OS / editor
+.DS_Store

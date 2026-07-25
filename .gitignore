@@ -23,3 +23,6 @@ active_trades.json
 
 # OS / editor
 .DS_Store
+
+# Bot runtime results (regenerated)
+hp_bot_backtest_results.json

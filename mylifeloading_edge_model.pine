@@ -4,31 +4,26 @@
 // Faithful Pine port of mylifeloading_portfolio_live.py
 //   BOS (Break of Structure) -> Fair Value Gap -> retest into FVG ->
 //   confirmation-candle close back outside -> ATR stop -> fixed-R target.
-// The script AUTO-DETECTS the chart symbol and loads that pair's own locked
-// params from the strategy file. Works on all 6 traded pairs. Built for 15m.
-//   XAUUSD  swing 4/4  R0.5  body30%  maxStop2.0  minFVG0.0
-//   CADJPY  swing 4/4  R0.4  body30%  maxStop2.0  minFVG0.0
-//   EURUSD  swing 3/3  R0.5  body30%  maxStop1.5  minFVG0.1
-//   GBPCAD  swing 4/4  R0.5  body30%  maxStop1.75 minFVG0.1
-//   GBPUSD  swing 3/3  R0.5  body40%  maxStop2.0  minFVG0.1
-//   NZDUSD  swing 4/4  R0.5  body50%  maxStop3.0  minFVG0.1
+// Auto-detects the chart symbol and loads that pair's own locked params.
+//   XAUUSD sw4/4 R0.5 body30% maxATR2.0 minFVG0.0
+//   CADJPY sw4/4 R0.4 body30% maxATR2.0 minFVG0.0
+//   EURUSD sw3/3 R0.5 body30% maxATR1.5 minFVG0.1
+//   GBPCAD sw4/4 R0.5 body30% maxATR1.75 minFVG0.1
+//   GBPUSD sw3/3 R0.5 body40% maxATR2.0 minFVG0.1
+//   NZDUSD sw4/4 R0.5 body50% maxATR3.0 minFVG0.1
 // =============================================================================
 indicator("Mylifeloading — Edge Model v3 (AUTO)", overlay=true, max_lines_count=500, max_labels_count=500, max_boxes_count=500)
 
-// Constants from the strategy file
 STOP_BUF_ATR = 0.15
 RETEST_K     = 40
 MIN_RISK_ATR = 0.8
 
-// Style-only inputs
-grpT = "Targets (Target1 = strategy's real exit; 2/3 are style extensions)"
-r2mult = input.float(1.5, "Target 2 (R)", step=0.1, group=grpT)
-r3mult = input.float(2.5, "Target 3 (R)", step=0.1, group=grpT)
-grpF = "Style"
-useSession = input.bool(true, "Only signal 00:00–21:00 UTC (as in file)", group=grpF)
-lineLen    = input.int(40, "Level line length (bars)", minval=5, group=grpF)
+r2mult = input.float(1.5, "Target 2 (R)", step=0.1, group="Targets")
+r3mult = input.float(2.5, "Target 3 (R)", step=0.1, group="Targets")
+useSession = input.bool(true, "Only ENTER 00:00-21:00 UTC (as in file)", group="Style")
+lineLen    = input.int(40, "Level line length (bars)", minval=5, group="Style")
 
-// ---- AUTO per-pair config from the chart symbol ----
+// ---- AUTO per-pair config ----
 t = syminfo.ticker
 isXAU = str.contains(t, "XAU") or str.contains(t, "GOLD")
 isCAJ = str.contains(t, "CADJPY")
@@ -37,26 +32,17 @@ isGBC = str.contains(t, "GBPCAD")
 isGBU = str.contains(t, "GBPUSD")
 isNZU = str.contains(t, "NZDUSD")
 supported = isXAU or isCAJ or isEUU or isGBC or isGBU or isNZU
-
-// swing must be a literal for ta.pivothigh -> compute both, then pick
-use4 = isXAU or isCAJ or isGBC or isNZU     // pairs using swing 4/4 (others 3/3)
-
+use4 = isXAU or isCAJ or isGBC or isNZU
 pairName = isXAU ? "XAUUSD" : isCAJ ? "CADJPY" : isEUU ? "EURUSD" : isGBC ? "GBPCAD" : isGBU ? "GBPUSD" : isNZU ? "NZDUSD" : t
-
-// fixed_R target
 fixedR = isCAJ ? 0.4 : 0.5
-// min FVG (x ATR)
 minFvgAtr = (isXAU or isCAJ) ? 0.0 : 0.1
-// confirmation body fraction
 confirmBody = isGBU ? 0.4 : isNZU ? 0.5 : 0.3
-// max stop distance (x ATR)
 maxRiskAtr = isEUU ? 1.5 : isGBC ? 1.75 : isNZU ? 3.0 : 2.0
 
 atrv = ta.atr(14)
 hUTC = hour(time, "UTC")
-inSession = not useSession or (hUTC >= 0 and hUTC < 21)
+canEnter = not useSession or (hUTC >= 0 and hUTC < 21)
 
-// ---- Pivots (literal lengths) then select by pair ----
 ph3 = ta.pivothigh(3, 3)
 pl3 = ta.pivotlow(3, 3)
 ph4 = ta.pivothigh(4, 4)
@@ -70,30 +56,16 @@ var float curHighPivot  = na
 var float curLowPivot   = na
 var float curHighOrigin = na
 var float curLowOrigin  = na
-var bool  highArmed = false
-var bool  lowArmed  = false
-
 if not na(ph)
     curHighOrigin := lastLow
     curHighPivot  := ph
     lastHigh      := ph
-    highArmed     := true
 if not na(pl)
     curLowOrigin := lastHigh
     curLowPivot  := pl
     lastLow      := pl
-    lowArmed     := true
 
-var int   pendDir    = 0
-var float pendOrigin = na
-var float pendFvgTop = na
-var float pendFvgBot = na
-var int   pendBosBar = na
-var float pendAtr    = na
-
-bullBOS = highArmed and not na(curHighPivot) and close > curHighPivot
-bearBOS = lowArmed  and not na(curLowPivot)  and close < curLowPivot
-
+// ---- FVG finder (look back up to 6 bars from current) ----
 f_findFvg(_dir) =>
     float top = na
     float bot = na
@@ -108,55 +80,41 @@ f_findFvg(_dir) =>
             break
     [top, bot]
 
-if supported and pendDir == 0 and inSession and (bullBOS or bearBOS)
-    dir = bullBOS ? 1 : -1
-    origin = dir == 1 ? curLowOrigin : curHighOrigin
-    [ft, fb] = f_findFvg(dir)
-    fvgOk = not na(ft) and not na(fb) and (ft - fb) >= minFvgAtr * atrv
-    if not na(origin) and fvgOk
-        pendDir    := dir
-        pendOrigin := origin
-        pendFvgTop := ft
-        pendFvgBot := fb
-        pendBosBar := bar_index
-        pendAtr    := atrv
-    if dir == 1
-        highArmed := false
-    else
-        lowArmed := false
+// ---- LONG-side + SHORT-side pending setups (independent, retry FVG each bar) ----
+var int   Lstate = 0
+var float Lorigin = na, LfvgTop = na, LfvgBot = na, Latr = na
+var int   LbosBar = na
+var float LbrokenPivot = na
+var int   Sstate = 0
+var float Sorigin = na, SfvgTop = na, SfvgBot = na, Satr = na
+var int   SbosBar = na
+var float SbrokenPivot = na
 
-long_entry  = false
-short_entry = false
-var float eEntry = na
-var float eStop  = na
-var float eRisk  = na
+// Detect a fresh bullish BOS of an unconsumed pivot; keep hunting FVG each bar
+if supported and not na(curHighPivot) and close > curHighPivot and (na(LbrokenPivot) or curHighPivot != LbrokenPivot)
+    [ft, fb] = f_findFvg(1)
+    if not na(curLowOrigin) and not na(ft) and not na(fb) and (ft - fb) >= minFvgAtr * atrv
+        Lstate := 1
+        Lorigin := curLowOrigin
+        LfvgTop := ft
+        LfvgBot := fb
+        Latr := atrv
+        LbosBar := bar_index
+        LbrokenPivot := curHighPivot
 
-if pendDir != 0
-    barsSince = bar_index - pendBosBar
-    rng = high - low
-    bodyOk = rng > 0 and math.abs(close - open) / rng >= confirmBody
-    invalidated = (pendDir == 1 and low < pendOrigin) or (pendDir == -1 and high > pendOrigin)
-    touched = pendDir == 1 ? (low <= pendFvgTop) : (high >= pendFvgBot)
-    confirm = pendDir == 1 ? (close > open and close > pendFvgTop and bodyOk) : (close < open and close < pendFvgBot and bodyOk)
-    if barsSince > RETEST_K or invalidated
-        pendDir := 0
-    else if touched and confirm and inSession
-        entry = close
-        stop  = pendDir == 1 ? pendOrigin - STOP_BUF_ATR * pendAtr : pendOrigin + STOP_BUF_ATR * pendAtr
-        risk  = pendDir == 1 ? entry - stop : stop - entry
-        okRisk = risk > 0 and risk <= maxRiskAtr * pendAtr and risk >= MIN_RISK_ATR * pendAtr
-        if okRisk
-            eEntry := entry
-            eStop  := stop
-            eRisk  := risk
-            if pendDir == 1
-                long_entry := true
-            else
-                short_entry := true
-        pendDir := 0
+if supported and not na(curLowPivot) and close < curLowPivot and (na(SbrokenPivot) or curLowPivot != SbrokenPivot)
+    [ft, fb] = f_findFvg(-1)
+    if not na(curHighOrigin) and not na(ft) and not na(fb) and (ft - fb) >= minFvgAtr * atrv
+        Sstate := 1
+        Sorigin := curHighOrigin
+        SfvgTop := ft
+        SfvgBot := fb
+        Satr := atrv
+        SbosBar := bar_index
+        SbrokenPivot := curLowPivot
 
+// ---- draw helper ----
 f_price(_p) => str.tostring(_p, format.mintick)
-
 f_draw(_dir, _entry, _stop, _risk) =>
     isLong = _dir == 1
     t1 = isLong ? _entry + fixedR * _risk : _entry - fixedR * _risk
@@ -183,21 +141,46 @@ f_draw(_dir, _entry, _stop, _risk) =>
         label.new(bar_index, _stop, pairName + ": SELL", yloc=yloc.price, style=label.style_label_down, color=color.new(#ef5350, 0), textcolor=color.white, size=size.normal)
         label.new(bar_index, _entry, "", yloc=yloc.price, style=label.style_triangledown, color=red, size=size.small)
 
-if long_entry
-    f_draw(1, eEntry, eStop, eRisk)
-if short_entry
-    f_draw(-1, eEntry, eStop, eRisk)
+// ---- retest + confirmation -> entry ----
+long_entry  = false
+short_entry = false
+rng = high - low
+bodyOk = rng > 0 and math.abs(close - open) / rng >= confirmBody
 
-// ---- On-chart status: active pair config + guards ----
+if Lstate == 1
+    if (bar_index - LbosBar) > RETEST_K or low < Lorigin
+        Lstate := 0
+    else if low <= LfvgTop and close > open and close > LfvgTop and bodyOk and canEnter
+        entry = close
+        stop  = Lorigin - STOP_BUF_ATR * Latr
+        risk  = entry - stop
+        if risk > 0 and risk <= maxRiskAtr * Latr and risk >= MIN_RISK_ATR * Latr
+            long_entry := true
+            f_draw(1, entry, stop, risk)
+        Lstate := 0
+
+if Sstate == 1
+    if (bar_index - SbosBar) > RETEST_K or high > Sorigin
+        Sstate := 0
+    else if high >= SfvgBot and close < open and close < SfvgBot and bodyOk and canEnter
+        entry = close
+        stop  = Sorigin + STOP_BUF_ATR * Satr
+        risk  = stop - entry
+        if risk > 0 and risk <= maxRiskAtr * Satr and risk >= MIN_RISK_ATR * Satr
+            short_entry := true
+            f_draw(-1, entry, stop, risk)
+        Sstate := 0
+
+// ---- status table ----
 var table info = table.new(position.top_right, 1, 3, border_width=1)
 if barstate.islast
     tf_ok = timeframe.period == "15"
     cfgTxt = supported ? (pairName + "  sw" + (use4 ? "4/4" : "3/3") + "  R" + str.tostring(fixedR) + "  body" + str.tostring(confirmBody*100,"#") + "%  maxATR" + str.tostring(maxRiskAtr) + "  minFVG" + str.tostring(minFvgAtr)) : ("UNSUPPORTED SYMBOL (" + t + ")")
     table.cell(info, 0, 0, "Edge Model v3 (AUTO)", bgcolor=color.new(#1e222d,0), text_color=color.white, text_size=size.small)
     table.cell(info, 0, 1, cfgTxt, bgcolor=supported ? color.new(#26a69a,0) : color.new(#ef5350,0), text_color=color.white, text_size=size.small)
-    table.cell(info, 0, 2, tf_ok ? "Timeframe 15m ✓" : "⚠ Set chart to 15m", bgcolor=tf_ok ? color.new(#1e222d,0) : color.new(#ff9800,0), text_color=color.white, text_size=size.small)
+    table.cell(info, 0, 2, tf_ok ? "Timeframe 15m OK" : "Set chart to 15m", bgcolor=tf_ok ? color.new(#1e222d,0) : color.new(#ff9800,0), text_color=color.white, text_size=size.small)
 
-// ---- Alerts ----
+// ---- alerts ----
 alertcondition(long_entry,  "Edge Model BUY",  "Edge Model v3 BUY {{ticker}} @ {{close}}")
 alertcondition(short_entry, "Edge Model SELL", "Edge Model v3 SELL {{ticker}} @ {{close}}")
 alertcondition(long_entry or short_entry, "Edge Model ANY", "Edge Model v3 entry {{ticker}} @ {{close}}")

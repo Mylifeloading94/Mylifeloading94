@@ -40,7 +40,10 @@ REPO = os.path.dirname(os.path.abspath(__file__))
 
 def parse_args():
     p = argparse.ArgumentParser(description="SMC Sniper backtest")
-    p.add_argument("--stack", default=None, help="sniper | sniper_5m | swing")
+    p.add_argument("--stack", default=None,
+                   help="sniper | sniper_5m | swing | scalp15 | scalp5")
+    p.add_argument("--profile", default=None,
+                   help="config profile to overlay, e.g. 'scalp'")
     p.add_argument("--source", default=None, help="tradelocker | yahoo")
     p.add_argument("--refresh-data", action="store_true")
     p.add_argument("--quick", action="store_true",
@@ -53,6 +56,8 @@ def parse_args():
 def main():
     args = parse_args()
     cfg = load_config()
+    if args.profile:
+        cfg = cfg.apply_profile(args.profile)
     if args.stack:
         cfg.set("active_stack", args.stack)
     source = args.source or cfg.get("data.provider", "tradelocker")

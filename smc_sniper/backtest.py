@@ -461,7 +461,15 @@ class Backtester:
 
         self.risk_engine = RiskEngine(self.cfg)
         trades: list[Trade] = []
+        # A position occupies a slot from the moment its order is placed until
+        # it closes -- a resting limit ties up risk budget just as a filled one
+        # does -- so the interval is [signal_time, exit_time).
+        enforce = bool(self.cfg.get("risk.enforce_concurrency", False))
+        open_trades: list[Trade] = []
         for symbol, sig in signals:
+            if enforce:
+                open_trades = [t for t in open_trades if t.exit_time > sig.time]
+                self.risk_engine.set_open_positions(open_trades)
             ok, reason = self.risk_engine.can_trade(symbol, sig)
             if not ok:
                 if collect_rejections:
@@ -480,6 +488,8 @@ class Backtester:
             self.risk_engine.register(trade)
             trade.balance_after = self.risk_engine.balance
             trades.append(trade)
+            if enforce:
+                open_trades.append(trade)
 
         trades.sort(key=lambda t: t.exit_time)
         return trades, rejections, contexts

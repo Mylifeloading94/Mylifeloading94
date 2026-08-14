@@ -953,3 +953,45 @@ def test_intraday_flat_loses_to_the_stop_on_an_ambiguous_bar(cfg):
     assert trade is not None
     assert trade.exit_reason == "stop_loss"
     assert trade.r_multiple < 0
+
+
+def test_concurrency_caps_are_inert_unless_enforced(cfg):
+    """The caps must default to inert (v2 reproducibility) and bind when on."""
+    from smc_sniper.backtest import Trade
+
+    assert cfg.get("risk.enforce_concurrency") is False
+    assert cfg.apply_profile("scalp").get("risk.enforce_concurrency") is True
+
+    engine = RiskEngine(cfg)
+
+    def _trade(symbol):
+        return Trade(symbol=symbol, setup_id="s", signal_id="i",
+                     direction="bullish", side="buy",
+                     signal_time=pd.Timestamp("2025-01-06 08:00", tz="UTC"),
+                     entry_time=pd.Timestamp("2025-01-06 08:05", tz="UTC"),
+                     exit_time=pd.Timestamp("2025-01-06 12:00", tz="UTC"),
+                     entry=1.1, limit_price=1.1, stop=1.09, tp1=1.11, tp2=1.12,
+                     tp3=1.13, exit_price=1.12, exit_reason="TP2", r_multiple=1.0,
+                     gross_r=1.0, risk_price=0.01, size_lots=0.1,
+                     risk_amount=100.0, pnl=100.0, score=90, session="london",
+                     setup_type="t", liquidity_type="PDL", htf_bias="bullish",
+                     zone_kind="OB", rr_tp2=2.0, bars_held=5, mae_r=0.0, mfe_r=1.0)
+
+    class _Sig:
+        time = pd.Timestamp("2025-01-06 09:00", tz="UTC")
+
+    # under the cap
+    engine.set_open_positions([_trade("EURUSD"), _trade("GBPUSD")])
+    assert engine.can_trade("AUDNZD", _Sig())[0]
+
+    # at the cap (3)
+    engine.set_open_positions([_trade("EURUSD"), _trade("GBPUSD"),
+                               _trade("AUDCAD")])
+    ok, reason = engine.can_trade("NZDJPY", _Sig())
+    assert not ok and reason == "max_open_positions"
+
+    # per-currency exposure binds independently of the position count
+    engine2 = RiskEngine(cfg)
+    engine2.set_open_positions([_trade("EURUSD"), _trade("EURJPY")])
+    ok, reason = engine2.can_trade("EURGBP", _Sig())
+    assert not ok and reason.startswith("max_exposure_EUR")

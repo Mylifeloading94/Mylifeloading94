@@ -114,6 +114,31 @@ class RiskEngine:
                 return False, f"max_exposure_{ccy}"
         return True, ""
 
+    # -- concurrency --------------------------------------------------------
+    def set_open_positions(self, open_trades) -> None:
+        """Tell the engine what is currently open, so the caps can bind.
+
+        ``max_open_positions`` and ``max_exposure_per_currency`` were read by
+        :meth:`can_trade` and never written by anything in the backtest path,
+        which made both of them **inert**. That is the real explanation for
+        v2's "raising the caps changed the result by exactly zero trades" --
+        it was not setup scarcity, it was a cap that could never bind.
+
+        It matters far more to a scalper than to a swing system: at 2% risk,
+        six concurrent positions is 12% of the account live at once, and three
+        of them sharing USD is one correlated bet wearing three hats.
+
+        Enforcement is opt-in (``risk.enforce_concurrency``) purely so v2's
+        published numbers stay reproducible bit-for-bit. It is ON in the scalp
+        profile.
+        """
+        self.state.open_positions = len(open_trades)
+        exposure: dict[str, int] = {}
+        for trade in open_trades:
+            for ccy in (trade.symbol[:3], trade.symbol[3:6]):
+                exposure[ccy] = exposure.get(ccy, 0) + 1
+        self.state.currency_exposure = exposure
+
     # -- bookkeeping --------------------------------------------------------
     def register(self, trade) -> None:
         """Record a completed trade. Losses tighten, never loosen."""

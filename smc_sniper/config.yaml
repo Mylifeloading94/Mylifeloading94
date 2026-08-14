@@ -313,6 +313,14 @@ risk:
   max_weekly_loss_pct: 5.0
   max_open_positions: 3
   max_trades_per_day: 3
+  # Whether max_open_positions / max_exposure_per_currency are ENFORCED in the
+  # backtester. Both were read by the risk engine and written by nothing, so
+  # both were inert -- which is the real reason v2 measured "raising the caps
+  # changes nothing" and read it as setup scarcity. Enforcement defaults OFF
+  # only so v2's published numbers stay reproducible bit-for-bit; the scalp
+  # profile turns it ON, because at 2% risk six concurrent positions is 12% of
+  # the account live at once.
+  enforce_concurrency: false
   max_consecutive_losses: 4      # trips a cooldown, never a size-up
   consecutive_loss_cooldown_hours: 24
   max_exposure_per_currency: 2    # max simultaneous positions sharing a currency
@@ -594,6 +602,7 @@ profiles:
     risk.max_trades_per_day: 12
     risk.max_open_positions: 6
     risk.max_exposure_per_currency: 3
+    risk.enforce_concurrency: true
     # A 24h cooldown after 4 losses deletes an entire trading day from a system
     # that trades several times a day. v2 measured loss-streak throttling as
     # harmful; this keeps a circuit breaker but sizes it to the timeframe.

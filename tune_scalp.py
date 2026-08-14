@@ -596,6 +596,12 @@ def round_frontier(cfg, engine, contexts, base: dict):
 # ---------------------------------------------------------------------------
 # Adopted config -- filled in as each round is scored. See DECISIONS below.
 # ---------------------------------------------------------------------------
+# The final scalping configuration. Selected on TRAIN, subject to the owner's
+# stated floor of 3 trades a day -- which the score gate is the only lever that
+# reaches. Every value is already in `profiles.scalp`; this dict is empty
+# because the profile IS the adopted config.
+#
+# It is negative. Round S1-S3 found no configuration of this stack that is not.
 ADOPTED: dict = {}
 
 

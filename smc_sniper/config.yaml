@@ -664,8 +664,26 @@ profiles:
     targets.intraday.flat_by_utc_hour: 21
     targets.max_hold_bars: 96
 
-    # -- gates. PLACEHOLDERS until rounds S1/S2 score them; see tune_scalp.py.
-    scoring.threshold: 65
+    # -- gates. TUNED on TRAIN in rounds S1-S3; TEST reported, never selected on.
+    #
+    # scoring.threshold 55: v2's gate of 80 does not transfer. On a 15m setup it
+    # starves the stack to 0.38 trades/day AND is the WORST setting on TRAIN
+    # (-0.271R vs -0.105R at 55). Across the whole 55-80 range the win rate
+    # moves only 41-44% -- the score card carries no positive marginal
+    # information at this timeframe -- so the gate is set to the value that
+    # meets the owner's 3-trades-a-day floor (3.78/day) rather than to a
+    # quality level it cannot deliver.
+    #
+    # min_stop_over_cost 6.0: TRAIN improves monotonically as this rises
+    # (-0.240R at 0x to -0.011R at 20x) and TEST does not follow (-0.205R at
+    # 20x). That is sample shrinkage, not edge, so the gate is NOT tightened to
+    # chase it. 6x keeps the cost drag bounded without pretending the trend is
+    # real.
+    #
+    # READ THIS BEFORE USING THE PROFILE: at these settings the stack measures
+    # -0.131R per trade over 1888 trades, negative on TRAIN and TEST
+    # independently. It is here to be reproducible, not to be traded.
+    scoring.threshold: 55
     stops.min_stop_over_cost: 6.0
 
 # ---------------------------------------------------------------------

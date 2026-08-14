@@ -510,6 +510,97 @@ python3 run_backtest.py --stack swing --profile swing_4r
 
 ---
 
+### The $100,000 / 2% / 90-day deliverable
+
+The adopted scalping config (scalp15, score gate 55, cost gate 6×, intraday
+flat, concurrency enforced), most recent 90 days of broker data, $100,000,
+**2% risk per trade**, compounding trade by trade.
+
+| | 2026-05-16 → 2026-08-14 |
+|---|---|
+| Start balance | $100,000.00 |
+| **End balance** | **$51,059.00** |
+| **Net P/L** | **−$48,941.00 (−48.94%)** |
+| Trades | **185** — **2.88 per weekday** |
+| Win rate | **40.00%** (74 of 185), 95% CI 32.97–47.03% |
+| Profit factor | 0.615 |
+| Expectancy | **−0.183R**, 95% CI [−0.319, −0.041] — **clear of zero, below it** |
+| Max drawdown | **50.76%** (daily equity path) |
+| Longest losing streak | **7** |
+| Active days | **60 of 91** |
+
+Monthly: May −17.41%, June −29.41%, July −7.64%, August −5.18%.
+
+**Read the frequency number carefully.** 2.88 trades per weekday over this
+particular 90 days, against 3.78 over the full 700-day window. The 3/day target
+is met on the long window and *missed* on the quarter the owner asked about.
+Both numbers are reported because quoting only the one that clears the bar is
+the thing this repo exists not to do.
+
+**60 of 91 days traded**, against v2's 6. The frequency problem is genuinely
+solved. The problem it exposed is that frequency was never what was wrong.
+
+### What 2% risk implies — asked for, delivered, and costed
+
+The owner asked for 2%. 2% is what the deliverable uses. Here is what it means
+on the streak this system actually produced:
+
+| | |
+|---|---|
+| Measured longest losing streak | **7** |
+| Drawdown from that streak alone, at 2% | **11.72%** |
+| Consecutive losses needed to lose 20% | 13 |
+| Probability of a single loss | 0.60 |
+
+A 7-loss streak at 2% is an 11.7% drawdown, and this system's loss rate of 0.60
+makes streaks of that length ordinary rather than exceptional. **On a system
+with positive expectancy, 2% is aggressive. On this one it is not a risk
+setting, it is a rate of descent** — the account is down 48.94% in a quarter,
+and the drawdown figure of 50.76% is not a bad patch, it is the trend.
+
+At 0.5% risk the same 185 trades lose roughly 16% instead of 49%. That is not
+an argument for trading it at 0.5%; a negative edge does not become positive
+when it is sized smaller, it just takes longer.
+
+### The `swing_4r` 90-day comparison — and why 90 days cannot settle anything
+
+The same $100k / 2% / 90-day treatment applied to the validated `swing_4r`
+profile, for contrast:
+
+| | 2026-05-16 → 2026-08-14 |
+|---|---|
+| Start / end balance | $100,000.00 → **$92,492.15** |
+| Net P/L | **−$7,507.85 (−7.51%)** |
+| Trades | **5** (0.08/weekday) |
+| Win rate | 20.00% (1 of 5) |
+| Max drawdown | 8.18% |
+
+**Five trades.** A configuration measured at +0.263R over 149 trades returned
+−0.77R per trade over five. That is not a contradiction, it is what a
+five-trade sample does — and it is the clearest possible demonstration that
+**a 90-day window cannot evaluate a system that trades 0.17 times a day.**
+
+It also shows the other half of the frequency problem, and the shape of the
+whole session: the scalper trades often enough for 90 days to mean something
+and has no edge; the swing configurations have the edge and do not trade often
+enough for 90 days to detect it.
+
+### The deliverable workbook
+
+`SMC_Scalper_Results.xlsx` — deliberately five sheets and no analytics clutter:
+
+| Sheet | Contents |
+|---|---|
+| **Summary** | Starting balance, ending balance, total profit $, total ROI%, win rate, profit factor, max drawdown, trades, trades/day. Nothing else. |
+| **Trade Results** | 185 rows. Time in/out, pair, direction, lots, entry / stop / target / exit price, **pips**, **profit $**, R multiple, win-loss flag, exit reason, session, hold minutes, running balance. |
+| **Daily ROI** | All 91 days. Weekend rows shaded, not deleted. |
+| **Weekly ROI** | 14 weeks. |
+| **Monthly ROI** | 4 months. |
+
+Each period sheet carries start balance, end balance, $ gain, period ROI% and
+cumulative ROI%. `SMC_Sniper_Backtest.xlsx` (the v2 validation workbook) is
+untouched; all validation detail stays there and in this document.
+
 ### Everything that was tried, and its number
 
 Rounds S1–S3 ran 40 configurations of the scalping stack. **Not one is

@@ -183,6 +183,11 @@ fvg:
 entry:
   order_type: "limit"     # price must RETRACE into the zone -- no chasing
   valid_bars: 8           # limit is cancelled if unfilled after N setup bars
+  # The OB/FVG must form at or after the sweep, so it belongs to the reversal
+  # leg. The spec's sequence is sweep -> displacement -> MSS -> THEN the zone
+  # forms; without this a stale block from 60 bars ago satisfies step 7 while
+  # having nothing to do with the setup that is being traded.
+  zone_must_form_after_sweep: true
   # A touch is NOT a fill. Price must trade THROUGH the limit. This single
   # rule is the difference between an honest 45% and a published 70% in this
   # repo's history. Non-negotiable -- see execution.require_trade_through.

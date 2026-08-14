@@ -268,17 +268,26 @@ class ZoneMap:
                 if z.direction == direction and z.active_at(index, self.fvg_max_age)]
 
     def best_zone(self, index: int, direction: str, price: float,
-                  atr_value: float) -> tuple[Zone | None, Zone | None]:
+                  atr_value: float, min_index: int | None = None
+                  ) -> tuple[Zone | None, Zone | None]:
         """Pick the OB and FVG the entry will be built on.
 
         Preference: closest to price, within ``max_distance_atr``, highest
         quality first. Returns ``(order_block, fvg)`` -- either may be None.
+
+        ``min_index`` restricts zones to those formed at or after a given bar,
+        normally the sweep. The spec's sequence is sweep -> displacement ->
+        MSS -> *then* the OB/FVG forms, so the entry zone must belong to the
+        reversal leg. Without this, a stale order block from 60 bars ago could
+        satisfy step 7 while having nothing to do with the setup.
         """
         max_dist = float(self.fvg_cfg.get("max_distance_atr", 2.5)) * atr_value
 
         def _pick(zones: list[Zone]):
             best, best_key = None, None
             for zone in zones:
+                if min_index is not None and zone.index < min_index:
+                    continue
                 dist = abs(zone.mid - price)
                 if dist > max_dist:
                     continue

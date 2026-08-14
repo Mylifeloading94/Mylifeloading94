@@ -307,6 +307,7 @@ def generate_signals(ctx: PairContext, cfg,
     allowed_sessions = icfg.allowed_sessions
     dedupe_cfg = icfg.get("dedupe")
     entry_valid_bars = int(icfg.get("entry.valid_bars", 8))
+    zone_after_sweep = bool(icfg.get("entry.zone_must_form_after_sweep", True))
     fvg_fill = float(icfg.get("fvg.entry_fill_pct", 0.5))
     spread_pips = icfg.spread_pips
     max_spread = icfg.max_spread_pips
@@ -375,7 +376,10 @@ def generate_signals(ctx: PairContext, cfg,
             continue
 
         # --- step 7: zone ----------------------------------------------
-        ob, fvg = ctx.zones.best_zone(i, direction, closes[i], bar_atr)
+        # The zone must belong to the reversal leg (step 7 follows steps 4-6),
+        # not be a stale block that happens to still be active.
+        zone_floor = sweep.index if zone_after_sweep else None
+        ob, fvg = ctx.zones.best_zone(i, direction, closes[i], bar_atr, zone_floor)
         zone, zone_label = _pick_entry_zone(ob, fvg, direction)
         if zone is None:
             reject(i, direction, "zone", "no_valid_ob_or_fvg")

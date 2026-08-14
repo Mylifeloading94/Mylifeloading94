@@ -68,7 +68,7 @@ NUMBER_FORMATS = {
     "period_roi_pct": PCT, "cumulative_roi_pct": PCT,
     "pips": PIPS, "r_multiple": "0.000",
     "entry_price": "0.00000", "stop_price": "0.00000",
-    "target_price": "0.00000", "exit_price": "0.00000",
+    "target_price": "0.00000", "final_exit_price": "0.00000",
     "position_size_lots": "0.0000",
 }
 
@@ -185,7 +185,9 @@ def main() -> int:
 
     _write_table(wb.create_sheet("Trade Results"), trades,
                  "Trade Results -- every trade, in order",
-                 "Pips and profit are net of spread, slippage and commission. "
+                 "Pips and profit are net of spread, slippage and commission, "
+                 "and cover the WHOLE trade including partial take-profits -- "
+                 "final_exit_price is only where the last portion closed. "
                  "Times are UTC.")
     _write_table(wb.create_sheet("Daily ROI"), daily,
                  "Daily ROI -- continuous calendar",

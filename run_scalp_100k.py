@@ -46,8 +46,18 @@ def build_ledger(trades: pd.DataFrame, cfg, start_balance: float) -> pd.DataFram
     for _, t in frame.iterrows():
         pip = cfg.for_instrument(t["symbol"]).pip
         long = t["direction"] == "bullish"
-        sign = 1.0 if long else -1.0
-        pips = sign * (t["exit_price"] - t["entry"]) / pip
+        # Whole-trade pips, NOT (exit_price - entry).
+        #
+        # With partial take-profits, `exit_price` is only where the REMAINDER
+        # closed. A trade that banked TP1 and TP2 and then flattened the last
+        # third slightly under water has a negative last leg and a positive
+        # total, so the naive difference reports a pip loss next to a dollar
+        # profit. Six of the 185 deliverable rows disagreed with themselves
+        # that way. Deriving pips from the realised R keeps the pip column,
+        # the dollar column and the R column telling one story -- it is the
+        # position-weighted result across every leg, net of costs, and it
+        # satisfies pnl = pips * pip * contract_value * lots by construction.
+        pips = t["r_multiple"] * t["risk_price"] / pip
         balance += t["pnl"]
         rows.append({
             "date_time_in": pd.Timestamp(t["entry_time"]).strftime("%Y-%m-%d %H:%M"),
@@ -58,7 +68,7 @@ def build_ledger(trades: pd.DataFrame, cfg, start_balance: float) -> pd.DataFram
             "entry_price": round(float(t["entry"]), 5),
             "stop_price": round(float(t["stop"]), 5),
             "target_price": round(float(t["tp2"]), 5),
-            "exit_price": round(float(t["exit_price"]), 5),
+            "final_exit_price": round(float(t["exit_price"]), 5),
             "pips": round(float(pips), 1),
             "profit_usd": round(float(t["pnl"]), 2),
             "r_multiple": round(float(t["r_multiple"]), 3),

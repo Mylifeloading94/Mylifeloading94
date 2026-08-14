@@ -7,13 +7,58 @@ honestly.
 
 ---
 
-## STATUS — read this first  ·  **v2**
+## STATUS — read this first  ·  **v3**
 
-**It does not hit 68%. Its edge is still not statistically established. Do not
-trade it live.** v2 is a real improvement on v1 and still does not clear the
-bar that matters.
+**Do not trade any of this live.**
 
-| | **v1 baseline** | **v2 (current)** |
+v3 was asked for a scalping system with a 70%+ win rate at 3+ trades a day. It
+built one, measured it properly, and the answer is negative: **the SMC entry
+model does not survive the move to a scalping timeframe.** On 15m setups with
+5m fills, over 700 days and 29 pairs, it loses money at every score gate, every
+cost gate, every target width and every pair subset tested — 40 configurations,
+not one positive on both splits.
+
+v3 also produced this repo's best measured configuration, by accident and on
+the *swing* stack: v2's flagged flat-4R lead **replicated** and is now
+`profiles.swing_4r` (+0.263R, PF 1.375 — at a 32.89% win rate).
+
+| | **v1** | **v2** | **v3 scalper** | **v3 `swing_4r`** |
+|---|---|---|---|---|
+| Setup timeframe | 1H | 1H | **15m (5m fills)** | 1H |
+| Window | ~1200d | ~1200d | **~700d** | ~1200d |
+| Full window | 151 tr, 53.64%, PF 1.113, +0.052R | 153 tr, 54.90%, PF 1.260, +0.114R | **1888 tr, 43.64%, PF 0.749, −0.131R** | **149 tr, 32.89%, PF 1.375, +0.263R** |
+| Expectancy 95% CI | −0.119 to +0.221 | −0.061 to +0.286 | **entirely below zero** | **−0.042 to +0.574** |
+| CI clear of zero? | NO | NO | **yes — on the WRONG side** | NO (narrowest yet) |
+| Trades/day | 0.17 | 0.17 | **3.78** | 0.17 |
+| **70% WR reached?** | NO | NO | **only at a 0.5R target, where it loses money** | NO — 32.9% |
+| **3 trades/day reached?** | NO | NO | **YES** | NO |
+
+**The two owner targets pull against each other and the frontier is measured,
+not argued.** A flat 0.5R target gives 71.57% WR on TRAIN and 68.33% on TEST —
+essentially the 70% — at 2.13 trades a day and **−0.086R per trade**. Loosening
+the score gate to 55 gives 3.78 trades a day at **−0.131R**. Both targets are
+individually reachable. Neither is reachable profitably, and they are not
+reachable together.
+
+**The scalper's failure is not a cost problem, and that took ruling out three
+ways.** Gross expectancy before commission is −0.119R against a commission drag
+of 0.033R; the broker's real live spreads (~3× narrower than the backtester's
+deliberately conservative ones) still lose; and restricting to the five pairs
+where the spread is under 10% of R makes the out-of-sample result *worse*
+(−0.230R). The entries do not work at this timeframe.
+
+**Forward results: still PENDING DEMO RUN.** Nothing in this repo has ever
+placed an order.
+
+---
+
+## v2 — the reference configuration (unchanged, still reproducible)
+
+`python3 run_backtest.py --stack swing` still returns exactly 153 trades /
+54.90% WR / PF 1.260 / +0.114R / 3.98% max DD. Every v3 addition is opt-in
+behind a config profile precisely so that stays true.
+
+| | **v1 baseline** | **v2** |
 |---|---|---|
 | Universe | 13 pairs | **29 pairs** |
 | Full window | 151 trades, 53.64% WR, PF 1.113, +0.052R | **153 trades, 54.90% WR, PF 1.260, +0.114R** |
@@ -50,10 +95,12 @@ The spec also says *"a lower win rate with substantially better expectancy is
 preferable to an overfit strategy."* This is the lower win rate. The better
 expectancy has not been demonstrated yet.
 
-**The 90-day $100,000 deliverable lost money:** 6 trades, 33.3% WR, end
-balance **$98,378.77 (−1.62%)**, max DD 1.86%. Six trades cannot distinguish a
-broken system from a working one having a quiet quarter — see the deliverable
-section below for why that number is reported rather than defended.
+**The v2 90-day $100,000 deliverable lost money:** 6 trades, 33.3% WR, end
+balance **$98,378.77 (−1.62%)**, max DD 1.86%, at 0.5% risk. Six trades cannot
+distinguish a broken system from a working one having a quiet quarter — see the
+deliverable section below for why that number is reported rather than defended.
+The v3 deliverable at 2% risk on the scalper is in the v3 section, and it is
+much worse.
 
 **Next step is a forward demo run, not capital.** Paper/demo results:
 **PENDING DEMO RUN.**
@@ -181,6 +228,316 @@ the worst-identified setup class is what worked.
 
 ---
 
+## v3 — the scalping attempt, and what it found
+
+The owner asked for four things: scalping setups, a 70%+ win rate, a minimum of
+three trades a day, and a $100k / 2% / 90-day backtest with a clean
+profit-and-ROI workbook. Three of the four were built and measured. The
+second — 70% — turns out to be the wrong thing to want, and this section shows
+why with numbers rather than with an opinion.
+
+**Headline: the SMC entry model does not survive the move to a scalping
+timeframe.** On 15m setups with 5m fills, over 700 days and 29 pairs, it loses
+money at every score gate, every cost gate, every target width and every pair
+subset tested. That is not a tuning failure; it is a measurement, and it is
+consistent between TRAIN and TEST.
+
+---
+
+## What was unlocked first: the data was never the limit
+
+Both previous versions of this repo recorded that the broker only serves
+~120 days of 5m history, and shelved the idea of a validated scalping stack on
+that basis. **That was wrong.**
+
+A single `/trade/history` call returns at most ~20–27k bars, and it answers an
+over-long range with an **empty payload** rather than a truncated one. The
+empty payload was being read as "history ends here". Chunk the request and the
+same endpoint serves:
+
+| Interval | Old belief | Actually available |
+|---|---|---|
+| 5m | ~120 days | **≥700 days** (142,867 bars/pair) |
+| 1m | not testable | **≥200 days** |
+| 15m | ~400 days | **≥700 days** (47,647 bars/pair) |
+
+`fetch_deep.py` does the chunking. All 29 pairs now hold ~700 days of 5m and
+15m. That is a 75% increase in usable 15m history and a 6x increase in 5m, and
+it is the only reason anything below is a validation rather than an anecdote.
+
+---
+
+## Cost viability — which pairs can be scalped at all
+
+On a swing trade the spread is a rounding error. On a scalp it is a large
+fraction of the risk, so this was computed **before** any backtest, from median
+London/NY ATR against the configured round-trip cost. A 1.5×ATR structural stop
+is the typical scalp stop.
+
+| | 5m setup | 15m setup |
+|---|---|---|
+| Best pair (USDJPY) | cost = 5.2% of R | cost = 5.2% of R |
+| Median pair | cost ≈ 38% of R | cost ≈ 18% of R |
+| Worst pair (AUDNZD) | cost = 62% of R | cost = 37% of R |
+| Pairs clearing 10× cost | **0** | 5 |
+
+**The 5m setup timeframe is not viable on this broker's spreads and is
+rejected on that ground**, before any performance number is consulted. On a
+5m stop, the median pair pays 38% of its risk to the spread. The 15m stack is
+the honest scalping timeframe here, and that is what everything below uses.
+
+---
+
+## The frontier the owner actually asked about
+
+Two independent dials move win rate and frequency, and they are reported
+together because quoting either alone is how this repo used to publish a 70%
+that was really 45%.
+
+**Dial 1 — the score gate (frequency).** 700 days, 29 pairs, cost gate 6×.
+
+| Gate | Trades | Trades/day | Win rate | TRAIN E | TEST E |
+|---|---|---|---|---|---|
+| 55 | 1888 | **3.78** | 43.64% | −0.105R | −0.127R |
+| 60 | 1673 | 3.35 | 43.10% | −0.112R | −0.153R |
+| 65 | 1179 | 2.36 | 43.17% | −0.123R | −0.144R |
+| 70 | 748 | 1.50 | 43.05% | −0.139R | −0.106R |
+| 75 | 551 | 1.10 | 42.65% | −0.145R | −0.075R |
+| 80 | 191 | 0.38 | 41.36% | −0.271R | −0.142R |
+
+Note what this says about the scoring model itself: **win rate barely moves
+across a 25-point gate range (41–44%), and TRAIN expectancy gets *worse* as the
+gate tightens.** On a 15m setup the score card carries no positive marginal
+information. That is a direct answer to "test the scoring components for
+marginal contribution": at this timeframe they do not discriminate.
+
+**Dial 2 — target width (win rate).** Management stripped, one flat target.
+
+| Target | Win rate | Break-even WR needed | Trades/day | TRAIN E | TEST E |
+|---|---|---|---|---|---|
+| 0.5R | **69.24%** | 66.67% | 2.13 | −0.053R | −0.101R |
+| 1.0R | 48.68% | 50.00% | 2.35 | −0.118R | −0.159R |
+| 1.5R | 39.56% | 40.00% | 2.28 | −0.125R | −0.178R |
+| 2.0R | 35.63% | 33.33% | 2.27 | −0.091R | −0.194R |
+| 3.0R | 32.59% | 25.00% | 2.24 | −0.092R | −0.186R |
+| 4.0R | 31.87% | 20.00% | 2.23 | −0.084R | −0.147R |
+
+**So: is 70% reachable? Very nearly — 71.57% on TRAIN and 68.33% on TEST at a
+flat 0.5R target — and it loses 0.086R per trade.** That is the entire lesson
+of the target-shrinking trap in one row. The win rate clears its break-even
+line by 2.6 points and the position still bleeds, because at 15m the round-trip
+cost is a double-digit percentage of R and eats the margin.
+
+**Is 3 trades a day reachable? Yes — 3.78/day at gate 55.** It loses 0.131R per
+trade.
+
+**Both at once? No. And neither one profitably.**
+
+---
+
+## It is not a cost problem, and that took ruling out three ways
+
+The obvious explanation for a losing scalper is the toll. It was tested
+directly and it is not the answer.
+
+| Test | TRAIN | TEST | Reading |
+|---|---|---|---|
+| Base (gate 65, cost 6×) | −0.123R | −0.144R | reference |
+| Commission set to **zero** | −0.093R | −0.114R | commission is worth only 0.03R |
+| Broker's **live** spreads (~3× narrower) | −0.139R | −0.120R | still negative, more trades |
+| Only the 5 pairs where cost < 10% of R | −0.092R | −0.230R | **worse**, not better |
+| Only the 12 pairs where cost < 15% of R | −0.107R | −0.240R | **worse** |
+| Cost gate 12× | −0.081R | −0.096R | better, still negative |
+| Cost gate 20× | −0.011R | −0.205R | TRAIN-only; TEST collapses |
+
+Gross expectancy *before commission* is **−0.119R** against a commission drag
+of **0.033R**. Restricting to the cheapest pairs on the book makes the result
+*worse* out of sample. Running the broker's real quotes instead of the
+deliberately-conservative ones still loses. Whatever is wrong here, a cheaper
+broker does not fix it.
+
+The cost gate looks like it helps — TRAIN improves monotonically from −0.240R
+at 0× to −0.011R at 20× — but TEST does not follow, and at 20× it falls to
+−0.205R on 119 trades. That is the signature of a filter shrinking a sample
+until TRAIN noise looks like signal, and it is the same shape as v2 lead (a).
+
+---
+
+## The v2 leads, finally tested — one replicated, one did not
+
+Both were flagged in v2 and neither had a TRAIN/TEST cycle, because both were
+scored on the **full window**, which is the one selection this repo forbids.
+`tune_v2_leads.py` gave them one, on the swing stack where they were found.
+
+### Lead (a) `min_stop_over_cost = 15` — NOT REPLICATED
+
+| Config | Trades | Full E | TRAIN E | TEST E |
+|---|---|---|---|---|
+| baseline (ladder, 10×) | 153 | +0.114R | +0.109R | +0.083R |
+| cost 12× | 126 | +0.070R | +0.151R | **−0.084R** |
+| **cost 15×** | 94 | **+0.245R** | **+0.391R** | +0.078R |
+| cost 20× | 49 | +0.239R | +0.514R | **−0.119R** |
+
+The headline +0.245R is a TRAIN artifact. Out of sample 15× lands on +0.078R
+against the baseline's +0.083R — **no improvement, for 39% fewer trades** — and
+the values either side of it are negative on TEST. Its full-window CI
+[+0.028, +0.465] does clear zero, which is exactly the trap: the full window is
+what suggested the parameter. **Rejected.**
+
+### Lead (b) flat 4R target — REPLICATED, and adopted as a profile
+
+| Config | Trades | Win rate | PF | Full E | TRAIN E | TEST E | Max DD |
+|---|---|---|---|---|---|---|---|
+| ladder | 153 | 54.90% | 1.260 | +0.114R | +0.109R | +0.083R | 3.98% |
+| flat 3R | 150 | 36.00% | 1.284 | +0.192R | +0.145R | +0.253R | 4.85% |
+| **flat 4R** | 149 | 32.89% | **1.375** | **+0.263R** | **+0.158R** | **+0.503R** | 7.31% |
+
+It helps TRAIN, it improves TEST, and — the part that distinguishes it from
+lead (a) — the effect is **monotonic in target width** rather than appearing at
+one convenient value. Shipped as `profiles.swing_4r`.
+
+Three caveats stated at the profile itself so it cannot be selected blind:
+win rate falls **54.90% → 32.89%** (it wins bigger, not more often), max
+drawdown nearly doubles, and the expectancy CI is **[−0.042, +0.574] — still
+spanning zero**, though with a negative tail a third narrower than the ladder's
+−0.061. A better configuration; not an established edge.
+
+---
+
+## Engineering fixes that came out of this session
+
+**1. The intraday history limit was a misread empty payload.** Documented
+above. `fetch_deep.py`, and 6× more 5m history for every pair.
+
+**2. `max_open_positions` and `max_exposure_per_currency` were inert.**
+`RiskEngine.can_trade` read `state.open_positions` and
+`state.currency_exposure`; nothing in the backtest path ever wrote either. Both
+caps have therefore never bound in any backtest this repo has published.
+
+This rewrites one of v2's conclusions. v2 recorded "raising
+`max_open_positions` / `max_trades_per_day` / per-currency exposure changed the
+result by exactly zero trades" and read it as evidence that the system is
+limited by setup scarcity rather than by its risk limits. Two of those three
+levers were simply not connected. (`max_trades_per_day` *is* enforced, so that
+third of the finding stands.) Fixed behind `risk.enforce_concurrency`, default
+off so v2 stays reproducible, on in the scalp profile.
+
+**3. A 10× speedup, and one "optimisation" that was a slowdown.** The engine
+was profiled on 20k-bar 1H frames; a 143k-bar 5m frame is a different machine.
+Three indexed-lookup fixes took a PairContext from 74s to 7.8s. One earlier
+attempt cached bar arrays on `frame.attrs` — which pandas **deep-copies** on
+every derived frame — and made the build *slower* than the pandas access it
+replaced. Another sorted the zone list and silently changed which of two
+equal-keyed zones won a strict-`>` tie-break, moving the swing stack from 153
+trades to 155. Both were caught by re-running the v2 regression, which is why
+that check exists.
+
+**Every speedup is verified, not asserted.** The swing stack still returns
+exactly 153 trades / 54.90% WR / PF 1.260 / +0.114R / 3.98% max DD, and
+`detect_sweeps` was run side by side with the original implementation over
+432,000 sweeps across 8 pair/timeframe combinations with every field matching.
+
+---
+
+## v3 caveats
+
+1. **The scalper's expectancy CI is clear of zero on the wrong side.** v1 and
+   v2 could not rule out that they made no money. v3's scalper can: it is
+   reliably negative, and the TRAIN and TEST splits agree on that. This is the
+   one place in this repo where a result *is* statistically established, and it
+   establishes a loss.
+
+2. **`swing_4r` is better, not proven.** Its CI [−0.042, +0.574] still spans
+   zero. 149 trades is not enough to establish a 32.89% win rate against a 20%
+   break-even line, and the TEST half of that result (+0.503R on 43 trades)
+   leans on a handful of 4R winners. Treat the +0.263R as the best available
+   estimate, not as a number to size positions from.
+
+3. **The score card does not discriminate at 15m.** Across a 25-point gate
+   range the win rate moves 41–44% and TRAIN expectancy gets *worse* as the
+   gate tightens. Whatever the components measure on a 1H chart, they do not
+   measure it on a 15m one. Nothing was reweighted on that basis, because
+   reweighting to fit one timeframe's negative result is a fit.
+
+4. **The 5m stack was rejected on cost arithmetic, not on a backtest.** Its
+   median pair pays 38% of its risk to the spread. That is a property of the
+   broker's book, computed before any signal was generated, and it is the
+   honest ground on which to exclude a timeframe.
+
+5. **2% risk on a negative-expectancy system is not a risk setting, it is a
+   countdown.** The deliverable is produced at 2% because the owner asked for
+   2%, and the risk-of-ruin block is printed next to it for the same reason.
+
+6. **Everything else from the v2 caveats still applies** — no news filter, BID
+   bars with modelled spread, XAUUSD is the broker's own contract, and nothing
+   has ever traded live or on demo.
+
+---
+
+## How to run v3
+
+```bash
+# Deepen the intraday cache (chunked; this is what makes 5m/15m testable)
+python3 fetch_deep.py --interval 5m  --days 700
+python3 fetch_deep.py --interval 15m --days 700
+
+# The scalping improvement loop (TRAIN/TEST scored, nothing on the full window)
+python3 tune_scalp.py --round viability   # cost per pair, 5m vs 15m
+python3 tune_scalp.py --round diag        # matched-R: does the entry model work?
+python3 tune_scalp.py --round s1          # score gate + cost gate frontier
+python3 tune_scalp.py --round s2          # follow the cost
+python3 tune_scalp.py --round s3          # the hypotheses still standing
+python3 tune_scalp.py --round frontier    # win rate vs frequency, both ends
+python3 tune_scalp.py --round final       # walk-forward + controls
+
+# The two v2 leads, on the stack they were found on
+python3 tune_v2_leads.py
+
+# The $100k / 2% / 90-day deliverable + the clean workbook
+python3 run_scalp_100k.py
+python3 build_scalper_workbook.py
+
+# v2 is untouched and still selectable
+python3 run_backtest.py --stack swing                  # 153 tr, 54.90%, PF 1.260
+python3 run_backtest.py --stack swing --profile swing_4r
+```
+
+---
+
+## Everything that was tried, and its number
+
+Rounds S1–S3 ran 40 configurations of the scalping stack. **Not one is
+positive on TRAIN and TEST.** Not one is positive on TRAIN alone at a sample
+size worth quoting. The full log with every split is
+`reports/scalp/improvements.csv`.
+
+| Change | TRAIN | TEST | Verdict |
+|---|---|---|---|
+| base (gate 65, cost 6×) | −0.123R | −0.144R | reference |
+| score gate 55 (3.78 trades/day) | −0.105R | −0.127R | best frequency, still loses |
+| score gate 80 (v2's gate) | −0.271R | −0.142R | worst; the gate does not transfer |
+| cost gate 12× | −0.081R | −0.096R | REJECTED |
+| cost gate 20× | −0.011R | −0.205R | REJECTED — sample shrinkage |
+| 5 cheapest pairs only | −0.092R | −0.230R | REJECTED — worse |
+| 12 cheapest pairs only | −0.107R | −0.240R | REJECTED — worse |
+| zero commission | −0.093R | −0.114R | diagnostic: not the cause |
+| broker's live spreads | −0.139R | −0.120R | diagnostic: not the cause |
+| no session-flat exit | −0.126R | −0.158R | REJECTED — flat exit helps |
+| no break-even management | −0.114R | −0.157R | REJECTED — WR falls to 38.2% |
+| `min_rr` 1.0 | −0.123R | −0.144R | no-op — TP2 already exceeds 2R |
+| flat 4R (the v2 lead) | −0.092R | −0.121R | REJECTED — works on 1H, not 15m |
+| require structure-TF alignment | −0.136R | −0.093R | REJECTED — hurts TRAIN |
+| require 5m entry confirmation | −0.135R | −0.137R | REJECTED |
+| NY session only | −0.084R | −0.131R | REJECTED |
+| skip early London (08–09 UTC) | −0.078R | −0.177R | REJECTED — TEST worsens |
+
+The pattern in the right-hand column is the whole story. Filters that shrink
+the sample improve TRAIN and leave TEST alone or make it worse. That is what
+overfitting looks like from the inside, and it is why selection is made on
+TRAIN and scored on TEST rather than eyeballed on the full window.
+
+---
+
 ## Architecture map
 
 ```
@@ -207,10 +564,28 @@ smc_sniper/
   dashboard.py       Self-contained themed HTML report
   report_xlsx.py     The Excel workbook
   logging_engine.py  JSONL decision log, including every rejection
-tests/               44 unit + integration tests
+tests/               59 unit + integration tests
 run_backtest.py      Full validation protocol -> reports + Excel
 run_paper.py         Offline dry-run scanner (no orders, ever)
+
+  --- v3 additions -------------------------------------------------------
+fetch_deep.py        Chunked history fetch. The broker caps a single
+                     /trade/history call at ~20-27k bars and answers an
+                     over-long range with an EMPTY payload, which v1 and v2
+                     both read as "history ends here". Chunking gets 5m back
+                     700+ days and 1m back 200+.
+tune_scalp.py        The scalping improvement loop (same TRAIN/TEST protocol
+                     as tune.py) + the win-rate-vs-frequency frontier.
+tune_v2_leads.py     v2's two flagged leads, on a real TRAIN/TEST cycle.
+run_scalp_100k.py    The $100k / 2% / 90-day deliverable + risk-of-ruin.
+build_scalper_workbook.py   SMC_Scalper_Results.xlsx (5 clean sheets).
 ```
+
+**Config profiles.** `Config.apply_profile(name)` overlays a flat map of dotted
+paths from `profiles.<name>` in `config.yaml`. This is how v3 variants are
+selected *without touching a single default*, so
+`run_backtest.py --stack swing` keeps reproducing v2's published 153 trades /
+54.90% / PF 1.260 forever. Two profiles ship: `scalp` and `swing_4r`.
 
 **Data flow:** `providers -> data (cache/resample) -> MTFView -> PairContext
 (structure + liquidity + zones per pair) -> signal_engine (score + gate) ->

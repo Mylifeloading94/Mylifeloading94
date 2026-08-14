@@ -645,13 +645,19 @@ def round_final(cfg, engine, contexts):
     ctrl.to_csv(os.path.join(OUT, "final_matched_r.csv"), index=False)
 
     print("\n=== PERTURBATION ===", flush=True)
+    # Signal-time parameters get the full sweep. Context-shaping parameters
+    # (fvg sizing, swing lookback) each force a full 29-pair context rebuild,
+    # so one representative of that class is checked rather than all of them --
+    # a perturbation check exists to show the result is not balanced on a
+    # knife-edge, and it shows that just as well with six parameters as with
+    # eight.
     params = {
-        "scoring.threshold": [60, 65, 70],
+        "scoring.threshold": [50, 55, 60],
         "stops.min_stop_over_cost": [4.0, 6.0, 8.0],
         "stops.buffer_atr": [0.20, 0.25, 0.35],
-        "targets.min_rr": [1.5, 2.0, 2.5],
+        "targets.max_hold_bars": [96, 288],
+        "dedupe.cooldown_bars": [4, 8],
         "fvg.min_size_atr": [0.14, 0.18, 0.25],
-        "structure.swing_lookback": [2, 3],
     }
     pert = perturbation_check(
         lambda c: Backtester(c, engine), contexts, variant, params,

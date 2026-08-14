@@ -521,6 +521,34 @@ python3 run_backtest.py --stack swing --profile swing_4r
 
 ---
 
+### The adopted scalping config, fully validated
+
+`profiles.scalp` — scalp15 stack (4H bias / 1H structure / 15m setup / 5m
+entry), score gate 55, cost gate 6×, intraday flat at 21:00 UTC, concurrency
+caps enforced, 29 pairs, 0.5% risk, ~700 days.
+
+The gate was chosen on TRAIN subject to the owner's stated floor of three
+trades a day, which the score gate is the only lever that reaches. TEST was not
+consulted until the choice was frozen.
+
+| Split | Trades | Trades/day | Win rate | PF | Expectancy |
+|---|---|---|---|---|---|
+| **IN-SAMPLE (train)** | 1052 | 4.21 | 45.44% | 0.794 | **−0.105R** |
+| **VALIDATION** | 312 | 3.12 | 38.46% | 0.590 | −0.226R |
+| **OUT-OF-SAMPLE (test)** | 524 | 3.49 | 43.13% | 0.760 | **−0.127R** |
+| **FULL WINDOW** | **1888** | **3.78** | **43.64%** | **0.749** | **−0.131R** |
+
+**Expectancy 95% CI: [−0.175R, −0.086R].** Win-rate 95% CI: 41.37–45.92%.
+
+**The confidence interval is clear of zero.** For the first time in this repo a
+result is statistically established rather than merely suggestive — and what it
+establishes is that the system loses 0.13R per trade. v1 and v2 could not rule
+out that they made no money; v3's scalper rules out that it does.
+
+Total −247.92R over the window. Max drawdown 124% (the account is destroyed
+partway through and the figure keeps counting against the starting balance).
+**Longest losing streak: 12.**
+
 ### The $100,000 / 2% / 90-day deliverable
 
 The adopted scalping config (scalp15, score gate 55, cost gate 6×, intraday
@@ -558,13 +586,17 @@ on the streak this system actually produced:
 
 | | |
 |---|---|
-| Measured longest losing streak | **7** |
-| Drawdown from that streak alone, at 2% | **11.72%** |
+| Longest losing streak in the 90-day window | **7** |
+| Longest losing streak over the full 700 days | **12** |
+| Drawdown from a 7-loss streak alone, at 2% | **11.72%** |
+| Drawdown from a 12-loss streak, at 2% | **21.5%** |
 | Consecutive losses needed to lose 20% | 13 |
 | Probability of a single loss | 0.60 |
 
-A 7-loss streak at 2% is an 11.7% drawdown, and this system's loss rate of 0.60
-makes streaks of that length ordinary rather than exceptional. **On a system
+A 7-loss streak at 2% is an 11.7% drawdown. The full window contains a
+**12-loss streak**, which at 2% is a 21.5% drawdown from a single bad run, and
+at a loss rate of 0.60 streaks of that length are ordinary rather than
+exceptional. **On a system
 with positive expectancy, 2% is aggressive. On this one it is not a risk
 setting, it is a rate of descent** — the account is down 48.94% in a quarter,
 and the drawdown figure of 50.76% is not a bad patch, it is the trend.
@@ -840,6 +872,13 @@ for a future version — and it is not adopted here, because changing exits need
 its own TRAIN/TEST cycle and this session ran out of runway before it could be
 done properly.
 
+✅ **v3 did the cycle and it REPLICATED.** Flat 4R: TRAIN +0.158R (vs the
+ladder's +0.109R) and TEST +0.503R (vs +0.083R), with flat 3R landing in
+between on both splits — monotonic in target width rather than appearing at one
+convenient value. Shipped as `profiles.swing_4r`. It costs 22 points of win
+rate (54.90% → 32.89%) and nearly doubles max drawdown (3.98% → 7.31%), and its
+expectancy CI [−0.042, +0.574] still spans zero. See the v3 section.
+
 ### Pair selection — a cautionary result (v1, still the reason it is off)
 
 Selecting pairs on TRAIN only (the correct protocol) once picked a single pair,
@@ -877,6 +916,13 @@ Two are not, and both matter:
   never put through a TRAIN/TEST cycle, and a perturbation sweep is scored on
   the full window, which is exactly the selection this repo forbids. It is a
   **candidate for the next round**, recorded here so it is not lost.
+
+  ✅ **v3 tested it and it did not replicate.** TRAIN +0.391R against a TEST of
+  +0.078R — no better than the baseline's +0.083R for 39% fewer trades — and the
+  gate values either side of it (12× and 20×) are *negative* on TEST. Its
+  full-window CI [+0.028, +0.465] does clear zero, which is precisely why a
+  full-window number cannot be trusted to select a parameter: the full window is
+  what suggested it. See the v3 section. **Rejected.**
 
 ### Adaptive analysis — what actually carries the expectancy
 
@@ -1014,11 +1060,38 @@ python3 tune.py --round log                # -> reports/tuning/improvements.csv
 # Assemble the workbook from saved bundles (+ the 100k and Improvements sheets)
 python3 build_final_report.py
 
+# --- v3 ------------------------------------------------------------------
+# Deepen the intraday cache. This is the step that makes 5m/15m testable at
+# all: a single /trade/history call caps at ~25k bars and returns EMPTY for a
+# longer range, which v1 and v2 both read as the end of history.
+python3 fetch_deep.py --interval 5m  --days 700
+python3 fetch_deep.py --interval 15m --days 700
+
+# The scalping improvement loop
+python3 tune_scalp.py --round viability   # cost per pair, 5m vs 15m
+python3 tune_scalp.py --round diag        # matched-R: do the entries work?
+python3 tune_scalp.py --round s1          # score gate + cost gate frontier
+python3 tune_scalp.py --round s2          # follow the cost
+python3 tune_scalp.py --round s3          # the hypotheses still standing
+python3 tune_scalp.py --round final       # walk-forward + controls
+python3 tune_scalp.py --round log         # -> reports/scalp/improvements.csv
+
+# v2's two flagged leads, on the stack they were found on
+python3 tune_v2_leads.py
+
+# The $100k / 2% / 90-day scalping deliverable + the clean workbook
+python3 run_scalp_100k.py
+python3 build_scalper_workbook.py         # -> SMC_Scalper_Results.xlsx
+
+# Any stack with any profile overlaid
+python3 run_backtest.py --stack swing --profile swing_4r
+python3 run_backtest.py --stack scalp15 --profile scalp
+
 # Offline dry-run scan: current qualifying setups, no orders
 python3 run_paper.py
 
 # Tests
-python3 -m pytest tests/ -q
+python3 -m pytest tests/ -q               # 59 tests
 ```
 
 **Credentials.** `.env` holds `TL_EMAIL / TL_PASSWORD / TL_SERVER /

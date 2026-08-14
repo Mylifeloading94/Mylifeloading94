@@ -67,8 +67,19 @@ def comparison(stacks: list[str]) -> pd.DataFrame:
             return sel.iloc[0].to_dict() if not sel.empty else {}
 
         train, test = split_row("TRAIN"), split_row("TEST")
-        wf_n = len(wf)
-        wf_wr = round((wf["r_multiple"] > 0).mean() * 100, 2) if wf_n else None
+        if not wf.empty and "r_multiple" in wf:
+            wf_n = len(wf)
+            wf_wr = round((wf["r_multiple"] > 0).mean() * 100, 2)
+        else:
+            # Fall back to the per-fold summary when the OOS trade-level file
+            # is unavailable (e.g. a bundle reconstructed from a workbook).
+            folds = load(stack, "walk_forward")
+            if not folds.empty and {"oos_trades", "oos_wr"} <= set(folds.columns):
+                wf_n = int(folds["oos_trades"].sum())
+                wins = (folds["oos_trades"] * folds["oos_wr"] / 100.0).sum()
+                wf_wr = round(wins / wf_n * 100, 2) if wf_n else None
+            else:
+                wf_n, wf_wr = 0, None
         rows.append({
             "stack": stack,
             "description": STACK_LABELS.get(stack, stack),
@@ -106,14 +117,23 @@ def main():
     verdict = open(verdict_path).read().splitlines() if os.path.exists(verdict_path) else []
 
     # Prepend the cross-stack headline so the Verdict sheet leads with both.
+    def num(value, digits=2):
+        try:
+            return f"{float(value):.{digits}f}"
+        except (TypeError, ValueError):
+            return str(value)
+
     lead = ["STACK COMPARISON -- both are reported; neither stands alone", ""]
     for _, row in compare.iterrows():
         lead.append(
-            f"  {row['stack']}: {row['full_trades']} trades, "
-            f"{row['full_win_rate']}% WR (CI {row['full_wr_ci_low']}-{row['full_wr_ci_high']}), "
-            f"PF {row['full_profit_factor']}, E {row['full_expectancy_r']}R, "
+            f"  {row['stack']}: {int(row['full_trades'])} trades, "
+            f"{num(row['full_win_rate'])}% WR "
+            f"(95% CI {num(row['full_wr_ci_low'])}-{num(row['full_wr_ci_high'])}), "
+            f"PF {num(row['full_profit_factor'], 3)}, "
+            f"expectancy {num(row['full_expectancy_r'], 4)}R, "
+            f"max DD {num(row['full_max_dd_pct'])}%, "
             f"walk-forward OOS {row['walkforward_oos_trades']} trades at "
-            f"{row['walkforward_oos_wr']}% -- 68% reached: {row['reached_68pct']}")
+            f"{num(row['walkforward_oos_wr'])}% -- 68% reached: {row['reached_68pct']}")
     lead += ["", f"Detail sheets below are the '{head}' stack (largest sample).", "", "-" * 70, ""]
     verdict = lead + verdict
 

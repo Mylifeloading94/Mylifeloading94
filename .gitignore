@@ -32,3 +32,4 @@ ALL_STRATEGIES_PAUSED
 # SMC Sniper
 smc_data/
 reports/
+!SMC_Sniper_Backtest.xlsx

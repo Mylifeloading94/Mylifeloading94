@@ -11,14 +11,16 @@ honestly.
 
 **It does not hit 68%. It does not clearly have an edge. Do not trade it live.**
 
-| | Long-window stack (1H setup, ~1200d) |
-|---|---|
-| Full window | **151 trades, 53.6% WR, PF 1.11, expectancy +0.052R** |
-| Win-rate 95% CI | **45.7% – 61.6%** (a 16-point span) |
-| Expectancy 95% CI | **−0.119R to +0.221R — spans zero** |
-| Walk-forward (out-of-sample) | **129 trades, 55.8% WR, PF 1.21, +0.092R** |
-| Max drawdown | 3.74% · longest losing streak 7 |
-| **68% target reached?** | **NO — 53.6% full window, 55.8% walk-forward** |
+| | Long-window (1H setup, ~1200d) | Spec-native (15m setup, ~400d) |
+|---|---|---|
+| Full window | **151 trades, 53.6% WR, PF 1.11, +0.052R** | 47 trades, 51.1% WR, PF 1.02, +0.010R |
+| Win-rate 95% CI | **45.7 – 61.6%** (16-pt span) | 36.2 – 66.0% (30-pt span) |
+| Expectancy 95% CI | **−0.119R to +0.221R — spans zero** | −0.291R to +0.313R — spans zero |
+| In-sample (train) | 73 trades, 50.7% WR, PF 1.02 | 22 trades, 54.6% WR, PF 1.06 |
+| Out-of-sample (test) | 38 trades, 52.6% WR, PF 1.00 | 13 trades, 53.9% WR, PF 1.15 |
+| Walk-forward (OOS) | **129 trades, 55.8% WR, PF 1.21, +0.092R** | 35 trades, 54.3% WR, PF 1.21 (folds of 4–11) |
+| Max drawdown | 3.74% · longest losing streak 7 | 2.87% |
+| **68% reached?** | **NO — 53.6% full, 55.8% walk-forward** | **NO — 51.1%** |
 
 The honest summary: this is a *correctly built* SMC system whose measured edge
 is **statistically indistinguishable from zero**. The expectancy confidence
@@ -191,13 +193,75 @@ samples here are far too small to select on; doing it destroyed performance.
 The walk-forward therefore keeps all pairs and says so, rather than
 manufacturing a selection the data cannot support.
 
+### Robustness — parameter perturbation
+
+Each parameter nudged with everything else held. Context-shaping parameters
+(FVG sizing, swing lookback) trigger a full context rebuild.
+
+| Parameter | Values → profit factor | Reading |
+|---|---|---|
+| `scoring.threshold` | 75 → **0.87**, 80 → 1.11, 85 → **1.26** | Selectivity helps, monotonically. Supports the sniper thesis. |
+| `stops.min_stop_over_cost` | 0 → **0.93**, 6 → 1.00, 10 → 1.11, 15 → 1.09 | Monotonic to 10× then flat — a real cost effect, not a fitted number. |
+| `stops.buffer_atr` | 0.20 → 1.04, 0.25 → 1.11, 0.35 → 1.06 | Shallow, no knife-edge. |
+| `fvg.min_size_atr` | 0.14 → 1.11, 0.18 → 1.11, 0.25 → 1.08 | Flat. |
+| `structure.swing_lookback` | 2 → 1.11, 3 → 1.12 | Flat. |
+| `targets.min_rr` | 1.5 → 1.11, 2.0 → 1.11, 2.5 → 1.03 | Flat until it starves the sample. |
+
+Nothing here depends on one exact value, which is the main thing a perturbation
+check is for. The two parameters that move the result — selectivity and the
+cost gate — move it in the direction theory predicts.
+
+### Adaptive analysis — what actually carries the expectancy
+
+Across ~7 dimensions, **only two groups have a 95% CI clear of zero**:
+
+| Group | n | Win rate | PF | Expectancy | 95% CI |
+|---|---|---|---|---|---|
+| Sweeps of **equal lows** | 35 | **68.57%** | 2.266 | **+0.345R** | +0.027 to +0.651 ✅ |
+| Sweeps of **session highs** | 34 | 41.18% | 0.456 | −0.331R | −0.624 to −0.022 ❌ |
+
+Directional and session tendencies exist but are **not** significant:
+longs +0.158R (n=67, 61.2% WR) vs shorts −0.032R (n=84, 47.6% WR);
+London +0.109R (n=87, 56.3% WR) vs NY −0.025R (n=64, 50.0% WR). Both CIs span
+zero. No individual pair reaches n=30; the best is EURJPY (n=22, 63.6% WR,
+PF 1.89) and its CI spans zero too.
+
+⚠️ **Do not over-read the 68.57%.** That is the *only* place the spec's target
+appears, and it is a post-hoc subgroup found by testing seven liquidity types —
+with seven comparisons, one clearing at 95% is roughly what chance produces.
+It is a hypothesis worth a dedicated forward test, **not** a validated result
+and **not** grounds for claiming the system hits 68%.
+
 ### Spec-native stack — 4H bias / 1H structure / 15m setup, ~400 days
 
 Reported separately because the sample is much smaller and cannot carry a
-conclusion on its own: **47 trades, 51.1% WR, PF 1.02, expectancy +0.010R**
-(95% CI on win rate 36.2–63.8%). At the conservative 85 gate this stack
-produces **3 trades in 400 days** — correct sniper behaviour, statistically
-useless. This is the honest cost of the spec's selectivity at 15m.
+conclusion on its own.
+
+| Split | Trades | Win rate | PF | Expectancy |
+|---|---|---|---|---|
+| IN-SAMPLE (train) | 22 | 54.55% | 1.055 | +0.026R |
+| VALIDATION | 12 | 41.67% | 0.834 | −0.087R |
+| OUT-OF-SAMPLE (test) | 13 | 53.85% | 1.147 | +0.072R |
+| **FULL WINDOW** | **47** | **51.06%** | **1.020** | **+0.010R** |
+
+Win-rate 95% CI **36.2 – 66.0%**; expectancy CI −0.291R to +0.313R. Max
+drawdown 2.87%. 104 signals produced 47 fills.
+
+These splits hold 12–22 trades each. **They cannot support any conclusion** and
+are shown only to demonstrate the protocol ran. Walk-forward across 5 folds
+totals 35 OOS trades at 54.29% WR / PF 1.206 / +0.093R (95% CI 37.1–71.4%) —
+the same profit factor as the long-window stack, from folds of 4–11 trades
+apiece that are individually meaningless.
+
+Its matched-R control shows the same shape as the long-window stack: win rate
+falls from 57.5% at 1R to 32.6% at 4R while expectancy stays marginally
+positive — again the opposite of TP-shrinking.
+
+Pair selection on this stack correctly refused to select: *"no pair reached 12
+train trades (max was 4)"*. At the conservative 85 gate the stack produces
+**3 trades in 400 days** — correct sniper behaviour, statistically useless.
+That is the honest cost of the spec's selectivity at 15m, and it is the reason
+the long-window 1H stack carries the headline.
 
 ---
 

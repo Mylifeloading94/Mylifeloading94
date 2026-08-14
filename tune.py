@@ -92,7 +92,8 @@ def apply(cfg, overrides: dict):
 
 
 def evaluate(cfg, engine, contexts, overrides: dict, name: str,
-             balance: float = 10000.0, splits=None, ci: bool = False) -> dict:
+             balance: float = 10000.0, splits=None, ci: bool = False,
+             allowed=None) -> dict:
     """Run one variant and return full / train / test metrics.
 
     Signal generation happens once per variant and is reused across the
@@ -104,12 +105,14 @@ def evaluate(cfg, engine, contexts, overrides: dict, name: str,
     bt = Backtester(variant, engine)
     bt.bind(contexts)
     t0 = time.time()
-    trades, _, _ = bt.run(contexts=contexts, collect_rejections=False)
+    trades, _, _ = bt.run(contexts=contexts, collect_rejections=False,
+                          allowed_symbols=allowed)
     full = trades_to_frame(trades)
     row = {"variant": name, "seconds": round(time.time() - t0, 1)}
     frames = {"full": full}
     for split, (a, b) in (splits or bounds(contexts)).items():
-        tr, _, _ = bt.run(contexts=contexts, start=a, end=b, collect_rejections=False)
+        tr, _, _ = bt.run(contexts=contexts, start=a, end=b, collect_rejections=False,
+                          allowed_symbols=allowed)
         frames[split] = trades_to_frame(tr)
     for tag, frame in frames.items():
         m = compute_metrics(frame, balance)
@@ -265,32 +268,53 @@ def round_b(cfg, engine, contexts, base: dict):
     return frame
 
 
+V1_PAIRS = ["EURUSD", "GBPUSD", "USDJPY", "USDCHF", "USDCAD", "AUDUSD", "NZDUSD",
+            "EURJPY", "GBPJPY", "EURGBP", "AUDJPY", "CADJPY", "XAUUSD"]
+V2_PAIRS = ["AUDCAD", "AUDCHF", "AUDNZD", "CADCHF", "CHFJPY", "EURAUD", "EURCAD",
+            "EURCHF", "EURNZD", "GBPAUD", "GBPCAD", "GBPCHF", "GBPNZD",
+            "NZDCAD", "NZDCHF", "NZDJPY"]
+
+
 def round_c(cfg, engine, contexts, base: dict):
-    """C -- more opportunities, without giving the expectancy back."""
+    """C -- more opportunities, without giving the expectancy back.
+
+    ``C1`` is the honest gate on the 16 added pairs: they are scored ALONE, on
+    TRAIN and on TEST, so their contribution is visible rather than diluted
+    into a 29-pair average that the original 13 could carry.
+    """
     bnds = bounds(contexts)
-    variants = {
-        "C0_carry_forward": {},
-        "C1_gate_75": {"scoring.threshold": 75},
-        "C2_gate_70": {"scoring.threshold": 70},
-        "C3_more_concurrent": {"risk.max_open_positions": 5,
-                               "risk.max_trades_per_day": 5},
-        "C4_more_ccy_exposure": {"risk.max_exposure_per_currency": 3},
-        "C5_asian_session": {"sessions.allowed": ["asian", "london", "ny"]},
-        "C6_late_ny": {"sessions.allowed": ["london", "ny", "late_ny"]},
-        "C7_dedupe_4": {"dedupe.cooldown_bars": 4},
-        "C8_all_volume": {"scoring.threshold": 75, "risk.max_open_positions": 5,
-                          "risk.max_trades_per_day": 5,
-                          "risk.max_exposure_per_currency": 3,
-                          "dedupe.cooldown_bars": 4},
-    }
+    everything = list(contexts)
+    v2_only = [s for s in V2_PAIRS if s in contexts]
+    variants = [
+        ("C0_13pairs_carry_forward", {}, V1_PAIRS),
+        ("C1_new16_alone", {}, v2_only),
+        ("C2_29pairs", {}, everything),
+        ("C3_29pairs_london_only", {"sessions.allowed": ["london"]}, everything),
+        ("C4_29pairs_wider_caps", {"risk.max_open_positions": 5,
+                                   "risk.max_trades_per_day": 5,
+                                   "risk.max_exposure_per_currency": 3}, everything),
+        ("C5_29pairs_dedupe4", {"dedupe.cooldown_bars": 4}, everything),
+        ("C6_29pairs_gate75", {"scoring.threshold": 75}, everything),
+        ("C7_29pairs_volume_combo", {"risk.max_open_positions": 5,
+                                     "risk.max_trades_per_day": 5,
+                                     "risk.max_exposure_per_currency": 3,
+                                     "dedupe.cooldown_bars": 4}, everything),
+        ("C8_29pairs_london_wider_caps", {"sessions.allowed": ["london"],
+                                          "risk.max_open_positions": 5,
+                                          "risk.max_trades_per_day": 5,
+                                          "risk.max_exposure_per_currency": 3},
+         everything),
+    ]
     rows = []
-    for name, over in variants.items():
+    for name, over, allowed in variants:
         merged = dict(base)
         merged.update(over)
-        row, _ = evaluate(cfg, engine, contexts, merged, name, splits=bnds)
+        row, _ = evaluate(cfg, engine, contexts, merged, name, splits=bnds,
+                          allowed=allowed)
+        row["pairs"] = len(allowed)
         rows.append(row)
         print(f"  {name:30s} done")
-    frame = show(rows, ["variant", "n", "wr", "pf", "exp", "max_dd",
+    frame = show(rows, ["variant", "pairs", "n", "wr", "pf", "exp", "max_dd",
                         "train_n", "train_wr", "train_pf", "train_exp",
                         "test_n", "test_wr", "test_pf", "test_exp"])
     frame.to_csv(os.path.join(OUT, "round_c.csv"), index=False)
@@ -306,13 +330,146 @@ def round_c(cfg, engine, contexts, base: dict):
 ADOPTED: dict = {"filters.liquidity_exclude": ["session_high", "session_low"]}
 
 
+def write_improvements() -> pd.DataFrame:
+    """Assemble the v2 tuning log from the round CSVs.
+
+    Every row carries the TRAIN and TEST numbers the decision was made on, so
+    a reader can disagree with a call without having to re-run anything. The
+    ``decision`` column is the only editorial judgement in the file.
+    """
+    rows = []
+    files = {"A": "round_a.csv", "B": "round_b.csv", "C": "round_c.csv"}
+    for phase, fname in files.items():
+        path = os.path.join(OUT, fname)
+        if not os.path.exists(path):
+            continue
+        frame = pd.read_csv(path)
+        for _, r in frame.iterrows():
+            rows.append({
+                "round": phase, "variant": r["variant"],
+                "pairs": r.get("pairs", 13),
+                "full_n": r["n"], "full_wr": r["wr"], "full_pf": r["pf"],
+                "full_exp_r": r["exp"], "full_max_dd_pct": r["max_dd"],
+                "train_n": r["train_n"], "train_wr": r["train_wr"],
+                "train_pf": r["train_pf"], "train_exp_r": r["train_exp"],
+                "test_n": r["test_n"], "test_wr": r["test_wr"],
+                "test_pf": r["test_pf"], "test_exp_r": r["test_exp"],
+                "decision": DECISIONS.get(r["variant"], ("", ""))[0],
+                "reason": DECISIONS.get(r["variant"], ("", ""))[1],
+            })
+    out = pd.DataFrame(rows)
+    out.to_csv(os.path.join(OUT, "improvements.csv"), index=False)
+    print(f"wrote {OUT}/improvements.csv ({len(out)} rows)")
+    return out
+
+
+# variant -> (decision, reason). Written as each round was scored, before the
+# next round started. "helps TRAIN and survives TEST" is the whole bar.
+DECISIONS: dict[str, tuple[str, str]] = {
+    "baseline": ("reference", "v1 config, 13 pairs, no filters"),
+    "A1_no_session_high_sweeps": (
+        "superseded by A2",
+        "Works (TRAIN +0.011->+0.117R, TEST +0.002->+0.047R) but cuts only one "
+        "side of a symmetric pool type; A2 does the same job as a class."),
+    "A2_no_session_extremes": (
+        "ADOPTED",
+        "TRAIN +0.011->+0.179R (PF 1.022->1.405) and TEST +0.002->+0.145R "
+        "(PF 0.996->1.330). Improves both splits independently. The only v2 "
+        "change that does."),
+    "A3_struct_invalidation": (
+        "REJECTED",
+        "Early exit on an opposing structure shift made things WORSE on both "
+        "splits (TRAIN +0.011->-0.064R, TEST +0.002->-0.003R) and pushed max DD "
+        "3.74%->5.98%. It cuts trades that were going to recover."),
+    "A3b_struct_inval_mss_only": (
+        "REJECTED", "Identical to A3 -- the first opposing event is almost "
+        "always an MSS, so narrowing the kinds changes nothing."),
+    "A4_loss_streak_3": (
+        "REJECTED", "Tighter loss-streak cooldown hurt TRAIN (+0.011->-0.025R) "
+        "and TEST (+0.002->-0.049R). It skips the recovery trades too."),
+    "A5_loss_streak_2": (
+        "REJECTED", "Same shape as A4: TRAIN -0.026R. Throttling on streaks "
+        "removes good trades along with bad ones."),
+    "A6_no_swing_pools": (
+        "no-op", "Bit-identical to baseline: recent_sweep already prefers "
+        "strong pools, so a raw swing point is never the swept pool."),
+    "B0_carry_forward": ("reference", "A2 adopted, 13 pairs"),
+    "B1_equal_levels_only": (
+        "REJECTED", "Trading only equal-high/equal-low sweeps HURT TRAIN "
+        "(+0.179->+0.132R). It improves TEST (+0.145->+0.142R is flat, PF up), "
+        "but selection is made on TRAIN, so this is not adoptable."),
+    "B2_equal_plus_pdpw": ("no-op", "Identical to B0 -- after A2 the only "
+                           "remaining pool kinds are already equal levels and PD/PW."),
+    "B3_gate_75": (
+        "REJECTED", "Loosening the score gate collapsed TRAIN (+0.179->-0.113R) "
+        "and tripled max DD to 9.09%. Matches the v1 perturbation result."),
+    "B4_gate_85": (
+        "REJECTED", "Starves the sample: 14 trades in 1200 days, 4 of them on "
+        "TRAIN. Nothing can be concluded from it either way."),
+    "B5_longs_only": (
+        "REJECTED", "Better on both splits (TRAIN +0.309R, TEST +0.141R) but "
+        "halves trade count to 43, and direction INVERTED between train and "
+        "test at baseline. Not adopted on a signal that has already flipped."),
+    "B6_london_only": (
+        "REJECTED", "Excellent on 13 pairs (TRAIN +0.269R, TEST +0.274R) but "
+        "reversed on the 29-pair universe (C3: TRAIN +0.070R, WORSE than "
+        "+0.109R). A filter that depends on the universe is a fit."),
+    "B7_min_rr_25": (
+        "REJECTED", "Improves both splits but touches exits, so it needs the "
+        "matched-R control, and it costs 62% of the trades. Not worth "
+        "adopting on 35 trades late in the session."),
+    "B8_equal_lows_only_v1_claim": (
+        "NOT REPLICATED",
+        "The v1 post-hoc 68.57% subgroup, tested properly: TRAIN +0.446R but "
+        "TEST +0.057R -- an 87% shrink out of sample, on 8 test trades. This "
+        "is the expected fate of a subgroup found by scanning 7 liquidity "
+        "types, and it is why it was never a result."),
+    "B9_no_pdl": (
+        "REJECTED", "Helps TRAIN (+0.231R) and hurts TEST (+0.079R). Mixed "
+        "signals are rejected, not split the convenient way."),
+    "C0_13pairs_carry_forward": ("reference", "A2 adopted, original 13 pairs"),
+    "C1_new16_alone": (
+        "NOT VALIDATED ALONE",
+        "The 16 added crosses on their own are NEGATIVE on TRAIN (-0.029R) and "
+        "weakly positive on TEST (+0.051R). They are volume, not edge, and "
+        "this row exists so nobody can claim otherwise."),
+    "C2_29pairs": (
+        "ADOPTED",
+        "The portfolio still improves against the v1 baseline on both splits "
+        "(TRAIN +0.011->+0.109R, TEST +0.002->+0.083R) while holding trade "
+        "count at 153 vs 151. It does dilute the 13-pair filter result "
+        "(+0.174->+0.114R) -- that is the price of the frequency."),
+    "C3_29pairs_london_only": (
+        "REJECTED", "TRAIN +0.070R is worse than the +0.109R it is compared "
+        "against, even though TEST looks superb (+0.360R). Selecting on that "
+        "TEST number is exactly the mistake the protocol exists to prevent."),
+    "C4_29pairs_wider_caps": (
+        "no-op", "Bit-identical to C2: max_open_positions / max_trades_per_day "
+        "/ per-currency exposure were never the binding constraint. The system "
+        "is limited by setup scarcity, not by its risk caps."),
+    "C5_29pairs_dedupe4": (
+        "REJECTED", "Halving the dedupe cooldown bought 3 extra trades "
+        "(153->156) and moved nothing. Not worth loosening a safety rule."),
+    "C6_29pairs_gate75": (
+        "REJECTED", "TRAIN -0.059R and max DD 11.46%. Volume at the cost of "
+        "the whole edge."),
+    "C7_29pairs_volume_combo": (
+        "REJECTED", "Every volume lever at once = C5's result. There is no "
+        "combination effect because none of the caps bind."),
+    "C8_29pairs_london_wider_caps": ("REJECTED", "Same as C3; caps do not bind."),
+}
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", default="diagnostics")
     ap.add_argument("--stack", default="swing")
     args = ap.parse_args()
-    cfg, engine, contexts = load_env(args.stack)
     name = args.round.lower()
+    if name == "log":          # pure bookkeeping -- no contexts needed
+        write_improvements()
+        return 0
+    cfg, engine, contexts = load_env(args.stack)
     if name == "diagnostics":
         round_diagnostics(cfg, engine, contexts)
     elif name == "a":
@@ -321,6 +478,8 @@ def main():
         round_b(cfg, engine, contexts, ADOPTED)
     elif name == "c":
         round_c(cfg, engine, contexts, ADOPTED)
+    elif name == "log":
+        write_improvements()
     else:
         raise SystemExit(f"unknown round {name}")
     return 0

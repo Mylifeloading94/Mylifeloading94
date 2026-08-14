@@ -27,6 +27,29 @@ REPORTS = os.path.join(REPO, "reports")
 
 # The stack whose detail sheets fill the workbook (largest sample).
 HEADLINE = "swing"
+
+HUNDRED_K_NOTES = [
+    "$100,000 account, trade-by-trade compounding, most recent 90 days of",
+    "TradeLocker broker bars. Same honest fill model as every other sheet:",
+    "trade-through fills only, spread paid at entry, same-bar TP+SL = loss.",
+    "",
+    "READ THE FLAT ROWS. This is a sniper system taking a small number of",
+    "trades a week, so most calendar days are flat and weekends are closed.",
+    "The flat rows are not missing data -- they are the product. A 90-day",
+    "window holds too few trades to be a performance claim; it is a shape",
+    "check, and it is presented as one.",
+]
+
+IMPROVEMENT_NOTES = [
+    "Every v2 change was proposed as a hypothesis, measured on TRAIN (first",
+    "50% of the window) and on TEST (last 30%) INDEPENDENTLY, and adopted only",
+    "if it helped TRAIN and survived TEST. Nothing was selected on the full",
+    "window and nothing was selected on TEST.",
+    "",
+    "Rejected changes are listed with their numbers, not just named. Several",
+    "of them looked excellent on one split and fell apart on the other, which",
+    "is exactly what the protocol exists to catch.",
+]
 STACK_LABELS = {
     "swing": "LONG-WINDOW (1D bias / 4H structure / 1H setup) ~1200 days",
     "sniper": "SPEC-NATIVE (4H bias / 1H structure / 15m setup) ~400 days",
@@ -151,6 +174,26 @@ def main():
             pd.DataFrame([{"metric": "--- stack comparison ---", "value": ""}]),
         ], ignore_index=True)
 
+    # v2 additions: the $100k deliverable and the tuning log. Both are folded
+    # into the same single build path so a later regeneration cannot silently
+    # drop them.
+    hundred_k = {}
+    k_dir = os.path.join(REPORTS, "100k")
+    if os.path.isdir(k_dir):
+        for key in ("daily", "weekly", "monthly", "summary"):
+            path = os.path.join(k_dir, f"{key}.csv")
+            if os.path.exists(path):
+                try:
+                    hundred_k[key] = pd.read_csv(path)
+                except pd.errors.EmptyDataError:
+                    pass
+        hundred_k["notes"] = HUNDRED_K_NOTES
+
+    improvements = pd.DataFrame()
+    imp_path = os.path.join(REPORTS, "tuning", "improvements.csv")
+    if os.path.exists(imp_path):
+        improvements = pd.read_csv(imp_path)
+
     out = os.path.join(REPO, "SMC_Sniper_Backtest.xlsx")
     report_xlsx.build(
         out, summary=summary, verdict=verdict, ledger=load(head, "ledger"),
@@ -160,7 +203,8 @@ def main():
         rejected=load(head, "rejected"), matched_r=load(head, "matched_r"),
         perturbation=load(head, "perturbation"), coverage=load(head, "coverage"),
         per_setup=load(head, "per_setup"), adaptive=adaptive,
-        stack_comparison=compare)
+        stack_comparison=compare, hundred_k=hundred_k or None,
+        improvements=improvements, improvement_notes=IMPROVEMENT_NOTES)
     print(f"Wrote {out}")
     return 0
 

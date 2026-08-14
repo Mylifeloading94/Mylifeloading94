@@ -85,7 +85,10 @@ def build(path: str, *, summary: pd.DataFrame, verdict: list[str],
           coverage: pd.DataFrame | None = None,
           per_setup: pd.DataFrame | None = None,
           adaptive: dict | None = None,
-          stack_comparison: pd.DataFrame | None = None) -> str:
+          stack_comparison: pd.DataFrame | None = None,
+          hundred_k: dict | None = None,
+          improvements: pd.DataFrame | None = None,
+          improvement_notes: list[str] | None = None) -> str:
     wb = Workbook()
     wb.remove(wb.active)
 
@@ -139,6 +142,26 @@ def build(path: str, *, summary: pd.DataFrame, verdict: list[str],
         for dim, table in adaptive.items():
             if isinstance(table, pd.DataFrame) and not table.empty:
                 row = _write_frame(ws, table, row, f"By {dim}")
+
+    if improvements is not None and not improvements.empty:
+        ws = wb.create_sheet("Improvements v2")
+        row = _write_lines(ws, improvement_notes or [], 1,
+                           "v2 tuning log -- every change tried, kept or rejected")
+        _write_frame(ws, improvements, row)
+
+    if hundred_k:
+        notes = hundred_k.get("notes") or []
+        summary = hundred_k.get("summary")
+        for label, key in (("100k Daily", "daily"), ("100k Weekly", "weekly"),
+                           ("100k Monthly", "monthly")):
+            frame = hundred_k.get(key)
+            if frame is None or (hasattr(frame, "empty") and frame.empty):
+                continue
+            ws = wb.create_sheet(label)
+            row = _write_lines(ws, notes, 1, f"{label} -- $100,000 account")
+            if summary is not None and not summary.empty and key == "daily":
+                row = _write_frame(ws, summary, row, "Run summary")
+            _write_frame(ws, frame, row, f"{key.capitalize()} gains")
 
     if coverage is not None:
         _write_frame(wb.create_sheet("Data Coverage"), coverage, 1,

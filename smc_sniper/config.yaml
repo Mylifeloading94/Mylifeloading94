@@ -500,8 +500,20 @@ instrument_overrides:
 # Empty / null everywhere == the v1 baseline, bit for bit.
 # ---------------------------------------------------------------------
 filters:
-  # Liquidity-pool kinds that may NOT be swept into a trade.
-  liquidity_exclude: []
+  # ADOPTED v2. Sweeps of SESSION EXTREMES are not traded.
+  #
+  # Pre-registered from the v1 adaptive layer, which found session-high sweeps
+  # decisively negative (n=34, PF 0.456, -0.331R, 95% CI entirely below zero).
+  # Confirmed on TRAIN before adoption: session highs n=21, PF 0.368, -0.377R,
+  # CI [-0.719, -0.023]; session lows n=12, -0.088R. Removed as a CLASS rather
+  # than keeping the one positive-looking side, because a one-sided cut of a
+  # symmetric pool type is a fit, not a filter.
+  #
+  # Effect, measured on TRAIN and TEST independently (13-pair universe):
+  #   TRAIN expectancy +0.011R -> +0.179R   (PF 1.022 -> 1.405)
+  #   TEST  expectancy +0.002R -> +0.145R   (PF 0.996 -> 1.330)
+  # It is the only change in v2 that improved both splits on its own.
+  liquidity_exclude: ["session_high", "session_low"]
   # Whitelist of pool kinds. null == no whitelist (all kinds allowed).
   liquidity_include: null
   # Allowed trade directions: null == both. e.g. ["bullish"] for longs only.

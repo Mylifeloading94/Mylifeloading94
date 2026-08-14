@@ -549,6 +549,38 @@ Total −247.92R over the window. Max drawdown 124% (the account is destroyed
 partway through and the figure keeps counting against the starting balance).
 **Longest losing streak: 12.**
 
+### Walk-forward — and pair selection failing again, this time on a real sample
+
+Five rolling folds, each fitting on its own window and scoring the immediately
+following unseen window. Pair selection runs on the fit window only.
+
+| Fold | Fit → OOS | Pairs kept | Fit trades | Fit E | OOS trades | OOS WR | OOS E |
+|---|---|---|---|---|---|---|---|
+| 1 | 2024-09 → 2025-05 | 6 of 28 | 322 | −0.095R | 134 | 41.79% | −0.152R |
+| 2 | 2025-01 → 2025-08 | 6 of 29 | 415 | −0.084R | 97 | 37.11% | −0.275R |
+| 3 | 2025-05 → 2025-12 | 3 of 29 | 316 | −0.148R | 36 | 27.78% | −0.449R |
+| 4 | 2025-08 → 2026-04 | 1 of 26 | 258 | −0.236R | **12** | 83.33% | **+0.646R** |
+| 5 | 2025-12 → 2026-08 | 6 of 29 | 354 | −0.089R | 83 | 38.55% | −0.223R |
+
+**Walk-forward OOS: 362 trades, 39.78% WR (CI 34.81–44.75%), PF 0.639,
+−0.204R (CI [−0.302, −0.105]).** Also clear of zero, also below it.
+
+Two things worth reading here.
+
+**The one positive fold has twelve trades.** Fold 4's +0.646R comes from a
+single-pair selection producing twelve trades. It is the loudest number in the
+table and the least informative one, and it is exactly the kind of row that
+gets quoted out of a walk-forward.
+
+**Pair selection made things worse, on a sample large enough to know better.**
+v2 could never test this properly — no pair reached even 12 TRAIN trades across
+29 pairs, so the protocol kept everything and said so. Here the sample is large
+enough that selection genuinely engages, picking 1–6 pairs per fold. The result:
+walk-forward OOS is **−0.204R against the all-pairs full-window −0.131R**.
+Choosing the pairs that worked on the fit window made the next window
+*measurably worse*, on 1888 trades rather than 153. v1's cautionary result about
+pair selection now has a proper sample behind it.
+
 ### The $100,000 / 2% / 90-day deliverable
 
 The adopted scalping config (scalp15, score gate 55, cost gate 6×, intraday

@@ -20,6 +20,7 @@ major confirmation but never an automatic entry.
 """
 from __future__ import annotations
 
+import bisect
 from dataclasses import dataclass
 from typing import Literal
 
@@ -231,6 +232,14 @@ class LiquidityMap:
         self._sweeps_by_index: dict[int, list[Sweep]] = {}
         for sweep in self.sweeps:
             self._sweeps_by_index.setdefault(sweep.index, []).append(sweep)
+        # Pools are already sorted by the bar they become knowable, so a
+        # lookback window is a slice rather than a full scan. Same result --
+        # `pools_at` only ever accepted pools inside that window anyway -- but
+        # it was 29s of a 178s signal pass on a 143k-bar 5m frame.
+        self._by_side: dict[str, tuple[list[LiquidityPool], list[int]]] = {}
+        for side in ("buy_side", "sell_side"):
+            subset = [p for p in self.pools if p.side == side]
+            self._by_side[side] = (subset, [p.index for p in subset])
 
     def recent_sweep(self, index: int, direction: str,
                      max_bars: int) -> Sweep | None:
@@ -252,8 +261,10 @@ class LiquidityMap:
         return best
 
     def pools_at(self, index: int, side: str, lookback: int = 300) -> list[LiquidityPool]:
-        return [p for p in self.pools
-                if p.side == side and p.index <= index and index - p.index <= lookback]
+        subset, idx = self._by_side.get(side, ([], []))
+        lo = bisect.bisect_left(idx, index - lookback)
+        hi = bisect.bisect_right(idx, index)
+        return subset[lo:hi]
 
     def next_pool_above(self, index: int, price: float,
                         kinds: set | None = None) -> LiquidityPool | None:

@@ -93,6 +93,39 @@ class DataEngine:
         except Exception as exc:  # noqa: BLE001 -- reported, never silently dropped
             return FetchResult(symbol, interval, 0, False, self.source, str(exc)[:200])
 
+    def download_deep(self, symbol: str, interval: str, days: int,
+                      verbose: bool = False) -> FetchResult:
+        """Chunked deep download, merged with whatever is already cached.
+
+        The cache is a superset union keyed on timestamp, so re-running this
+        can only ever *add* history. Only TradeLocker supports it; Yahoo's
+        intraday windows are hard server-side caps.
+        """
+        if self.source != "tradelocker":
+            return self.download(symbol, interval, days)
+        path = self._path(symbol, interval)
+        try:
+            fresh = self.provider.fetch_deep(symbol, interval, days, verbose=verbose)
+        except Exception as exc:  # noqa: BLE001 -- reported, never silently dropped
+            return FetchResult(symbol, interval, 0, False, self.source, str(exc)[:200])
+        if fresh.empty:
+            return FetchResult(symbol, interval, 0, False, self.source, "empty payload")
+        if os.path.exists(path):
+            try:
+                fresh = pd.concat([pd.read_csv(path), fresh], ignore_index=True)
+            except OSError:
+                pass
+        fresh = (fresh.drop_duplicates(subset="timestamp")
+                      .sort_values("timestamp").reset_index(drop=True))
+        fresh.to_csv(path, index=False)
+        times = pd.to_datetime(fresh["timestamp"], unit="s", utc=True)
+        self._mem.pop((symbol, "native", interval), None)
+        for tf, (native, _) in DERIVED.items():
+            if native == interval:
+                self._mem.pop((symbol, "tf", tf), None)
+        return FetchResult(symbol, interval, len(fresh), True, self.source, "",
+                           str(times.min()), str(times.max()))
+
     def download_all(self, intervals=("1H", "15m", "5m", "1D"),
                      force: bool = False, verbose: bool = True):
         """Download the whole watchlist. Failures are reported, never dropped."""

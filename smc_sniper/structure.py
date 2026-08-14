@@ -113,20 +113,47 @@ def _label_swings(swings: list[Swing]) -> None:
 # ---------------------------------------------------------------------------
 # Displacement
 # ---------------------------------------------------------------------------
+def bar_arrays(frame: pd.DataFrame) -> dict:
+    """Cached raw numpy columns for a frame.
+
+    ``frame.iloc[i]`` costs a pandas row construction, which is invisible on a
+    20k-bar 1H frame and dominates the profile on a 143k-bar 5m one (it was
+    ~34s of a 178s signal pass). The values are identical; only the access path
+    changes. Cached on ``frame.attrs`` so it follows the frame around.
+    """
+    # `.attrs` is inherited by copies and slices, so the guard fingerprints the
+    # frame rather than trusting the tag: a stale cache here would feed the
+    # wrong bars into every displacement test.
+    n = len(frame)
+    stamp = (n, float(frame["close"].iloc[0]), float(frame["close"].iloc[-1])) if n else (0,)
+    cache = frame.attrs.get("_bar_arrays")
+    if cache is None or cache.get("_stamp") != stamp:
+        cache = {
+            "_stamp": stamp,
+            "open": frame["open"].values, "high": frame["high"].values,
+            "low": frame["low"].values, "close": frame["close"].values,
+            "atr": (frame["atr"].values if "atr" in frame
+                    else np.full(n, np.nan)),
+        }
+        frame.attrs["_bar_arrays"] = cache
+    return cache
+
+
 def is_displacement(frame: pd.DataFrame, i: int, cfg: dict) -> tuple[bool, Direction]:
     """Was bar ``i`` a displacement candle (big directional body vs ATR)?"""
     if i < 1 or i >= len(frame):
         return False, "neutral"
-    row = frame.iloc[i]
-    body = abs(row["close"] - row["open"])
-    rng = max(row["high"] - row["low"], 1e-12)
-    bar_atr = row.get("atr", np.nan)
+    cols = bar_arrays(frame)
+    open_, close = cols["open"][i], cols["close"][i]
+    body = abs(close - open_)
+    rng = max(cols["high"][i] - cols["low"][i], 1e-12)
+    bar_atr = cols["atr"][i]
     if not np.isfinite(bar_atr) or bar_atr <= 0:
         return False, "neutral"
     ok = (body >= cfg["min_body_atr"] * bar_atr) and (body / rng >= cfg["min_body_ratio"])
     if not ok:
         return False, "neutral"
-    return True, ("bullish" if row["close"] > row["open"] else "bearish")
+    return True, ("bullish" if close > open_ else "bearish")
 
 
 def displacement_near(frame: pd.DataFrame, i: int, cfg: dict,

@@ -19,6 +19,7 @@ usable from bar ``i`` onward, and mitigation is evaluated bar by bar.
 """
 from __future__ import annotations
 
+import bisect
 from dataclasses import dataclass, field
 from typing import Literal
 
@@ -256,15 +257,40 @@ class ZoneMap:
         self.min_quality = int(ob_cfg.get("min_quality", 2))
         self.ob_max_age = int(ob_cfg.get("max_age_bars", 60))
         self.fvg_max_age = int(fvg_cfg.get("max_age_bars", 40))
+        # A zone can only be active in the bar window [z.index, z.index+max_age],
+        # so ordering by formation bar lets a lookup scan that window instead of
+        # every zone in the series. On a 143k-bar 5m frame the unsorted scan was
+        # 127M `active_at` calls and ~93s of a 178s signal pass.
+        #
+        # The returned slice is re-sorted back into ORIGINAL list order before
+        # it leaves this class. That is not cosmetic: `best_zone` breaks exact
+        # ties with a strict `>`, so whichever equal-keyed zone is seen first
+        # wins, and `order_blocks` is not stored in index order (breakers are
+        # appended last, indexed by their invalidation bar). Sorting the window
+        # and forgetting to restore the order silently moved the swing stack
+        # from 153 trades to 155 -- a real behaviour change wearing the costume
+        # of a speedup.
+        self._obs_win = sorted(enumerate(self.order_blocks), key=lambda t: t[1].index)
+        self._fvgs_win = sorted(enumerate(self.fvgs), key=lambda t: t[1].index)
+        self._ob_idx = [z.index for _, z in self._obs_win]
+        self._fvg_idx = [z.index for _, z in self._fvgs_win]
+
+    @staticmethod
+    def _window(pairs: list, idx: list, index: int, max_age: int) -> list:
+        lo = bisect.bisect_left(idx, index - max_age)
+        hi = bisect.bisect_right(idx, index)
+        return [z for _, z in sorted(pairs[lo:hi], key=lambda t: t[0])]
 
     def active_obs(self, index: int, direction: str) -> list[Zone]:
-        return [z for z in self.order_blocks
+        return [z for z in self._window(self._obs_win, self._ob_idx,
+                                        index, self.ob_max_age)
                 if z.direction == direction
                 and z.quality >= self.min_quality
                 and z.active_at(index, self.ob_max_age)]
 
     def active_fvgs(self, index: int, direction: str) -> list[Zone]:
-        return [z for z in self.fvgs
+        return [z for z in self._window(self._fvgs_win, self._fvg_idx,
+                                        index, self.fvg_max_age)
                 if z.direction == direction and z.active_at(index, self.fvg_max_age)]
 
     def best_zone(self, index: int, direction: str, price: float,

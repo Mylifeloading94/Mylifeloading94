@@ -179,18 +179,23 @@ class TradeLockerProvider(BaseProvider):
     RESOLUTIONS = {"1m": "1m", "5m": "5m", "15m": "15m", "60m": "1H",
                    "1H": "1H", "4H": "4H", "1D": "1D"}
 
-    def fetch(self, symbol: str, interval: str, days: int) -> pd.DataFrame:
-        meta = self.instruments().get(symbol)
-        if not meta:
-            raise RuntimeError(f"{symbol} not tradable on this account")
-        resolution = self.RESOLUTIONS[interval]
-        now_ms = int(time.time() * 1000)
-        start_ms = now_ms - days * 86400 * 1000
+    # Measured against this account: a single /trade/history call returns at
+    # most ~20-27k bars and answers an over-long range with an EMPTY payload
+    # rather than a truncated one. That silent-empty behaviour is what made
+    # earlier versions of this repo believe 5m history only went back ~120
+    # days. It does not -- see :meth:`fetch_deep`. Chunk sizes below are
+    # calendar days chosen to stay under ~15k bars per request.
+    CHUNK_DAYS = {"1m": 8, "5m": 70, "15m": 180, "1H": 600, "1D": 2000}
+
+    def _history(self, meta: dict, resolution: str, from_ms: int, to_ms: int) -> list:
         payload = self._get("/trade/history", {
             "tradableInstrumentId": meta["tradableInstrumentId"],
             "routeId": meta["info_route"], "resolution": resolution,
-            "from": start_ms, "to": now_ms})
-        bars = payload.get("d", {}).get("barDetails", [])
+            "from": from_ms, "to": to_ms})
+        return payload.get("d", {}).get("barDetails", []) or []
+
+    @staticmethod
+    def _to_frame(bars: list) -> pd.DataFrame:
         if not bars:
             return pd.DataFrame()
         frame = pd.DataFrame(bars)
@@ -201,7 +206,62 @@ class TradeLockerProvider(BaseProvider):
         frame = frame[[c for c in cols if c in frame.columns]]
         if "volume" not in frame:
             frame["volume"] = 0.0
-        return frame.dropna(subset=["open", "high", "low", "close"])
+        frame = frame.dropna(subset=["open", "high", "low", "close"])
+        return (frame.drop_duplicates(subset="timestamp")
+                     .sort_values("timestamp").reset_index(drop=True))
+
+    def fetch(self, symbol: str, interval: str, days: int) -> pd.DataFrame:
+        meta = self.instruments().get(symbol)
+        if not meta:
+            raise RuntimeError(f"{symbol} not tradable on this account")
+        resolution = self.RESOLUTIONS[interval]
+        now_ms = int(time.time() * 1000)
+        start_ms = now_ms - days * 86400 * 1000
+        return self._to_frame(self._history(meta, resolution, start_ms, now_ms))
+
+    def fetch_deep(self, symbol: str, interval: str, days: int,
+                   sleep_s: float = 0.4, verbose: bool = False) -> pd.DataFrame:
+        """Walk ``days`` of history backwards in chunks and stitch the result.
+
+        The per-request bar cap is the *only* thing that limits intraday depth
+        on this broker -- 5m bars are served at least 700 days back and 1m at
+        least 200, both of which a single request reports as "empty". Chunking
+        is therefore a genuine capability gain, not a workaround: it is what
+        makes a validated 5m scalping stack possible at all.
+
+        Stops early after two consecutive empty chunks, which is how the true
+        end of history announces itself.
+        """
+        meta = self.instruments().get(symbol)
+        if not meta:
+            raise RuntimeError(f"{symbol} not tradable on this account")
+        resolution = self.RESOLUTIONS[interval]
+        chunk = int(self.CHUNK_DAYS.get(interval, 70))
+        now_ms = int(time.time() * 1000)
+        day_ms = 86400 * 1000
+        collected: list = []
+        empties = 0
+        offset = 0
+        while offset < days:
+            hi = now_ms - offset * day_ms
+            lo = now_ms - min(offset + chunk, days) * day_ms
+            try:
+                bars = self._history(meta, resolution, lo, hi)
+            except RuntimeError:
+                bars = []
+            if bars:
+                collected.extend(bars)
+                empties = 0
+            else:
+                empties += 1
+                if empties >= 2:
+                    break
+            if verbose:
+                print(f"    {symbol} {interval} -{offset}d..-{offset + chunk}d: "
+                      f"{len(bars)} bars")
+            offset += chunk
+            time.sleep(sleep_s)
+        return self._to_frame(collected)
 
 
 # ---------------------------------------------------------------------------

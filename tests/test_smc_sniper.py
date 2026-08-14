@@ -736,3 +736,95 @@ def test_mtf_view_has_no_lookahead(cfg):
         if j >= 0:
             assert h1["close_time"].iloc[j] <= frame15["close_time"].iloc[i], \
                 "an unclosed higher-timeframe bar leaked into the setup view"
+
+
+# ---------------------------------------------------------------------------
+# v3 -- the indexed-lookup speedups must be behaviour-preserving
+#
+# These exist because the first version of the ZoneMap speedup was NOT. Sorting
+# the zone list by formation bar quietly changed which of two equal-scoring
+# zones `best_zone` picked, and the swing stack moved 153 -> 155 trades. A
+# "pure speedup" that changes results is the most dangerous kind of change in
+# this repo, so the invariants are pinned here rather than trusted.
+# ---------------------------------------------------------------------------
+def _zone_test_frame():
+    rng = np.random.default_rng(11)
+    price = 1.10
+    bars = []
+    for _ in range(400):
+        step = rng.normal(0, 0.0009)
+        o = price
+        c = o + step
+        h = max(o, c) + abs(rng.normal(0, 0.0004))
+        l = min(o, c) - abs(rng.normal(0, 0.0004))
+        bars.append((o, h, l, c))
+        price = c
+    return make_frame(bars)
+
+
+def test_zone_window_preserves_original_list_order(cfg):
+    """Windowed lookup must return zones in the SAME order as a full scan."""
+    from smc_sniper.zones import ZoneMap
+
+    frame = _zone_test_frame()
+    state = build_structure(frame, cfg.get("structure"))
+    zmap = ZoneMap(frame, state, cfg.get("order_blocks"), cfg.get("fvg"),
+                   cfg.get("structure.displacement"))
+
+    for index in range(50, len(frame), 7):
+        for direction in ("bullish", "bearish"):
+            naive_obs = [z for z in zmap.order_blocks
+                         if z.direction == direction
+                         and z.quality >= zmap.min_quality
+                         and z.active_at(index, zmap.ob_max_age)]
+            naive_fvgs = [z for z in zmap.fvgs
+                          if z.direction == direction
+                          and z.active_at(index, zmap.fvg_max_age)]
+            assert zmap.active_obs(index, direction) == naive_obs
+            assert zmap.active_fvgs(index, direction) == naive_fvgs
+
+
+def test_pools_at_window_matches_full_scan(cfg):
+    """The sliced pool lookup must equal the original full-scan filter."""
+    frame = _zone_test_frame()
+    state = build_structure(frame, cfg.get("structure"))
+    lmap = LiquidityMap(frame, state.swings, cfg.get("liquidity"))
+
+    for index in range(50, len(frame), 7):
+        for side in ("buy_side", "sell_side"):
+            for lookback in (30, 300):
+                naive = [p for p in lmap.pools
+                         if p.side == side and p.index <= index
+                         and index - p.index <= lookback]
+                assert lmap.pools_at(index, side, lookback) == naive
+
+
+def test_bar_array_cache_is_not_shared_between_different_frames(cfg):
+    """`.attrs` propagates to copies -- the cache must fingerprint the data.
+
+    A stale cache here would silently feed one instrument's bars into another
+    instrument's displacement test.
+    """
+    from smc_sniper.structure import bar_arrays
+
+    frame = _zone_test_frame()
+    bar_arrays(frame)                      # prime the cache
+    other = frame.copy()                   # inherits `.attrs`
+    other["close"] = other["close"] + 0.05
+    other["open"] = other["open"] + 0.05
+    assert bar_arrays(other)["close"][-1] == pytest.approx(other["close"].iloc[-1])
+    disp_cfg = cfg.get("structure.displacement")
+    for i in (5, 50, 200):
+        assert is_displacement(other, i, disp_cfg)[0] in (True, False)
+
+
+def test_scalping_stacks_are_declared_and_intraday(cfg):
+    """The v3 scalping stacks must exist and must be finer than the v2 stacks."""
+    minutes = {"5m": 5, "15m": 15, "1H": 60, "4H": 240, "1D": 1440}
+    for name in ("scalp5", "scalp15"):
+        stack = cfg.get(f"stacks.{name}")
+        assert stack, f"{name} stack missing from config"
+        assert minutes[stack["setup_tf"]] <= 15, "a scalping setup TF must be <= 15m"
+        assert minutes[stack["entry_tf"]] <= minutes[stack["setup_tf"]]
+        assert minutes[stack["structure_tf"]] > minutes[stack["setup_tf"]]
+        assert minutes[stack["bias_tf"]] > minutes[stack["structure_tf"]]

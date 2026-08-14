@@ -159,6 +159,32 @@ stacks:
     entry_tf: "1H"
     history_note: "~1200 days of TradeLocker 1H bars."
 
+  # ------------------------------------------------------------------
+  # v3 SCALPING STACKS. Intraday, same engine, two notches down.
+  #
+  # These exist because `fetch_deep.py` showed the broker serves 5m bars at
+  # least 700 days back once the request is chunked -- the old "~120 days of
+  # 5m" note was a per-request bar cap misread as a history limit. That single
+  # correction is what makes a 5m stack validatable at all.
+  # ------------------------------------------------------------------
+
+  # 15m setup, 5m entry/management resolution. The spec's sniper stack with a
+  # genuinely finer fill model underneath it.
+  scalp15:
+    bias_tf: "4H"
+    structure_tf: "1H"
+    setup_tf: "15m"
+    entry_tf: "5m"
+    history_note: "~700 days of TradeLocker 15m bars, 5m fills."
+
+  # HEADLINE SCALPING STACK. 5m setup -- a true intraday scalp shape.
+  scalp5:
+    bias_tf: "1H"
+    structure_tf: "15m"
+    setup_tf: "5m"
+    entry_tf: "5m"
+    history_note: "~700 days of TradeLocker 5m bars."
+
 active_stack: "sniper"
 
 # ---------------------------------------------------------------------

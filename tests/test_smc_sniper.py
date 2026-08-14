@@ -828,3 +828,128 @@ def test_scalping_stacks_are_declared_and_intraday(cfg):
         assert minutes[stack["entry_tf"]] <= minutes[stack["setup_tf"]]
         assert minutes[stack["structure_tf"]] > minutes[stack["setup_tf"]]
         assert minutes[stack["bias_tf"]] > minutes[stack["structure_tf"]]
+
+
+# ---------------------------------------------------------------------------
+# v3 -- scalping additions must be OFF by default
+#
+# The v2 swing stack's published numbers (153 trades / 54.90% WR / PF 1.260)
+# have to stay reproducible forever. Every v3 addition is opt-in, and these
+# tests are what stops a future edit from quietly changing the default path.
+# ---------------------------------------------------------------------------
+def test_v3_additions_are_all_disabled_by_default(cfg):
+    assert cfg.get("targets.intraday.enabled") is False
+    for gate in ("require_structure_alignment", "require_ltf_confirmation",
+                 "require_major_sweep", "require_ob_and_fvg"):
+        assert cfg.get(f"filters.{gate}") is False, f"{gate} must default off"
+
+
+def test_scalp_profile_does_not_mutate_the_defaults(cfg):
+    """`apply_profile` must return a copy, never edit the loaded config."""
+    before_stack = cfg.get("active_stack")
+    before_gate = cfg.score_threshold
+    before_cap = cfg.get("risk.max_trades_per_day")
+    scalp = cfg.apply_profile("scalp")
+    assert scalp.get("active_stack") == "scalp15"
+    assert scalp.get("targets.intraday.enabled") is True
+    assert scalp.get("risk.max_trades_per_day") > before_cap
+    # the original is untouched
+    assert cfg.get("active_stack") == before_stack
+    assert cfg.score_threshold == before_gate
+    assert cfg.get("risk.max_trades_per_day") == before_cap
+    assert cfg.get("targets.intraday.enabled") is False
+
+
+def test_apply_profile_rejects_an_unknown_name(cfg):
+    with pytest.raises(KeyError):
+        cfg.apply_profile("does_not_exist")
+
+
+def test_intraday_flat_closes_the_position_and_never_beats_the_stop(cfg):
+    """The session-flat exit must fire, and must lose ties to the stop."""
+    from smc_sniper.backtest import Backtester
+    from smc_sniper.signal_engine import Signal
+    from smc_sniper.scoring import ScoreCard
+
+    # 5m bars from 08:00; price drifts up all day, so a long is in profit when
+    # the 21:00 UTC deadline arrives and nothing else would have closed it.
+    n = 200
+    bars = [(1.1000 + i * 0.00002, 1.1000 + i * 0.00002 + 0.00015,
+             1.1000 + i * 0.00002 - 0.00005, 1.1000 + i * 0.00002 + 0.00010)
+            for i in range(n)]
+    frame = make_frame(bars, start="2025-01-06 08:00", freq="5min")
+
+    variant = cfg.copy()
+    variant.set("active_stack", "scalp5")
+    variant.set("targets.intraday.enabled", True)
+    variant.set("targets.intraday.flat_by_utc_hour", 21)
+    variant.set("targets.max_hold_bars", 500)
+
+    class _Ctx:
+        symbol = "EURUSD"
+        icfg = variant.for_instrument("EURUSD")
+        entry_frame = frame
+        setup = frame
+
+    bt = Backtester(variant, None)
+    bt.stack = variant.stack
+    sig = Signal(setup_id="x", signal_id="y", symbol="EURUSD", direction="bullish",
+                 side="buy", bar_index=1, time=frame.index[1],
+                 entry=float(frame["close"].iloc[1]) + 0.0002,
+                 stop=float(frame["low"].iloc[1]) - 0.0100,
+                 tp1=2.0, tp2=2.0, tp3=2.0, risk_price=0.0100,
+                 rr_tp1=9, rr_tp2=9, rr_tp3=9, score=90, scorecard=ScoreCard(),
+                 session="london", setup_type="t", liquidity_type="PDL",
+                 htf_bias="bullish", structure_event="MSS", zone_kind="OB",
+                 atr=0.0010, spread_pips=0.6, valid_until_bar=60)
+    trade = bt.simulate_trade(_Ctx(), sig)
+    assert trade is not None
+    assert trade.exit_reason == "session_flat"
+    assert pd.Timestamp(trade.exit_time).hour >= 21
+    assert pd.Timestamp(trade.exit_time).date() == pd.Timestamp(
+        trade.entry_time).date()
+
+
+def test_intraday_flat_loses_to_the_stop_on_an_ambiguous_bar(cfg):
+    """If the deadline bar also hits the stop, the stop wins. Ambiguity
+    always resolves against the strategy -- the flat exit must not become a
+    way to escape a losing bar at a better price."""
+    from smc_sniper.backtest import Backtester
+    from smc_sniper.signal_engine import Signal
+    from smc_sniper.scoring import ScoreCard
+
+    n = 200
+    bars = []
+    for i in range(n):
+        base = 1.1000
+        # the 21:00 bar (index 156 from 08:00 at 5m) plunges through the stop
+        low = base - 0.0100 if i == 156 else base - 0.0002
+        bars.append((base, base + 0.0002, low, base))
+    frame = make_frame(bars, start="2025-01-06 08:00", freq="5min")
+
+    variant = cfg.copy()
+    variant.set("active_stack", "scalp5")
+    variant.set("targets.intraday.enabled", True)
+    variant.set("targets.intraday.flat_by_utc_hour", 21)
+    variant.set("targets.max_hold_bars", 500)
+
+    class _Ctx:
+        symbol = "EURUSD"
+        icfg = variant.for_instrument("EURUSD")
+        entry_frame = frame
+        setup = frame
+
+    bt = Backtester(variant, None)
+    bt.stack = variant.stack
+    sig = Signal(setup_id="x", signal_id="y", symbol="EURUSD", direction="bullish",
+                 side="buy", bar_index=1, time=frame.index[1],
+                 entry=1.1001, stop=1.1000 - 0.0050,
+                 tp1=2.0, tp2=2.0, tp3=2.0, risk_price=0.0050,
+                 rr_tp1=9, rr_tp2=9, rr_tp3=9, score=90, scorecard=ScoreCard(),
+                 session="london", setup_type="t", liquidity_type="PDL",
+                 htf_bias="bullish", structure_event="MSS", zone_kind="OB",
+                 atr=0.0010, spread_pips=0.6, valid_until_bar=60)
+    trade = bt.simulate_trade(_Ctx(), sig)
+    assert trade is not None
+    assert trade.exit_reason == "stop_loss"
+    assert trade.r_multiple < 0

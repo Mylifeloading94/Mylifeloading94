@@ -371,7 +371,14 @@ targets:
     mode: "structure"         # structure | atr
     atr_mult: 1.5
     start_after_r: 2.0
-  max_hold_bars: 96           # time stop on the setup timeframe
+  max_hold_bars: 96           # time stop, counted on the ENTRY timeframe
+  # v3 SCALPING: be flat by the end of the session. Disabled by default so the
+  # v2 swing stack is bit-for-bit unchanged. This touches exits, so it is only
+  # ever adopted alongside a fresh matched-R control.
+  intraday:
+    enabled: false
+    flat_by_utc_hour: 21      # NY close-ish; the deadline rolls to the next
+                              # UTC day when the fill is already past it
 
 # ---------------------------------------------------------------------
 # Sessions (UTC hours, [start, end) )
@@ -546,6 +553,14 @@ filters:
   directions: null
   # UTC hours of the setup bar that may not trade.
   hours_exclude: []
+  # v3 HARD GATES. Each promotes a scoring component that is normally worth
+  # points into a pass/fail requirement. Removal-only: none of them can create
+  # a setup the base engine would not have produced. All default to false, so
+  # the v2 swing stack is bit-for-bit unchanged.
+  require_structure_alignment: false   # structure TF bias must agree, not just bias TF
+  require_ltf_confirmation: false      # entry-TF displacement confirmation is mandatory
+  require_major_sweep: false           # only equal levels / PD / PW / session extremes
+  require_ob_and_fvg: false            # the FVG must sit inside an order block
   # Early structural invalidation: close the position when the SETUP timeframe
   # prints a BOS/MSS/CHoCH against the trade after entry, instead of waiting
   # for the full stop. Uses only bars whose close_time has passed -- the exit
@@ -557,6 +572,43 @@ filters:
     # then break-even/trailing management already protects it and a structural
     # wobble is not a reason to give up a runner.
     max_r_to_exit: 0.5
+
+# ---------------------------------------------------------------------
+# CONFIG PROFILES (v3). A profile is a flat map of dotted paths applied on top
+# of the defaults by `Config.apply_profile(name)`. Profiles exist so the v3
+# scalper can be selected without editing a single default the v2 swing stack
+# is validated against -- `python3 run_backtest.py --stack swing` must keep
+# returning 153 trades / 54.90% WR / PF 1.260 forever, and it does.
+#
+# Every value marked TUNED was selected on TRAIN only and then scored on an
+# untouched TEST. The full log is reports/scalp/improvements.csv.
+# ---------------------------------------------------------------------
+profiles:
+  scalp:
+    active_stack: "scalp15"
+
+    # -- frequency. v2's caps never bound, because the swing stack produced
+    # ~1.2 trades a WEEK. A scalper aiming at 3 trades a DAY hits every one of
+    # them, so they are raised until setup supply is again the binding
+    # constraint rather than the risk engine.
+    risk.max_trades_per_day: 12
+    risk.max_open_positions: 6
+    risk.max_exposure_per_currency: 3
+    # A 24h cooldown after 4 losses deletes an entire trading day from a system
+    # that trades several times a day. v2 measured loss-streak throttling as
+    # harmful; this keeps a circuit breaker but sizes it to the timeframe.
+    risk.max_consecutive_losses: 6
+    risk.consecutive_loss_cooldown_hours: 4
+
+    # -- scalping shape: flat by the end of the NY session, hard time stop at
+    # 8 hours of 5m entry bars.
+    targets.intraday.enabled: true
+    targets.intraday.flat_by_utc_hour: 21
+    targets.max_hold_bars: 96
+
+    # -- gates. PLACEHOLDERS until rounds S1/S2 score them; see tune_scalp.py.
+    scoring.threshold: 65
+    stops.min_stop_over_cost: 6.0
 
 # ---------------------------------------------------------------------
 # Duplicate-setup protection

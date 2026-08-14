@@ -104,6 +104,23 @@ class Config:
         clone.set("active_stack", name)
         return clone
 
+    def apply_profile(self, name: str) -> "Config":
+        """Return a copy with the named ``profiles.<name>`` overrides applied.
+
+        A profile is a flat map of dotted paths to values. It exists so a whole
+        strategy variant (the v3 scalper) can be selected without editing the
+        defaults that the v2 swing stack is validated against -- the two must
+        stay independently reproducible, and "I changed a default and forgot"
+        is how a validated result quietly stops being the result it claims.
+        """
+        overrides = self.get(f"profiles.{name}")
+        if not overrides:
+            raise KeyError(f"no config profile named {name!r}")
+        clone = self.copy()
+        for dotted, value in overrides.items():
+            clone.set(dotted, value)
+        return clone
+
     def resolve_path(self, path: str | None) -> str | None:
         if not path:
             return None

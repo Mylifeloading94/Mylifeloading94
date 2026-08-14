@@ -293,6 +293,22 @@ class Backtester:
         def r_of(price: float) -> float:
             return sign * (price - entry_px) / risk_price
 
+        # --- intraday flat (v3 scalping, opt-in) -------------------------
+        # A scalp is flat by the end of its session. The deadline is the first
+        # entry bar at or after `flat_by_utc_hour` on the entry's own UTC day
+        # (rolling to the next day when the fill is already past it), and the
+        # exit takes that bar's OPEN with slippage against us -- the first
+        # price actually reachable once the deadline passes, never a close the
+        # position could not have got out at.
+        intraday_cfg = icfg.get("targets.intraday", {}) or {}
+        flat_deadline = None
+        if intraday_cfg.get("enabled", False):
+            flat_hour = int(intraday_cfg.get("flat_by_utc_hour", 21))
+            fill_ts = eframe.index[fill_i]
+            flat_deadline = fill_ts.normalize() + pd.Timedelta(hours=flat_hour)
+            if fill_ts >= flat_deadline:
+                flat_deadline += pd.Timedelta(days=1)
+
         # --- early structural invalidation (v2, opt-in) ------------------
         # If the setup timeframe shifts AGAINST the position while the trade is
         # still near flat, take the smaller loss instead of riding to the full
@@ -345,6 +361,16 @@ class Backtester:
                     remaining = 0.0
                     break
                 inval_time = None   # already profitable; let management run
+
+            # Intraday flat, checked AFTER the stop and BEFORE the target so
+            # every ambiguous bar still resolves against the strategy.
+            if flat_deadline is not None and eframe.index[j] >= flat_deadline:
+                px = opens[j] - slip if long else opens[j] + slip
+                realised_r += remaining * r_of(px)
+                exit_price, exit_reason = float(px), "session_flat"
+                exit_time = eframe.index[j]
+                remaining = 0.0
+                break
 
             if tp_hit:
                 px = nxt

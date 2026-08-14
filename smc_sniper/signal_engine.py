@@ -320,6 +320,14 @@ def generate_signals(ctx: PairContext, cfg,
     liq_include = set(fcfg.get("liquidity_include") or []) or None
     dir_allowed = set(fcfg.get("directions") or []) or None
     hours_exclude = set(int(h) for h in (fcfg.get("hours_exclude") or []))
+    # v3 hard gates. Each promotes a component that is normally only worth
+    # points into a pass/fail requirement. All three are removal-only: they
+    # cannot create a setup the base engine would not have produced, and they
+    # default to False so v2 is unchanged.
+    need_struct_align = bool(fcfg.get("require_structure_alignment", False))
+    need_ltf = bool(fcfg.get("require_ltf_confirmation", False))
+    need_major_sweep = bool(fcfg.get("require_major_sweep", False))
+    need_ob_and_fvg = bool(fcfg.get("require_ob_and_fvg", False))
 
     highs, lows = frame["high"].values, frame["low"].values
     closes = frame["close"].values
@@ -378,6 +386,12 @@ def generate_signals(ctx: PairContext, cfg,
             continue
         sweep_major = sweep.pool.kind in STRONG_POOLS
         pd_pw = sweep.pool.kind in MAJOR_POOLS
+        if need_major_sweep and not sweep_major:
+            reject(i, direction, "filter", f"sweep_{sweep.pool.kind}_not_major")
+            continue
+        if need_struct_align and ctx.structure_bias(i) != direction:
+            reject(i, direction, "filter", "structure_tf_bias_not_aligned")
+            continue
 
         # --- step 5: displacement --------------------------------------
         has_disp = displacement_near(frame, i, disp_cfg, direction)
@@ -406,6 +420,9 @@ def generate_signals(ctx: PairContext, cfg,
         zone, zone_label = _pick_entry_zone(ob, fvg, direction)
         if zone is None:
             reject(i, direction, "zone", "no_valid_ob_or_fvg")
+            continue
+        if need_ob_and_fvg and (ob is None or fvg is None):
+            reject(i, direction, "filter", "needs_both_ob_and_fvg")
             continue
 
         # --- step 8: entry (a resting limit -- price must come back) ----
@@ -461,6 +478,9 @@ def generate_signals(ctx: PairContext, cfg,
 
         # --- step 9: LTF confirmation -----------------------------------
         ltf_ok = _ltf_confirmation(ctx, i, direction)
+        if need_ltf and not ltf_ok:
+            reject(i, direction, "filter", "no_ltf_confirmation")
+            continue
 
         # --- step 11: spread --------------------------------------------
         spread_ok = spread_pips <= max_spread

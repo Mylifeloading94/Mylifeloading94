@@ -358,9 +358,13 @@ class Backtester:
         """
         if contexts is None:
             contexts = self.build_contexts(symbols)
-        elif not getattr(self, "_bound", False):
-            self.bind(contexts)
-            self._bound = True
+        elif contexts:
+            # Contexts are shared between variants (matched-R, perturbation),
+            # so check what they are CURRENTLY bound to rather than trusting a
+            # once-only flag -- another Backtester may have rebound them since.
+            first = next(iter(contexts.values()))
+            if first.cfg is not self.cfg:
+                self.bind(contexts)
         signals, rejections = self.collect_signals(contexts)
         self.n_signals_total = len(signals)
         if allowed_symbols is not None:

@@ -84,12 +84,17 @@ def build(path: str, *, summary: pd.DataFrame, verdict: list[str],
           perturbation: pd.DataFrame | None = None,
           coverage: pd.DataFrame | None = None,
           per_setup: pd.DataFrame | None = None,
-          adaptive: dict | None = None) -> str:
+          adaptive: dict | None = None,
+          stack_comparison: pd.DataFrame | None = None) -> str:
     wb = Workbook()
     wb.remove(wb.active)
 
     ws = wb.create_sheet("Summary")
-    _write_frame(ws, summary, 1, "SMC Sniper -- Backtest Summary")
+    row = 1
+    if stack_comparison is not None and not stack_comparison.empty:
+        row = _write_frame(ws, stack_comparison, row,
+                           "Stack comparison -- both timeframe stacks, side by side")
+    _write_frame(ws, summary, row, "SMC Sniper -- Backtest Summary")
 
     ws = wb.create_sheet("Verdict")
     _write_lines(ws, verdict, 1, "Verdict -- plain English")

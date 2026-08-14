@@ -276,6 +276,28 @@ def main():
         equity.to_csv(os.path.join(REPO, "reports", f"equity_{stack['name']}.csv"),
                       index=False)
 
+    # Persist every computed frame so the combined report can be assembled
+    # later without paying for another full run.
+    bundle_dir = os.path.join(REPO, "reports", stack["name"])
+    os.makedirs(bundle_dir, exist_ok=True)
+    bundle = {"summary": summary, "ledger": ledger, "per_pair": per_pair,
+              "per_session": per_session, "per_setup": per_setup,
+              "monthly": monthly, "weekly": weekly, "splits": splits,
+              "walk_forward": wf["folds"], "wf_oos_trades": wf["oos_trades"],
+              "rejected": rejected_summary, "coverage": coverage}
+    if matched is not None:
+        bundle["matched_r"] = matched
+    if perturb is not None:
+        bundle["perturbation"] = perturb
+    for name, frame in bundle.items():
+        if isinstance(frame, pd.DataFrame):
+            frame.to_csv(os.path.join(bundle_dir, f"{name}.csv"), index=False)
+    for dim, table in adaptive_tables.items():
+        table.to_csv(os.path.join(bundle_dir, f"adaptive_{dim}.csv"), index=False)
+    with open(os.path.join(bundle_dir, "verdict.txt"), "w") as fh:
+        fh.write("\n".join(verdict))
+    print(f"Bundle    : {bundle_dir}/")
+
     if not args.no_xlsx:
         path = report_xlsx.build(
             args.xlsx, summary=summary, verdict=verdict, ledger=ledger,

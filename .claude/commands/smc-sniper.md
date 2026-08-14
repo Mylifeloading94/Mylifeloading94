@@ -317,22 +317,33 @@ gate tightens.** On a 15m setup the score card carries no positive marginal
 information. That is a direct answer to "test the scoring components for
 marginal contribution": at this timeframe they do not discriminate.
 
-**Dial 2 — target width (win rate).** Management stripped, one flat target.
+**Dial 2 — target width (win rate).** Management stripped, one flat target, and
+a 48-hour time budget so a wide target is not truncated by the time stop before
+it can arrive. (The first version of this control left the 8-hour stop in place,
+which quietly penalised exactly the wide-target rows it exists to test. Both
+versions are in `reports/scalp/`; they agree.)
 
-| Target | Win rate | Break-even WR needed | Trades/day | TRAIN E | TEST E |
+| Target | Win rate | Break-even WR needed | Clears by | TRAIN E | TEST E |
 |---|---|---|---|---|---|
-| 0.5R | **69.24%** | 66.67% | 2.13 | −0.053R | −0.101R |
-| 1.0R | 48.68% | 50.00% | 2.35 | −0.118R | −0.159R |
-| 1.5R | 39.56% | 40.00% | 2.28 | −0.125R | −0.178R |
-| 2.0R | 35.63% | 33.33% | 2.27 | −0.091R | −0.194R |
-| 3.0R | 32.59% | 25.00% | 2.24 | −0.092R | −0.186R |
-| 4.0R | 31.87% | 20.00% | 2.23 | −0.084R | −0.147R |
+| **0.5R** | **70.18%** | 66.67% | +3.5 pts | **−0.053R** | **−0.090R** |
+| 1.0R | 49.49% | 50.00% | −0.5 pts | −0.119R | −0.145R |
+| 2.0R | 32.97% | 33.33% | −0.4 pts | −0.090R | −0.185R |
+| 3.0R | 25.10% | 25.00% | +0.1 pts | −0.139R | −0.138R |
+| 4.0R | 22.05% | 20.00% | +2.1 pts | −0.140R | −0.035R |
 
-**So: is 70% reachable? Very nearly — 71.57% on TRAIN and 68.33% on TEST at a
-flat 0.5R target — and it loses 0.086R per trade.** That is the entire lesson
-of the target-shrinking trap in one row. The win rate clears its break-even
-line by 2.6 points and the position still bleeds, because at 15m the round-trip
-cost is a double-digit percentage of R and eats the margin.
+**So: is 70% reachable? Yes — 70.18%, almost exactly the number asked for, at a
+flat 0.5R target. And it loses 0.053R per trade on TRAIN and 0.090R on TEST.**
+
+That single row is the entire lesson of the target-shrinking trap. The win rate
+clears its break-even line by three and a half points and the account still
+bleeds, because "break-even win rate" is computed on gross R and at 15m the
+round-trip cost is a double-digit percentage of R. A win rate can be bought at
+any level by moving the target closer. It buys nothing.
+
+Win rate falls monotonically from 70% to 22% as the target widens — the correct
+mechanical relationship, and the same shape the v2 swing stack shows. The
+difference is that on the swing stack expectancy *rises* with target width and
+turns positive; here it stays negative at every single width.
 
 **Is 3 trades a day reachable? Yes — 3.78/day at gate 55.** It loses 0.131R per
 trade.
@@ -627,6 +638,25 @@ size worth quoting. The full log with every split is
 | require 5m entry confirmation | −0.135R | −0.137R | REJECTED |
 | NY session only | −0.084R | −0.131R | REJECTED |
 | skip early London (08–09 UTC) | −0.078R | −0.177R | REJECTED — TEST worsens |
+| time stop 24h (was 8h) | −0.124R | −0.138R | REJECTED — no effect |
+| time stop 48h, no session flat | −0.133R | −0.152R | REJECTED — worse |
+| high-volatility regime only | −0.089R | −0.214R | REJECTED |
+| mid-volatility band | −0.135R | −0.151R | REJECTED |
+| **PD/PW pools only** | **+0.216R** | **−0.436R** | REJECTED — n=48 |
+| **no equal-level pools** | **+0.123R** | **−0.218R** | REJECTED — n=104 |
+
+The last two rows are the only configurations in forty that are **positive on
+TRAIN**, and both invert on TEST at samples of 48 and 104 trades. They are what
+a post-hoc subgroup looks like before it is tested, and they are the reason the
+protocol scores TEST separately instead of stopping at the encouraging number.
+
+The time-stop rows deserve a note because they killed the most plausible
+remaining hypothesis. `targets.max_hold_bars` is counted on the *entry*
+timeframe, so the swing stack's 96 bars is four days while the scalper's same
+96 is eight hours — a third of the setup-bar budget, against ATR-scaled targets
+the same distance away. That asymmetry looked like it could explain everything.
+Extending the budget to 24h changes the result by 0.001R, and to 48h makes it
+worse. It is not the cause.
 
 The pattern in the right-hand column is the whole story. Filters that shrink
 the sample improve TRAIN and leave TEST alone or make it worse. That is what

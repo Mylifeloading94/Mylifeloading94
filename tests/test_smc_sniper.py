@@ -652,6 +652,59 @@ def test_integration_full_pipeline_on_synthetic_bars(cfg):
         assert rej.step and rej.reason
 
 
+def test_backtester_rebinds_shared_contexts(cfg):
+    """Regression: reused contexts must follow the active config.
+
+    Contexts are cached and shared between variants (matched-R, perturbation).
+    They previously kept the config they were BUILT with, so every variant
+    silently re-evaluated the baseline and reported identical numbers for every
+    parameter value -- which reads as robustness and is a broken experiment."""
+    from smc_sniper.backtest import Backtester
+
+    class Ctx:
+        symbol = "EURUSD"
+
+        def __init__(self, c):
+            self.cfg = c
+            self.icfg = c.for_instrument("EURUSD")
+            self.stack = c.stack
+
+    base = cfg.copy()
+    contexts = {"EURUSD": Ctx(base)}
+    variant = cfg.with_override("targets.min_rr", 9.9)
+    bt = Backtester(variant, engine=None)
+    bt.bind(contexts)
+    assert contexts["EURUSD"].cfg is variant
+    assert contexts["EURUSD"].icfg.get("targets.min_rr") == 9.9
+    assert bt._signal_cache is None, "rebinding must invalidate the signal cache"
+
+
+def test_perturbation_knows_which_params_need_a_rebuild():
+    """Context-shaping parameters cannot be applied by rebinding alone."""
+    from smc_sniper.walkforward import needs_rebuild
+    assert needs_rebuild("structure.swing_lookback")
+    assert needs_rebuild("fvg.min_size_atr")
+    assert needs_rebuild("order_blocks.min_quality")
+    assert needs_rebuild("liquidity.pool_lookback_bars")
+    assert not needs_rebuild("scoring.threshold")
+    assert not needs_rebuild("targets.min_rr")
+    assert not needs_rebuild("stops.buffer_atr")
+
+
+def test_pair_selection_never_returns_an_empty_universe(cfg):
+    """Regression: an empty selection zeroed out every walk-forward fold."""
+    from smc_sniper.walkforward import select_pairs_on_train
+    thin = pd.DataFrame({
+        "symbol": ["EURUSD", "GBPUSD"],
+        "r_multiple": [0.5, -0.4], "pnl": [25.0, -20.0],
+        "exit_time": pd.to_datetime(["2025-01-02", "2025-01-03"], utc=True),
+        "rr_tp2": [3.0, 3.0], "bars_held": [5, 5]})
+    chosen, note = select_pairs_on_train(thin, cfg, with_note=True)
+    assert chosen, "a sample too small to select on must keep ALL pairs"
+    assert set(chosen) == set(cfg.symbols)
+    assert "no pair reached" in note
+
+
 def test_mtf_view_has_no_lookahead(cfg):
     """A higher-timeframe bar may only be visible once it has CLOSED."""
     from smc_sniper.data import MTFView

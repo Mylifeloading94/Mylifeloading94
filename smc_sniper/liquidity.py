@@ -103,7 +103,8 @@ def _period_levels(frame: pd.DataFrame, rule: str,
     The level for period N is knowable from the first bar of period N+1, which
     is exactly how it is indexed here -- no lookahead.
     """
-    grouped = frame.resample(rule)
+    kwargs = {"origin": "epoch"} if rule.endswith(("h", "min", "s")) else {}
+    grouped = frame.resample(rule, **kwargs)
     highs = grouped["high"].max().dropna()
     lows = grouped["low"].min().dropna()
     starts = grouped["open"].first().dropna()

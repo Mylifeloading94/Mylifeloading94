@@ -144,7 +144,10 @@ class DataEngine:
         if rule is None:
             frame = base.copy()
         else:
-            frame = base.resample(rule, label="left", closed="left", origin="epoch").agg(
+            # 'origin' only applies to tick-like frequencies; passing it for
+            # daily/weekly rules emits a warning and has no effect.
+            kwargs = {"origin": "epoch"} if rule.endswith(("h", "min", "s")) else {}
+            frame = base.resample(rule, label="left", closed="left", **kwargs).agg(
                 {"open": "first", "high": "max", "low": "min",
                  "close": "last", "volume": "sum"}
             ).dropna(subset=["open", "high", "low", "close"])

@@ -151,8 +151,10 @@ def main():
     splits = pd.DataFrame(split_rows)
 
     # pair selection: TRAIN only, frozen, then applied to TEST
-    chosen = walkforward.select_pairs_on_train(split_res["train"]["trades"], cfg)
-    print(f"\n  Pairs selected on TRAIN only: {chosen or '(none qualified)'}")
+    chosen, sel_note = walkforward.select_pairs_on_train(
+        split_res["train"]["trades"], cfg, with_note=True)
+    print(f"\n  Pair selection on TRAIN only: {sel_note}")
+    print(f"  -> {chosen}")
     sel_row = {}
     if chosen:
         a, b = split_res["bounds"]["test"]
@@ -197,13 +199,19 @@ def main():
         print(matched.to_string(index=False))
 
         print("\n--- PERTURBATION ---")
+
+        def rebuild(variant):
+            return Backtester(variant, engine).build_contexts()
+
         perturb = walkforward.perturbation_check(
             lambda c: Backtester(c, engine), contexts, cfg, {
                 "scoring.threshold": [75, 80, 85],
                 "stops.buffer_atr": [0.2, 0.25, 0.35],
+                "stops.min_stop_over_cost": [0.0, 6.0, 10.0, 15.0],
+                "targets.min_rr": [1.5, 2.0, 2.5],
                 "fvg.min_size_atr": [0.14, 0.18, 0.25],
                 "structure.swing_lookback": [2, 3],
-            }, starting_balance=balance)
+            }, starting_balance=balance, rebuild_fn=rebuild)
         print(perturb.to_string(index=False))
 
     # ---------------- breakdowns ----------------

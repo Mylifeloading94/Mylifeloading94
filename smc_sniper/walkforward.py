@@ -57,19 +57,42 @@ def run_splits(bt, contexts, fractions=(0.5, 0.2, 0.3),
     return out
 
 
-def select_pairs_on_train(train_trades: pd.DataFrame, cfg) -> list[str]:
-    """Pick pairs using TRAIN ONLY. The choice is then frozen for TEST."""
+def select_pairs_on_train(train_trades: pd.DataFrame, cfg,
+                          with_note: bool = False):
+    """Pick pairs using TRAIN ONLY. The choice is then frozen for TEST.
+
+    When no pair clears ``min_trades`` the honest answer is *"this sample
+    cannot support pair selection"*, not *"trade nothing"*. Returning an empty
+    list silently zeroed out every walk-forward fold. In that case all pairs
+    are kept and the caller is told why -- keeping everything also avoids
+    introducing selection bias on a sample too small to justify it.
+    """
     pcfg = cfg.get("backtest.pair_selection", {}) or {}
-    if not pcfg.get("enabled", True) or train_trades is None or train_trades.empty:
-        return list(cfg.symbols)
+    everything = list(cfg.symbols)
+    if not pcfg.get("enabled", True):
+        return (everything, "selection disabled") if with_note else everything
+    if train_trades is None or train_trades.empty:
+        return (everything, "no train trades") if with_note else everything
+
     min_trades = int(pcfg.get("min_trades", 12))
     metric = pcfg.get("metric", "expectancy_r")
     floor = float(pcfg.get("min_metric", 0.0))
     table = breakdown(train_trades, "symbol")
     if table.empty:
-        return list(cfg.symbols)
-    keep = table[(table["trades"] >= min_trades) & (table[metric] > floor)]
-    return keep["symbol"].tolist()
+        return (everything, "no breakdown") if with_note else everything
+
+    eligible = table[table["trades"] >= min_trades]
+    if eligible.empty:
+        note = (f"ALL pairs kept -- no pair reached {min_trades} train trades "
+                f"(max was {int(table['trades'].max())}); sample too small to select on")
+        return (everything, note) if with_note else everything
+
+    keep = eligible[eligible[metric] > floor]["symbol"].tolist()
+    if not keep:
+        note = (f"ALL pairs kept -- {len(eligible)} pair(s) had enough trades but none "
+                f"had {metric} > {floor}")
+        return (everything, note) if with_note else everything
+    return (keep, f"selected {len(keep)} of {len(table)} pairs") if with_note else keep
 
 
 def walk_forward(bt, contexts, folds: int = 5, train_frac: float = 0.5,
@@ -97,7 +120,7 @@ def walk_forward(bt, contexts, folds: int = 5, train_frac: float = 0.5,
         fit_trades, _, _ = bt.run(contexts=contexts, start=fit_a, end=fit_b,
                                   collect_rejections=False)
         fit_frame = trades_to_frame(fit_trades)
-        chosen = select_pairs_on_train(fit_frame, bt.cfg)
+        chosen, note = select_pairs_on_train(fit_frame, bt.cfg, with_note=True)
 
         oos_trades, _, _ = bt.run(contexts=contexts, start=fit_b, end=oos_b,
                                   collect_rejections=False, allowed_symbols=chosen)
@@ -113,7 +136,8 @@ def walk_forward(bt, contexts, folds: int = 5, train_frac: float = 0.5,
             "fold": k + 1,
             "fit_start": str(fit_a)[:10], "fit_end": str(fit_b)[:10],
             "oos_end": str(oos_b)[:10],
-            "pairs_selected": ",".join(chosen) if chosen else "(none)",
+            "selection": note,
+            "pairs_selected": ",".join(chosen) if len(chosen) < 6 else f"{len(chosen)} pairs",
             "fit_trades": fm["trades"], "fit_wr": round(fm["win_rate"], 2),
             "fit_pf": round(fm["profit_factor"], 3),
             "fit_exp_r": round(fm["expectancy_r"], 4),
@@ -127,17 +151,39 @@ def walk_forward(bt, contexts, folds: int = 5, train_frac: float = 0.5,
             "oos_metrics": compute_metrics(combined, starting_balance)}
 
 
+# Parameters consumed while BUILDING a PairContext (structure, liquidity,
+# zones). Perturbing these requires a full context rebuild -- rebinding config
+# to a cached context would leave them at their baseline values and the check
+# would report identical numbers for every value, which reads as robustness
+# but is really a broken experiment.
+_CONTEXT_SHAPING = ("structure.", "liquidity.", "order_blocks.",
+                    "fvg.min_size_atr", "fvg.max_age_bars", "fvg.fill_pct_invalidate")
+
+
+def needs_rebuild(dotted: str) -> bool:
+    return any(dotted.startswith(prefix) for prefix in _CONTEXT_SHAPING)
+
+
 def perturbation_check(make_bt, contexts, cfg, params: dict,
-                       starting_balance: float = 10000.0) -> pd.DataFrame:
-    """Re-run with each parameter nudged. Robust edges survive small changes."""
+                       starting_balance: float = 10000.0,
+                       rebuild_fn=None) -> pd.DataFrame:
+    """Re-run with each parameter nudged. Robust edges survive small changes.
+
+    ``rebuild_fn(variant_cfg)`` must return freshly built contexts; it is used
+    for parameters that shape the context itself.
+    """
     rows = []
     for dotted, values in params.items():
+        rebuild = needs_rebuild(dotted) and rebuild_fn is not None
         for value in values:
             variant = cfg.with_override(dotted, value)
             bt = make_bt(variant)
-            trades, _, _ = bt.run(contexts=contexts, collect_rejections=False)
+            ctxs = rebuild_fn(variant) if rebuild else contexts
+            trades, _, _ = bt.run(contexts=ctxs, collect_rejections=False)
             m = compute_metrics(trades_to_frame(trades), starting_balance)
-            rows.append({"param": dotted, "value": value, "trades": m["trades"],
+            rows.append({"param": dotted, "value": value,
+                         "context_rebuilt": "yes" if rebuild else "no",
+                         "trades": m["trades"],
                          "win_rate": round(m["win_rate"], 2),
                          "profit_factor": round(m["profit_factor"], 3),
                          "expectancy_r": round(m["expectancy_r"], 4),

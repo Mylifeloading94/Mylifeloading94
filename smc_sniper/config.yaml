@@ -422,6 +422,9 @@ dedupe:
 # Backtest / validation protocol
 # ---------------------------------------------------------------------
 backtest:
+  # Per-pair signal generation is embarrassingly parallel (the portfolio risk
+  # engine still runs sequentially afterwards, so results are identical).
+  n_jobs: 4
   train_fraction: 0.50
   validation_fraction: 0.20
   test_fraction: 0.30

@@ -68,6 +68,18 @@ class Trade:
     balance_after: float = 0.0
 
 
+# Set just before a fork-based Pool is created; workers inherit it via
+# copy-on-write so the (large) contexts never have to be pickled.
+_PARALLEL_STATE: tuple | None = None
+
+
+def _generate_for_symbol(symbol: str):
+    """Pool worker: generate signals for one pair from the inherited state."""
+    contexts, cfg = _PARALLEL_STATE
+    sigs, rejs = generate_signals(contexts[symbol], cfg)
+    return symbol, sigs, rejs
+
+
 def _spread_multiplier(ts: pd.Timestamp, cfg) -> float:
     from .sessions import session_of
     name = session_of(ts, cfg.get("sessions"))
@@ -86,6 +98,28 @@ class Backtester:
         self.risk_engine = RiskEngine(cfg)
 
     # -- signal generation ----------------------------------------------
+    def bind(self, contexts: dict[str, PairContext]) -> dict[str, PairContext]:
+        """Point cached contexts at THIS backtester's config.
+
+        Contexts are expensive, so variants reuse them -- but a reused context
+        still carries the config it was built with. Without this rebind, a
+        perturbation or matched-R run silently evaluates the BASELINE config
+        and reports identical numbers for every parameter value, which looks
+        like admirable robustness and is actually a broken experiment.
+
+        Note the limit: rebinding fixes parameters consumed at signal time
+        (thresholds, stops, targets, sessions). Parameters that shape the
+        context itself -- swing lookback, displacement, liquidity, order
+        blocks, FVG sizing -- require a full rebuild, which
+        :func:`walkforward.perturbation_check` does explicitly.
+        """
+        for ctx in contexts.values():
+            ctx.cfg = self.cfg
+            ctx.icfg = self.cfg.for_instrument(ctx.symbol)
+            ctx.stack = self.cfg.stack
+        self._signal_cache = None
+        return contexts
+
     def build_contexts(self, symbols=None) -> dict[str, PairContext]:
         out = {}
         for symbol in (symbols or self.cfg.symbols):
@@ -96,20 +130,52 @@ class Backtester:
                 print(f"  [skip] {symbol}: missing data for stack {self.stack['name']}")
         return out
 
-    def collect_signals(self, contexts: dict[str, PairContext], use_cache: bool = True):
+    def collect_signals(self, contexts: dict[str, PairContext], use_cache: bool = True,
+                        n_jobs: int | None = None):
         """Generate signals once and cache them.
 
         Signal generation is the expensive step and is independent of the risk
         engine, so walk-forward folds and train/test splits reuse one pass.
+
+        ``n_jobs`` > 1 fans the per-pair work across processes. Pairs are
+        completely independent at this stage -- the portfolio-level risk engine
+        runs afterwards, sequentially, over the merged and time-sorted list, so
+        parallelism cannot change the result. On Linux the fork start method
+        lets workers inherit the already-built contexts instead of pickling
+        them; only the (small) signal lists come back.
         """
         if use_cache and self._signal_cache is not None:
             return self._signal_cache
+
+        n_jobs = n_jobs if n_jobs is not None else int(self.cfg.get("backtest.n_jobs", 1))
+        items = list(contexts.items())
         signals: list[tuple[str, Signal]] = []
         rejections: list[Rejection] = []
-        for symbol, ctx in contexts.items():
-            sigs, rejs = generate_signals(ctx, self.cfg)
-            signals.extend((symbol, s) for s in sigs)
-            rejections.extend(rejs)
+
+        if n_jobs and n_jobs > 1 and len(items) > 1:
+            import multiprocessing as mp
+            global _PARALLEL_STATE
+            _PARALLEL_STATE = (contexts, self.cfg)
+            try:
+                ctx_mp = mp.get_context("fork")
+                with ctx_mp.Pool(min(n_jobs, len(items))) as pool:
+                    for symbol, sigs, rejs in pool.imap_unordered(
+                            _generate_for_symbol, [s for s, _ in items]):
+                        signals.extend((symbol, s) for s in sigs)
+                        rejections.extend(rejs)
+            except (OSError, ValueError, ImportError):
+                # Fall back to serial rather than lose the run.
+                signals, rejections = [], []
+                for symbol, ctx in items:
+                    sigs, rejs = generate_signals(ctx, self.cfg)
+                    signals.extend((symbol, s) for s in sigs)
+                    rejections.extend(rejs)
+        else:
+            for symbol, ctx in items:
+                sigs, rejs = generate_signals(ctx, self.cfg)
+                signals.extend((symbol, s) for s in sigs)
+                rejections.extend(rejs)
+
         signals.sort(key=lambda pair: pair[1].time)
         if use_cache:
             self._signal_cache = (signals, rejections)
@@ -290,7 +356,11 @@ class Backtester:
         regenerating signals -- used by the pair-selection protocol, where the
         selection is made on TRAIN and then applied unchanged to TEST.
         """
-        contexts = contexts if contexts is not None else self.build_contexts(symbols)
+        if contexts is None:
+            contexts = self.build_contexts(symbols)
+        elif not getattr(self, "_bound", False):
+            self.bind(contexts)
+            self._bound = True
         signals, rejections = self.collect_signals(contexts)
         self.n_signals_total = len(signals)
         if allowed_symbols is not None:

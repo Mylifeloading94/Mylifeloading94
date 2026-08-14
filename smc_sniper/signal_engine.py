@@ -416,6 +416,14 @@ def generate_signals(ctx: PairContext, cfg,
         if risk_price > max_stop:
             reject(i, direction, "stop", f"stop_too_wide_{risk_price / bar_atr:.2f}atr")
             continue
+        # Execution viability: risk must dwarf the round-trip cost, otherwise
+        # the spread quietly eats the R-multiple and every target under-delivers.
+        cost_price = (spread_pips + float(icfg.get("execution.slippage_pips", 0.2))) * icfg.pip
+        min_over_cost = float(stops_cfg.get("min_stop_over_cost", 0.0))
+        if min_over_cost > 0 and risk_price < min_over_cost * cost_price:
+            reject(i, direction, "cost",
+                   f"stop_{risk_price / cost_price:.1f}x_cost<{min_over_cost}x", 0.0)
+            continue
 
         # --- targets ----------------------------------------------------
         tp1, tp2, tp3 = _build_targets(ctx, i, direction, entry, stop, bar_atr)

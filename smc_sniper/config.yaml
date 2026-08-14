@@ -258,9 +258,19 @@ stops:
   mode: "structural"          # structural | atr
   atr_period: 14
   buffer_atr: 0.25            # buffer beyond the sweep extreme
-  min_stop_atr: 0.35          # never a hair-thin stop
+  min_stop_atr: 0.80          # never a hair-thin stop
   max_stop_atr: 3.0           # skip the setup if structure demands a huge stop
   never_widen: true
+  # EXECUTION VIABILITY. Risk must be at least this many multiples of the
+  # round-trip cost (spread + slippage), or the setup is skipped.
+  #
+  # This gate was added after measurement, not taste. With min_stop_atr at
+  # 0.35 the median trade's true risk was 17.5% larger than its planned risk
+  # purely from cost, and on gold the spread reached 30-100% of the stop. A
+  # nominal 4R target was really collecting ~3.4R while every loss paid a full
+  # -1R, which alone accounted for the negative expectancy. A setup whose
+  # spread is a third of its risk is not a setup, it is noise.
+  min_stop_over_cost: 10.0
 
 targets:
   mode: "liquidity"           # liquidity | fixed_rr

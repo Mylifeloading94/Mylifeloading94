@@ -178,6 +178,16 @@ fvg:
   max_distance_atr: 2.5       # ignore zones further than this from current price
 
 # ---------------------------------------------------------------------
+# Entry order handling
+# ---------------------------------------------------------------------
+entry:
+  order_type: "limit"     # price must RETRACE into the zone -- no chasing
+  valid_bars: 8           # limit is cancelled if unfilled after N setup bars
+  # A touch is NOT a fill. Price must trade THROUGH the limit. This single
+  # rule is the difference between an honest 45% and a published 70% in this
+  # repo's history. Non-negotiable -- see execution.require_trade_through.
+
+# ---------------------------------------------------------------------
 # Premium / discount (equilibrium of the current structural leg)
 # ---------------------------------------------------------------------
 premium_discount:
@@ -250,6 +260,10 @@ targets:
   tp1_internal_liquidity: true
   tp2_previous_swing: true
   tp3_external_liquidity: true
+  # A liquidity target only counts if it is at least this many R away.
+  # Without a floor, "nearest liquidity" is almost always a trivial micro-swing
+  # and every trade collapses into a sub-1R scalp with a flattering win rate.
+  tp_min_r: [1.0, 2.0, 3.0]
   # fallback R multiples used when no liquidity target exists at that leg
   tp_fallback_r: [1.5, 3.0, 5.0]
   partial_tp:

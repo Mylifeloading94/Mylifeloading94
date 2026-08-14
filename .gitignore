@@ -28,3 +28,7 @@ mylifeloading_portfolio_traded.json
 mylifeloading_portfolio_daily.json
 mylifeloading_portfolio_PAUSED
 ALL_STRATEGIES_PAUSED
+
+# SMC Sniper
+smc_data/
+reports/

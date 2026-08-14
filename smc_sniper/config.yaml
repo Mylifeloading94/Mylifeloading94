@@ -1,0 +1,446 @@
+# =====================================================================
+# SMC Sniper AI Forex Trading Bot -- central configuration
+# NOTHING in the strategy is hard-coded. Everything tunable lives here.
+# =====================================================================
+
+meta:
+  name: "SMC Sniper AI Forex Trading Bot"
+  version: "1.0.0"
+  philosophy: "NO CONFIRMATION = NO TRADE"
+
+# ---------------------------------------------------------------------
+# Markets. Only these symbols are ever traded.
+# yahoo: symbol used by the offline market-data engine (Yahoo chart API)
+# broker: symbol string handed to the execution engine (broker-specific)
+# pip: value of 1 pip in price units
+# type: fx_major | fx_cross | jpy | metal   (drives the param block used)
+# ---------------------------------------------------------------------
+markets:
+  EURUSD: {yahoo: "EURUSD=X", broker: "EURUSD", pip: 0.0001, type: fx_major}
+  GBPUSD: {yahoo: "GBPUSD=X", broker: "GBPUSD", pip: 0.0001, type: fx_major}
+  USDJPY: {yahoo: "USDJPY=X", broker: "USDJPY", pip: 0.01,   type: jpy}
+  USDCHF: {yahoo: "USDCHF=X", broker: "USDCHF", pip: 0.0001, type: fx_major}
+  USDCAD: {yahoo: "USDCAD=X", broker: "USDCAD", pip: 0.0001, type: fx_major}
+  AUDUSD: {yahoo: "AUDUSD=X", broker: "AUDUSD", pip: 0.0001, type: fx_major}
+  NZDUSD: {yahoo: "NZDUSD=X", broker: "NZDUSD", pip: 0.0001, type: fx_major}
+  EURJPY: {yahoo: "EURJPY=X", broker: "EURJPY", pip: 0.01,   type: jpy}
+  GBPJPY: {yahoo: "GBPJPY=X", broker: "GBPJPY", pip: 0.01,   type: jpy}
+  EURGBP: {yahoo: "EURGBP=X", broker: "EURGBP", pip: 0.0001, type: fx_cross}
+  AUDJPY: {yahoo: "AUDJPY=X", broker: "AUDJPY", pip: 0.01,   type: jpy}
+  CADJPY: {yahoo: "CADJPY=X", broker: "CADJPY", pip: 0.01,   type: jpy}
+  XAUUSD: {yahoo: "GC=F",     broker: "XAUUSD", pip: 0.1,    type: metal}
+
+# ---------------------------------------------------------------------
+# Market data engine
+# ---------------------------------------------------------------------
+data:
+  # tradelocker = the real execution venue (BID bars, deepest intraday history).
+  # yahoo       = credential-free fallback (mid bars, much shorter intraday).
+  provider: tradelocker
+  fallback_provider: yahoo
+  cache_dir: "smc_data"
+  request_sleep_s: 1.0
+  retries: 6
+
+  tradelocker:
+    base_url: "https://demo.tradelocker.com/backend-api"
+    env_file: ".env"           # gitignored; holds TL_* creds. NEVER committed.
+    read_only: true            # only /instruments, /quotes, /history are called
+    bar_source: "BID"
+
+  yahoo:
+    base_url: "https://query2.finance.yahoo.com/v8/finance/chart/"
+    user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
+
+  # How far back to request per interval. These were measured against the live
+  # GENFX demo account -- asking for more simply returns what exists.
+  #   1D ~2000d | 1H ~1200d | 15m ~400d | 5m ~120d
+  request_days:
+    "1D": 2000
+    "1H": 1200
+    "15m": 400
+    "5m": 120
+
+  # Observed live broker spreads (pips) sampled from /trade/quotes during a
+  # liquid session, kept for reference only. The backtester deliberately uses
+  # the WIDER execution.spreads block below -- overestimating cost is the safe
+  # direction, and these raw-account quotes are not representative of news or
+  # rollover conditions.
+  observed_broker_spreads_pips:
+    EURUSD: 0.10
+    GBPUSD: 0.10
+    USDJPY: 0.10
+    USDCHF: 0.30
+    USDCAD: 0.10
+    AUDUSD: 0.40
+    NZDUSD: 0.10
+    EURJPY: 0.30
+    GBPJPY: 1.10
+    EURGBP: 0.20
+    AUDJPY: 1.00
+    CADJPY: 0.20
+    XAUUSD: 2.50
+
+# ---------------------------------------------------------------------
+# Timeframe stacks. The engine is timeframe-agnostic; a "stack" names
+# which TF plays which role. Two stacks are shipped:
+#   spec  -- exactly what the owner spec asks for (4H bias/1H structure/
+#            15M setup/5M entry). Limited to ~60 days by Yahoo.
+#   long  -- same engine one notch up (1D bias/4H structure/1H setup/
+#            1H entry) so we get ~2 years and a statistically usable n.
+# ---------------------------------------------------------------------
+stacks:
+  # HEADLINE. Exactly the spec's timeframe stack. ~400 days of broker 15m bars.
+  # Entry/management resolution is 15m: coarser than 5m, which makes fills
+  # STRICTLY more pessimistic (more ambiguous bars, and ambiguity = loss).
+  sniper:
+    bias_tf: "4H"
+    structure_tf: "1H"
+    setup_tf: "15m"
+    entry_tf: "15m"
+    history_note: "~400 days of TradeLocker 15m bars (broker feed, BID)."
+
+  # PRECISION CHECK. Same setups, 5m fill/management resolution. Only ~120 days
+  # of 5m history exists, so this is a robustness check on the fill model --
+  # not an independent result.
+  sniper_5m:
+    bias_tf: "4H"
+    structure_tf: "1H"
+    setup_tf: "15m"
+    entry_tf: "5m"
+    history_note: "~120 days -- 5m depth limit. Fill-model robustness check only."
+
+  # LONG-WINDOW. Same engine one notch up, ~1200 days of 1H bars. Used for
+  # walk-forward and regime robustness where n matters more than granularity.
+  swing:
+    bias_tf: "1D"
+    structure_tf: "4H"
+    setup_tf: "1H"
+    entry_tf: "1H"
+    history_note: "~1200 days of TradeLocker 1H bars."
+
+active_stack: "sniper"
+
+# ---------------------------------------------------------------------
+# Market structure
+# ---------------------------------------------------------------------
+structure:
+  swing_lookback: 2          # fractal strength (bars each side)
+  min_swings_for_bias: 4     # need this many confirmed swings before a bias is valid
+  bos_confirm_close: true    # BOS requires a CLOSE beyond the swing, not a wick
+  choch_confirm_close: true
+  mss_requires_displacement: true
+  displacement:
+    atr_period: 14
+    # displacement candle body must exceed this * ATR
+    min_body_atr: 0.85
+    # and body must be at least this fraction of the candle range
+    min_body_ratio: 0.55
+    lookback_bars: 5         # displacement must occur within N bars of the sweep
+
+# ---------------------------------------------------------------------
+# Liquidity
+# ---------------------------------------------------------------------
+liquidity:
+  equal_level_tolerance_atr: 0.12   # highs within 0.12*ATR of each other == equal highs
+  equal_level_min_touches: 2
+  pool_lookback_bars: 120
+  sweep:
+    # wick must pierce the pool by >= this * ATR ...
+    min_pierce_atr: 0.05
+    # ... and the bar must CLOSE back on the origin side (failed breakout)
+    require_close_back: true
+    max_bars_since_sweep: 6        # setup must form within N bars of the sweep
+  session_levels: true              # track Asian/London/NY highs & lows
+  daily_levels: true                # PDH / PDL
+  weekly_levels: true               # PWH / PWL
+
+# ---------------------------------------------------------------------
+# Order blocks
+# ---------------------------------------------------------------------
+order_blocks:
+  lookback_bars: 40
+  require_displacement: true       # OB only valid if followed by displacement leg
+  max_age_bars: 60
+  mitigation_invalidates: true     # once fully traded through, OB is dead
+  min_quality: 2                   # 0-4 quality rank; below this the OB is ignored
+  use_breaker_blocks: true
+  use_mitigation_blocks: true
+
+# ---------------------------------------------------------------------
+# Fair value gaps
+# ---------------------------------------------------------------------
+fvg:
+  min_size_atr: 0.18          # gap must be >= 0.18 * ATR (ATR-scaled, never flat pips)
+  max_age_bars: 40
+  fill_pct_invalidate: 0.85   # >85% filled == consumed
+  entry_fill_pct: 0.5         # limit sits at this depth into the gap
+  max_distance_atr: 2.5       # ignore zones further than this from current price
+
+# ---------------------------------------------------------------------
+# Premium / discount (equilibrium of the current structural leg)
+# ---------------------------------------------------------------------
+premium_discount:
+  enabled: true
+  equilibrium: 0.5
+  # SOFT rule: a long outside discount does not get vetoed, it just loses
+  # the +5 points. Hard veto only past this extreme.
+  hard_veto_beyond: 0.85      # never buy above 85% of the leg, never sell below 15%
+
+# ---------------------------------------------------------------------
+# Scoring engine (0-100). Threshold decides the trade.
+# ---------------------------------------------------------------------
+scoring:
+  weights:
+    htf_aligned: 15
+    mss_choch: 10
+    bos: 10
+    major_sweep: 15
+    pd_pw_liquidity: 5
+    valid_ob: 10
+    valid_fvg: 10
+    premium_discount: 5
+    displacement: 5
+    ltf_confirmation: 5
+    favorable_spread: 5
+  profiles:
+    conservative: 85
+    standard: 80
+    aggressive: 75
+  active_profile: "standard"
+
+# ---------------------------------------------------------------------
+# Risk management. This layer outranks the win rate.
+# ---------------------------------------------------------------------
+risk:
+  account_currency: "USD"
+  starting_balance: 10000.0
+  risk_per_trade_pct: 0.5        # allowed range 0.25 - 1.0
+  risk_per_trade_min_pct: 0.25
+  risk_per_trade_max_pct: 1.0
+  max_daily_loss_pct: 2.0
+  max_weekly_loss_pct: 5.0
+  max_open_positions: 3
+  max_trades_per_day: 3
+  max_consecutive_losses: 4      # trips a cooldown, never a size-up
+  consecutive_loss_cooldown_hours: 24
+  max_exposure_per_currency: 2    # max simultaneous positions sharing a currency
+  compounding: false             # fixed-fractional on the running balance if true
+  # explicitly banned behaviours -- asserted in tests
+  martingale: false
+  grid: false
+  revenge_trading: false
+
+# ---------------------------------------------------------------------
+# Stop loss / take profit
+# ---------------------------------------------------------------------
+stops:
+  mode: "structural"          # structural | atr
+  atr_period: 14
+  buffer_atr: 0.25            # buffer beyond the sweep extreme
+  min_stop_atr: 0.35          # never a hair-thin stop
+  max_stop_atr: 3.0           # skip the setup if structure demands a huge stop
+  never_widen: true
+
+targets:
+  mode: "liquidity"           # liquidity | fixed_rr
+  fixed_rr: 3.0
+  min_rr: 2.0                 # below 1:2 -> skip the trade entirely
+  preferred_rr_max: 4.0
+  tp1_internal_liquidity: true
+  tp2_previous_swing: true
+  tp3_external_liquidity: true
+  # fallback R multiples used when no liquidity target exists at that leg
+  tp_fallback_r: [1.5, 3.0, 5.0]
+  partial_tp:
+    enabled: true
+    tp1_close_pct: 0.5
+    tp2_close_pct: 0.3
+    # remainder rides to TP3 / trail
+  breakeven:
+    enabled: true
+    trigger_r: 1.0
+    offset_r: 0.05            # BE + a hair, to cover the spread
+  trailing:
+    enabled: true
+    mode: "structure"         # structure | atr
+    atr_mult: 1.5
+    start_after_r: 2.0
+  max_hold_bars: 96           # time stop on the setup timeframe
+
+# ---------------------------------------------------------------------
+# Sessions (UTC hours, [start, end) )
+# ---------------------------------------------------------------------
+sessions:
+  enabled: true
+  definitions:
+    asian:   {start: 0,  end: 7}
+    london:  {start: 7,  end: 12}
+    ny:      {start: 12, end: 17}
+    late_ny: {start: 17, end: 21}
+    dead:    {start: 21, end: 24}
+  allowed: ["london", "ny"]
+  avoid_low_liquidity: true
+  # session filters have INVERTED between train and test in this repo before.
+  # Treated as a hypothesis: validated in walk-forward, never assumed.
+  treat_as_hypothesis: true
+  skip_friday_after_utc: 20
+  skip_sunday_open: true
+
+# ---------------------------------------------------------------------
+# News blackout. No historical calendar is available offline; supply a
+# CSV (utc_timestamp,impact,event) via calendar_file to activate it.
+# ---------------------------------------------------------------------
+news:
+  enabled: true
+  calendar_file: null          # e.g. "smc_data/calendar.csv"
+  blackout_minutes_before: 30
+  blackout_minutes_after: 30
+  high_impact_events:
+    ["FOMC", "CPI", "NFP", "RATE_DECISION", "GDP", "PCE", "PPI", "UNEMPLOYMENT"]
+  on_missing_calendar: "warn"  # warn | fail -- backtests run WITHOUT news filtering
+
+# ---------------------------------------------------------------------
+# Execution / costs. Spreads in pips, per side; commission per lot RT.
+# ---------------------------------------------------------------------
+execution:
+  broker: "paper"              # paper | tradelocker
+  max_spread_pips_default: 2.0
+  max_slippage_pips: 1.0
+  slippage_model: "fixed"      # fixed | atr
+  slippage_pips: 0.2
+  commission_per_lot_rt: 7.0
+  require_trade_through: true  # a touch is NOT a fill. Non-negotiable.
+  same_bar_tp_and_sl: "loss"   # ambiguous bar resolves against us. Non-negotiable.
+  # Typical retail spreads used by the backtester (pips)
+  spreads:
+    EURUSD: 0.6
+    GBPUSD: 0.9
+    USDJPY: 0.7
+    USDCHF: 1.1
+    USDCAD: 1.2
+    AUDUSD: 0.9
+    NZDUSD: 1.4
+    EURJPY: 1.3
+    GBPJPY: 2.0
+    EURGBP: 1.1
+    AUDJPY: 1.6
+    CADJPY: 2.0
+    XAUUSD: 25.0     # 2.5 "dollars" == 25 gold pips at pip=0.1
+  spread_widen_session:
+    asian: 1.3       # multiplier applied outside London/NY
+    dead: 2.0
+
+# ---------------------------------------------------------------------
+# Per-instrument parameter overrides. Gold NEVER shares EURUSD params.
+# Anything not listed inherits the global block above.
+# ---------------------------------------------------------------------
+instrument_overrides:
+  XAUUSD:
+    stops:
+      buffer_atr: 0.40
+      min_stop_atr: 0.50
+      max_stop_atr: 3.5
+    fvg:
+      min_size_atr: 0.25
+    structure:
+      displacement:
+        min_body_atr: 1.0
+    risk:
+      risk_per_trade_pct: 0.35     # smaller risk on the most volatile instrument
+    sessions:
+      allowed: ["london", "ny", "late_ny"]   # gold runs late in NY
+    execution:
+      max_spread_pips_default: 35.0
+    targets:
+      min_rr: 2.0
+  GBPJPY:
+    execution:
+      max_spread_pips_default: 3.5
+    stops:
+      buffer_atr: 0.30
+  AUDJPY:
+    execution:
+      max_spread_pips_default: 3.0
+  CADJPY:
+    execution:
+      max_spread_pips_default: 3.5
+  EURGBP:
+    # quiet cross: thresholds are ATR-scaled already, only the spread cap differs
+    execution:
+      max_spread_pips_default: 2.0
+
+# ---------------------------------------------------------------------
+# Duplicate-setup protection
+# ---------------------------------------------------------------------
+dedupe:
+  enabled: true
+  cooldown_bars: 8               # same pair+direction cooldown on the setup TF
+  same_zone_tolerance_atr: 0.35  # a re-signal inside this band is the SAME setup
+  max_signals_per_setup_id: 1
+
+# ---------------------------------------------------------------------
+# Backtest / validation protocol
+# ---------------------------------------------------------------------
+backtest:
+  train_fraction: 0.50
+  validation_fraction: 0.20
+  test_fraction: 0.30
+  walk_forward:
+    enabled: true
+    folds: 5
+    train_bars_frac: 0.5
+    anchored: false
+  bootstrap_iterations: 5000
+  bootstrap_ci: 0.95
+  # Pair selection is done on TRAIN ONLY and then frozen. Never on the full window.
+  pair_selection:
+    enabled: true
+    on: "train"
+    min_trades: 12
+    metric: "expectancy_r"
+    min_metric: 0.0
+  perturbation_checks:
+    enabled: true
+    params: ["scoring.threshold", "stops.buffer_atr", "fvg.min_size_atr", "structure.swing_lookback"]
+
+# ---------------------------------------------------------------------
+# Telegram (dry-run: no token exists, nothing is ever sent)
+# ---------------------------------------------------------------------
+telegram:
+  enabled: false
+  dry_run: true
+  bot_token_env: "TELEGRAM_BOT_TOKEN"   # read from env, NEVER committed
+  chat_id_env: "TELEGRAM_CHAT_ID"
+  show_balance: false
+  notify:
+    new_signal: true
+    entry_filled: true
+    tp_hit: true
+    breakeven_moved: true
+    sl_hit: true
+    daily_summary: true
+    error: true
+
+# ---------------------------------------------------------------------
+# Logging / dashboard
+# ---------------------------------------------------------------------
+logging:
+  dir: "reports"
+  log_rejected_setups: true      # every rejection with reason + score + state
+  level: "INFO"
+
+dashboard:
+  enabled: true
+  output: "reports/dashboard.html"
+  recent_signals: 40
+  recent_rejections: 60
+
+# ---------------------------------------------------------------------
+# Adaptive layer (analysis only -- can never widen a risk limit)
+# ---------------------------------------------------------------------
+adaptive:
+  enabled: true
+  min_trades_for_significance: 30
+  dimensions: ["pair", "session", "setup_type", "liquidity_type", "rr_bucket", "volatility_regime"]
+  can_override_risk: false

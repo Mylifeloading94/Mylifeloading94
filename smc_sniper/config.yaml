@@ -29,6 +29,29 @@ markets:
   AUDJPY: {yahoo: "AUDJPY=X", broker: "AUDJPY", pip: 0.01,   type: jpy}
   CADJPY: {yahoo: "CADJPY=X", broker: "CADJPY", pip: 0.01,   type: jpy}
   XAUUSD: {yahoo: "GC=F",     broker: "XAUUSD", pip: 0.1,    type: metal}
+  # --- v2 additions -------------------------------------------------------
+  # 16 further liquid crosses the broker actually offers (confirmed against
+  # /trade/accounts/{id}/instruments). They are here for one reason: the v1
+  # universe produced ~1.2 trades a week, which is too thin to measure. Every
+  # one of them is validated on TRAIN and TEST exactly like the original 13 --
+  # see reports/tuning/round_c.csv. Exotics, indices and crypto were NOT added:
+  # the spec is a forex system and their cost/behaviour is different in kind.
+  AUDCAD: {yahoo: "AUDCAD=X", broker: "AUDCAD", pip: 0.0001, type: fx_cross}
+  AUDCHF: {yahoo: "AUDCHF=X", broker: "AUDCHF", pip: 0.0001, type: fx_cross}
+  AUDNZD: {yahoo: "AUDNZD=X", broker: "AUDNZD", pip: 0.0001, type: fx_cross}
+  CADCHF: {yahoo: "CADCHF=X", broker: "CADCHF", pip: 0.0001, type: fx_cross}
+  CHFJPY: {yahoo: "CHFJPY=X", broker: "CHFJPY", pip: 0.01,   type: jpy}
+  EURAUD: {yahoo: "EURAUD=X", broker: "EURAUD", pip: 0.0001, type: fx_cross}
+  EURCAD: {yahoo: "EURCAD=X", broker: "EURCAD", pip: 0.0001, type: fx_cross}
+  EURCHF: {yahoo: "EURCHF=X", broker: "EURCHF", pip: 0.0001, type: fx_cross}
+  EURNZD: {yahoo: "EURNZD=X", broker: "EURNZD", pip: 0.0001, type: fx_cross}
+  GBPAUD: {yahoo: "GBPAUD=X", broker: "GBPAUD", pip: 0.0001, type: fx_cross}
+  GBPCAD: {yahoo: "GBPCAD=X", broker: "GBPCAD", pip: 0.0001, type: fx_cross}
+  GBPCHF: {yahoo: "GBPCHF=X", broker: "GBPCHF", pip: 0.0001, type: fx_cross}
+  GBPNZD: {yahoo: "GBPNZD=X", broker: "GBPNZD", pip: 0.0001, type: fx_cross}
+  NZDCAD: {yahoo: "NZDCAD=X", broker: "NZDCAD", pip: 0.0001, type: fx_cross}
+  NZDCHF: {yahoo: "NZDCHF=X", broker: "NZDCHF", pip: 0.0001, type: fx_cross}
+  NZDJPY: {yahoo: "NZDJPY=X", broker: "NZDJPY", pip: 0.01,   type: jpy}
 
 # ---------------------------------------------------------------------
 # Market data engine
@@ -80,6 +103,23 @@ data:
     AUDJPY: 1.00
     CADJPY: 0.20
     XAUUSD: 2.50
+    # v2 crosses, sampled 2026-08-14 during London
+    AUDCAD: 0.70
+    AUDCHF: 0.50
+    AUDNZD: 0.90
+    CADCHF: 0.50
+    CHFJPY: 1.00
+    EURAUD: 1.20
+    EURCAD: 0.80
+    EURCHF: 0.10
+    EURNZD: 1.40
+    GBPAUD: 1.10
+    GBPCAD: 0.60
+    GBPCHF: 0.50
+    GBPNZD: 1.60
+    NZDCAD: 0.70
+    NZDCHF: 0.40
+    NZDJPY: 0.60
 
 # ---------------------------------------------------------------------
 # Timeframe stacks. The engine is timeframe-agnostic; a "stack" names
@@ -366,6 +406,25 @@ execution:
     AUDJPY: 1.6
     CADJPY: 2.0
     XAUUSD: 25.0     # 2.5 "dollars" == 25 gold pips at pip=0.1
+    # v2 crosses. Live quotes sampled from /trade/quotes during London are in
+    # observed_broker_spreads_pips above; these are ~3x wider, same deliberate
+    # over-estimate as the original 13.
+    AUDCAD: 2.0
+    AUDCHF: 1.8
+    AUDNZD: 2.4
+    CADCHF: 1.8
+    CHFJPY: 2.4
+    EURAUD: 2.8
+    EURCAD: 2.2
+    EURCHF: 1.2
+    EURNZD: 3.2
+    GBPAUD: 2.8
+    GBPCAD: 2.0
+    GBPCHF: 1.8
+    GBPNZD: 3.6
+    NZDCAD: 2.0
+    NZDCHF: 1.6
+    NZDJPY: 1.8
   spread_widen_session:
     asian: 1.3       # multiplier applied outside London/NY
     dead: 2.0
@@ -408,6 +467,58 @@ instrument_overrides:
     # quiet cross: thresholds are ATR-scaled already, only the spread cap differs
     execution:
       max_spread_pips_default: 2.0
+  # v2 crosses. Every threshold in the engine is ATR-scaled, so the only thing
+  # that has to be widened per instrument is the spread ACCEPTANCE cap -- set
+  # ~1.5x each pair's own configured spread, the same ratio GBPJPY already used.
+  AUDCAD: {execution: {max_spread_pips_default: 3.0}}
+  AUDCHF: {execution: {max_spread_pips_default: 2.7}}
+  AUDNZD: {execution: {max_spread_pips_default: 3.6}}
+  CADCHF: {execution: {max_spread_pips_default: 2.7}}
+  CHFJPY: {execution: {max_spread_pips_default: 3.6}}
+  EURAUD: {execution: {max_spread_pips_default: 4.2}}
+  EURCAD: {execution: {max_spread_pips_default: 3.3}}
+  EURCHF: {execution: {max_spread_pips_default: 2.0}}
+  EURNZD: {execution: {max_spread_pips_default: 4.8}}
+  GBPAUD: {execution: {max_spread_pips_default: 4.2}}
+  GBPCAD: {execution: {max_spread_pips_default: 3.0}}
+  GBPCHF: {execution: {max_spread_pips_default: 2.7}}
+  GBPNZD: {execution: {max_spread_pips_default: 5.4}}
+  NZDCAD: {execution: {max_spread_pips_default: 3.0}}
+  NZDCHF: {execution: {max_spread_pips_default: 2.4}}
+  NZDJPY: {execution: {max_spread_pips_default: 2.7}}
+
+# ---------------------------------------------------------------------
+# Subgroup filters (v2). Every one of these can only ever REMOVE a setup --
+# none of them can create a trade the base engine would not have taken, and
+# none of them can widen a risk limit.
+#
+# They are applied inside the signal engine BEFORE the dedupe cooldown, so a
+# filtered-out setup never consumes the cooldown slot of a setup that would
+# actually be traded. Applying them after dedupe would silently suppress good
+# setups and make the filter look worse than it is.
+#
+# Empty / null everywhere == the v1 baseline, bit for bit.
+# ---------------------------------------------------------------------
+filters:
+  # Liquidity-pool kinds that may NOT be swept into a trade.
+  liquidity_exclude: []
+  # Whitelist of pool kinds. null == no whitelist (all kinds allowed).
+  liquidity_include: null
+  # Allowed trade directions: null == both. e.g. ["bullish"] for longs only.
+  directions: null
+  # UTC hours of the setup bar that may not trade.
+  hours_exclude: []
+  # Early structural invalidation: close the position when the SETUP timeframe
+  # prints a BOS/MSS/CHoCH against the trade after entry, instead of waiting
+  # for the full stop. Uses only bars whose close_time has passed -- the exit
+  # fills at the next entry bar's close, never at the event bar's own close.
+  structural_invalidation:
+    enabled: false
+    kinds: ["MSS", "BOS"]
+    # Do not bail out once the trade is already in profit past this R -- by
+    # then break-even/trailing management already protects it and a structural
+    # wobble is not a reason to give up a runner.
+    max_r_to_exit: 0.5
 
 # ---------------------------------------------------------------------
 # Duplicate-setup protection

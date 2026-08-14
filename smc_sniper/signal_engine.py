@@ -312,6 +312,15 @@ def generate_signals(ctx: PairContext, cfg,
     spread_pips = icfg.spread_pips
     max_spread = icfg.max_spread_pips
 
+    # v2 subgroup filters. These can only ever REMOVE a setup. They live here,
+    # ahead of the dedupe cooldown, so a filtered-out setup never burns the
+    # cooldown slot of a setup that would genuinely be traded.
+    fcfg = icfg.get("filters", {}) or {}
+    liq_exclude = set(fcfg.get("liquidity_exclude") or [])
+    liq_include = set(fcfg.get("liquidity_include") or []) or None
+    dir_allowed = set(fcfg.get("directions") or []) or None
+    hours_exclude = set(int(h) for h in (fcfg.get("hours_exclude") or []))
+
     highs, lows = frame["high"].values, frame["low"].values
     closes = frame["close"].values
     atr_vals = frame["atr"].values
@@ -346,6 +355,20 @@ def generate_signals(ctx: PairContext, cfg,
         # candidate setups rather than every out-of-hours bar.
         sweep = ctx.liq.recent_sweep(i, direction, max_bars_since_sweep)
         if sweep is None:
+            continue
+
+        # --- v2 subgroup filters (removal only, pre-dedupe) -------------
+        if liq_exclude and sweep.pool.kind in liq_exclude:
+            reject(i, direction, "filter", f"liquidity_{sweep.pool.kind}_excluded")
+            continue
+        if liq_include is not None and sweep.pool.kind not in liq_include:
+            reject(i, direction, "filter", f"liquidity_{sweep.pool.kind}_not_whitelisted")
+            continue
+        if dir_allowed is not None and direction not in dir_allowed:
+            reject(i, direction, "filter", f"direction_{direction}_excluded")
+            continue
+        if hours_exclude and int(pd.Timestamp(ts).hour) in hours_exclude:
+            reject(i, direction, "filter", f"hour_{pd.Timestamp(ts).hour}_excluded")
             continue
 
         # --- session gate ---------------------------------------------

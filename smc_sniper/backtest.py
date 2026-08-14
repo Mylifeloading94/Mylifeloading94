@@ -80,6 +80,31 @@ def _generate_for_symbol(symbol: str):
     return symbol, sigs, rejs
 
 
+def _flip_times(ctx, kinds: tuple[str, ...]) -> dict:
+    """Close times of setup-timeframe structure events, bucketed by direction.
+
+    Cached on the context because contexts are shared between config variants
+    and the events themselves never change -- only which ``kinds`` count does.
+    Indexing on ``close_time`` (not the event bar's own timestamp) is what
+    keeps the early-exit rule free of lookahead: the event is knowable only
+    once the bar that produced it has closed.
+    """
+    cache = getattr(ctx, "_flip_cache", None)
+    if cache is None:
+        cache = {}
+        ctx._flip_cache = cache
+    if kinds not in cache:
+        close_times = ctx.setup["close_time"].values
+        out = {}
+        for d in ("bullish", "bearish"):
+            stamps = [close_times[e.index] for e in ctx.setup_state.events
+                      if e.direction == d and e.kind in kinds
+                      and 0 <= e.index < len(close_times)]
+            out[d] = np.array(sorted(stamps), dtype="datetime64[ns]")
+        cache[kinds] = out
+    return cache[kinds]
+
+
 def _spread_multiplier(ts: pd.Timestamp, cfg) -> float:
     from .sessions import session_of
     name = session_of(ts, cfg.get("sessions"))
@@ -268,6 +293,24 @@ class Backtester:
         def r_of(price: float) -> float:
             return sign * (price - entry_px) / risk_price
 
+        # --- early structural invalidation (v2, opt-in) ------------------
+        # If the setup timeframe shifts AGAINST the position while the trade is
+        # still near flat, take the smaller loss instead of riding to the full
+        # stop. The exit price is the OPEN of the first entry bar that starts
+        # after the event's bar closed -- the first price actually reachable.
+        inv_cfg = icfg.get("filters.structural_invalidation", {}) or {}
+        inval_time = None
+        max_r_exit = float(inv_cfg.get("max_r_to_exit", 0.5))
+        if inv_cfg.get("enabled", False):
+            kinds = tuple(inv_cfg.get("kinds", ["MSS", "BOS"]))
+            against = "bearish" if long else "bullish"
+            stamps = _flip_times(ctx, kinds)[against]
+            entry_stamp = np.datetime64(eframe.index[fill_i].tz_localize(None))
+            pos = int(np.searchsorted(stamps, entry_stamp, side="right"))
+            if pos < len(stamps):
+                inval_time = stamps[pos]
+        ebar_times = eframe.index.tz_localize(None).values if inval_time is not None else None
+
         # A fill bar that also reaches the stop is a loss (rule 5).
         limit_j = min(fill_i + max_hold, len(eframe) - 1)
         for j in range(fill_i, limit_j + 1):
@@ -290,6 +333,18 @@ class Backtester:
                     "stop_loss" if stop == sig.stop else "breakeven_or_trail"), eframe.index[j]
                 remaining = 0.0
                 break
+
+            # Structural invalidation is checked AFTER the stop and BEFORE the
+            # target, so every ambiguous bar still resolves against us.
+            if inval_time is not None and ebar_times[j] >= inval_time:
+                px = opens[j] - slip if long else opens[j] + slip
+                if r_of(px) < max_r_exit:
+                    realised_r += remaining * r_of(px)
+                    exit_price, exit_reason = float(px), "structure_invalidated"
+                    exit_time = eframe.index[j]
+                    remaining = 0.0
+                    break
+                inval_time = None   # already profitable; let management run
 
             if tp_hit:
                 px = nxt

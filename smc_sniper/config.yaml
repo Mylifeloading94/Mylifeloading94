@@ -75,14 +75,21 @@ data:
     base_url: "https://query2.finance.yahoo.com/v8/finance/chart/"
     user_agent: "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"
 
-  # How far back to request per interval. These were measured against the live
-  # GENFX demo account -- asking for more simply returns what exists.
-  #   1D ~2000d | 1H ~1200d | 15m ~400d | 5m ~120d
+  # How far back to request per interval IN ONE CALL. These are per-request
+  # caps, NOT history limits -- a single /trade/history call returns at most
+  # ~20-27k bars and answers an over-long range with an EMPTY payload rather
+  # than a truncated one. Reading that empty payload as "history ends here" is
+  # how this repo believed for two versions that only ~120 days of 5m existed.
+  #
+  # The broker actually serves 5m at least 700 days back and 1m at least 200.
+  # Use `fetch_deep.py` (chunked) for anything deeper than one call:
+  #     python3 fetch_deep.py --interval 5m --days 700
   request_days:
     "1D": 2000
     "1H": 1200
-    "15m": 400
-    "5m": 120
+    "15m": 180
+    "5m": 70
+    "1m": 8
 
   # Observed live broker spreads (pips) sampled from /trade/quotes during a
   # liquid session, kept for reference only. The backtester deliberately uses
@@ -598,6 +605,42 @@ filters:
 # untouched TEST. The full log is reports/scalp/improvements.csv.
 # ---------------------------------------------------------------------
 profiles:
+  # -------------------------------------------------------------------
+  # swing_4r -- v2's flat-4R lead, VALIDATED and adoptable.
+  #
+  # v2's matched-R control noticed that a flat 4R target returned +0.263R
+  # against the liquidity ladder's +0.114R, and refused to adopt it because a
+  # matched-R sweep is scored on the FULL WINDOW -- the one selection this repo
+  # forbids. tune_v2_leads.py gave it the TRAIN/TEST cycle it needed:
+  #
+  #             TRAIN      TEST       full window
+  #   ladder    +0.1089    +0.0825    +0.114R, PF 1.260, 54.90% WR
+  #   flat 3R   +0.1450    +0.2526    +0.192R, PF 1.284, 36.00% WR
+  #   flat 4R   +0.1577    +0.5026    +0.263R, PF 1.375, 32.89% WR
+  #
+  # It helps TRAIN and it improves TEST, and the effect is monotonic in target
+  # width rather than appearing at one convenient value -- which is what
+  # separates this from lead (a), the cost gate, that did NOT replicate.
+  #
+  # READ THE COSTS BEFORE SELECTING IT:
+  #   * win rate falls 54.90% -> 32.89%. It makes money by winning bigger, not
+  #     more often. Anyone who wants a high win rate wants the ladder.
+  #   * max drawdown rises 3.98% -> 7.31%.
+  #   * the expectancy CI is [-0.042, +0.574]. The negative tail is narrower
+  #     than the ladder's -0.061, but it STILL SPANS ZERO. This is a better
+  #     configuration, not an established edge.
+  #
+  # It is a profile rather than a default so `--stack swing` keeps reproducing
+  # v2's published 153 / 54.90% / 1.260 exactly.
+  swing_4r:
+    active_stack: "swing"
+    targets.mode: "fixed_rr"
+    targets.fixed_rr: 4.0
+    targets.min_rr: 2.0
+    targets.partial_tp.enabled: false
+    targets.breakeven.enabled: false
+    targets.trailing.enabled: false
+
   scalp:
     active_stack: "scalp15"
 

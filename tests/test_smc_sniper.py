@@ -1022,3 +1022,19 @@ def test_volatility_regime_gate_defaults_off_and_is_lookahead_free(cfg):
     unshifted = (frame["atr"].rolling(500, min_periods=100)
                  .rank(pct=True).values * 100.0)
     assert np.allclose(ranks[1:], unshifted[:-1], equal_nan=True)
+
+
+def test_swing_4r_profile_is_the_validated_flat_target(cfg):
+    """The v2 flat-4R lead, pinned as a profile rather than a default."""
+    prof = cfg.apply_profile("swing_4r")
+    assert prof.get("active_stack") == "swing"
+    assert prof.get("targets.mode") == "fixed_rr"
+    assert prof.get("targets.fixed_rr") == 4.0
+    # management must be OFF -- a flat target with a trailing stop underneath it
+    # is a different experiment from the one that was validated
+    assert prof.get("targets.partial_tp.enabled") is False
+    assert prof.get("targets.breakeven.enabled") is False
+    assert prof.get("targets.trailing.enabled") is False
+    # and the defaults are untouched, so `--stack swing` still reproduces v2
+    assert cfg.get("targets.mode") == "liquidity"
+    assert cfg.get("targets.partial_tp.enabled") is True

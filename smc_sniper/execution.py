@@ -120,7 +120,7 @@ class PaperExecution(ExecutionEngine):
         cid = order.client_id or oid
         self._positions[cid] = Position(
             order.symbol, order.side, order.qty, order.price or 0.0,
-            order.stop_loss, order.take_profit, pd.Timestamp.utcnow(), cid)
+            order.stop_loss, order.take_profit, pd.Timestamp.now("UTC"), cid)
         self.log.append({"event": "order", "id": oid, "symbol": order.symbol,
                          "side": order.side, "qty": order.qty, "price": order.price})
         return ExecutionResult(True, oid, "accepted (paper)")

@@ -198,9 +198,19 @@ premium_discount:
   hard_veto_beyond: 0.85      # never buy above 85% of the leg, never sell below 15%
 
 # ---------------------------------------------------------------------
-# Scoring engine (0-100). Threshold decides the trade.
+# Scoring engine. Threshold decides the trade.
+#
+# NOTE, and this matters when reading any score: the spec describes a "0-100"
+# scale, but the component weights it lists sum to 95, not 100. They are kept
+# here VERBATIM rather than quietly rescaled to 100, because rescaling would
+# silently move every threshold. So the real ceiling is 95, and the gates mean:
+#     conservative 85  = 89% of maximum
+#     standard     80  = 84% of maximum   (default)
+#     aggressive   75  = 79% of maximum
+# A perfect setup scores 95. Nothing can ever score 100.
 # ---------------------------------------------------------------------
 scoring:
+  max_possible: 95
   weights:
     htf_aligned: 15
     mss_choch: 10

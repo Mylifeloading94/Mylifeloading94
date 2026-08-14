@@ -39,6 +39,7 @@ from smc_sniper import walkforward
 from smc_sniper.backtest import Backtester, trades_to_frame
 from smc_sniper.config import load_config
 from smc_sniper.data import DataEngine
+from smc_sniper.signal_engine import CONTEXT_CACHE_VERSION
 from smc_sniper.metrics import (breakdown, compute_metrics, expectancy_ci,
                                 win_rate_ci)
 
@@ -68,18 +69,21 @@ def load_env(stack: str = "scalp15", profile: str = "scalp"):
     if os.path.exists(cache):
         try:
             with open(cache, "rb") as fh:
-                contexts = pickle.load(fh)
+                version, contexts = pickle.load(fh)
+            if version != CONTEXT_CACHE_VERSION:
+                raise ValueError(f"cache v{version} != code v{CONTEXT_CACHE_VERSION}")
             print(f"contexts: {len(contexts)} pairs (cached)", flush=True)
             return cfg, engine, contexts
         except Exception as exc:  # noqa: BLE001
-            print(f"context cache unusable ({exc}); rebuilding")
+            print(f"context cache unusable ({exc}); rebuilding", flush=True)
     t0 = time.time()
     contexts = Backtester(cfg, engine).build_contexts()
     print(f"contexts: {len(contexts)} pairs built in {time.time() - t0:.0f}s",
           flush=True)
     try:
         with open(cache, "wb") as fh:
-            pickle.dump(contexts, fh, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump((CONTEXT_CACHE_VERSION, contexts), fh,
+                        protocol=pickle.HIGHEST_PROTOCOL)
     except Exception as exc:  # noqa: BLE001
         print(f"  (context cache not written: {exc})")
     return cfg, engine, contexts
@@ -418,50 +422,75 @@ def round_s2(cfg, engine, contexts, base: dict):
 
 
 # ---------------------------------------------------------------------------
-# Round S3 -- the win-rate levers. This is where the real work is.
+# Round S3 -- the hypotheses still standing after S1/S2
 # ---------------------------------------------------------------------------
 def round_s3(cfg, engine, contexts, base: dict):
-    """Ways to raise win rate that are NOT "shrink the target".
+    """What is left that could plausibly flip a -0.12R entry model positive.
 
-    Every variant here either REMOVES setups (selection) or changes WHEN an
-    entry is allowed (timing). None of them touches the target ladder, so a
-    win-rate gain here is not automatically suspect. The matched-R control
-    still runs on whatever is adopted -- the rule in this repo is that exits
-    get re-checked, not that selection filters are trusted.
+    ``S3_hold_*`` is the one structural asymmetry found by reading the config
+    rather than the results. ``targets.max_hold_bars`` is counted on the ENTRY
+    timeframe. On the swing stack entry_tf is 1H, so 96 bars is four days; on
+    scalp15 entry_tf is 5m, so the same 96 is eight hours -- roughly a third of
+    the setup-bar holding time the swing stack gets, while the targets are the
+    same ATR-scaled distance away. A target that needs a day to arrive and a
+    time stop that fires in eight hours is a losing combination by
+    construction, and it is worth ruling in or out before concluding anything.
+
+    Everything else here removes setups or shifts entry timing. None of it
+    touches the target ladder.
     """
     bnds = bounds(contexts)
     variants = {
         "S3_base": {},
-        # -- hard gates: promote a scoring component into a requirement
-        "S3_require_structure_align": {"filters.require_structure_alignment": True},
-        "S3_require_ltf_confirm": {"filters.require_ltf_confirmation": True},
-        "S3_require_major_sweep": {"filters.require_major_sweep": True},
-        "S3_require_ob_and_fvg": {"filters.require_ob_and_fvg": True},
-        "S3_align_plus_ltf": {"filters.require_structure_alignment": True,
-                              "filters.require_ltf_confirmation": True},
-        # -- session / hour selection (a hypothesis in this repo, never assumed)
-        "S3_london_only": {"sessions.allowed": ["london"]},
-        "S3_ny_only": {"sessions.allowed": ["ny"]},
-        "S3_skip_lunch": {"filters.hours_exclude": [11, 12]},
-        # -- pool selection
-        "S3_equal_levels_only": {"filters.liquidity_include":
-                                 ["equal_highs", "equal_lows"]},
+        # the time-stop asymmetry -- the highest-prior hypothesis left
+        "S3_hold_288_24h": {"targets.max_hold_bars": 288},
+        "S3_hold_576_48h": {"targets.max_hold_bars": 576,
+                            "targets.intraday.enabled": False},
+        # volatility regime
+        "S3_vol_high_only": {"filters.atr_pct_min": 60},
+        "S3_vol_mid": {"filters.atr_pct_min": 30, "filters.atr_pct_max": 80},
+        # pool selection -- equal levels are 93% of the sample and are negative
+        # with a CI clear of zero on TRAIN; PD/PW are positive but rare
         "S3_pdpw_only": {"filters.liquidity_include":
                          ["PDH", "PDL", "PWH", "PWL"]},
-        "S3_keep_session_extremes": {"filters.liquidity_exclude": []},
-        # -- zone quality / entry depth (context-shaping: rebuilt, not rebound)
-        "S3_ob_quality_3": {"order_blocks.min_quality": 3},
-        "S3_fvg_bigger": {"fvg.min_size_atr": 0.30},
-        "S3_zone_close_to_price": {"fvg.max_distance_atr": 1.5},
-        "S3_sweep_deeper": {"liquidity.sweep.min_pierce_atr": 0.15},
-        "S3_sweep_fresher": {"liquidity.sweep.max_bars_since_sweep": 3},
-        # -- entry depth into the zone: shallower fills more often but worse,
-        #    deeper fills less often but better. Both directions tested.
-        "S3_deeper_fill": {"fvg.entry_fill_pct": 0.75},
-        "S3_shallower_fill": {"fvg.entry_fill_pct": 0.25},
+        "S3_no_equal_levels": {"filters.liquidity_exclude":
+                               ["session_high", "session_low",
+                                "equal_highs", "equal_lows"]},
     }
-    return _run_variants(cfg, engine, contexts, base, variants, bnds,
-                         os.path.join(OUT, "round_s3.csv"))
+    frame = _run_variants(cfg, engine, contexts, base, variants, bnds,
+                          os.path.join(OUT, "round_s3.csv"))
+
+    # RE-RUN the matched-R control with a generous time stop.
+    #
+    # The round-`diag` version of this control was flawed and the flaw was
+    # mine: it left `targets.max_hold_bars` at 96, which on a 5m entry frame is
+    # eight hours. A 4R target at 15m scale frequently needs longer than that,
+    # so a wide-target row was being scored with its winners truncated at the
+    # time stop while its losers still paid a full -1R. That understates wide
+    # targets specifically -- exactly the rows the control exists to test.
+    # 576 bars is 48 hours, which is the same setup-bar budget the swing stack
+    # gives its trades.
+    rows = []
+    for rr in (0.5, 1.0, 2.0, 3.0, 4.0):
+        over = dict(base)
+        over.update({"targets.mode": "fixed_rr", "targets.fixed_rr": float(rr),
+                     "targets.min_rr": float(min(rr, 1.0)),
+                     "targets.partial_tp.enabled": False,
+                     "targets.breakeven.enabled": False,
+                     "targets.trailing.enabled": False,
+                     "targets.intraday.enabled": False,
+                     "targets.max_hold_bars": 576})
+        row, _ = evaluate(cfg, engine, contexts, over, f"flat_{rr}R_hold48h",
+                          splits=bnds)
+        row["breakeven_wr_needed"] = round(100.0 / (1.0 + rr), 2)
+        rows.append(row)
+        print(f"  flat {rr}R (48h hold): n={row['n']:5d} wr={row['wr']:.2f}% "
+              f"(needs {row['breakeven_wr_needed']:.1f}%) "
+              f"train_exp={row['train_exp']:+.4f} test_exp={row['test_exp']:+.4f}",
+              flush=True)
+    show(rows, cols=CORE + ["breakeven_wr_needed"],
+         path=os.path.join(OUT, "matched_r_generous_hold.csv"))
+    return frame
 
 
 def _needs_rebuild(overrides: dict) -> bool:
@@ -536,19 +565,15 @@ def round_frontier(cfg, engine, contexts, base: dict):
     them is visible rather than arguable.
     """
     bnds = bounds(contexts)
-    rows = []
-    for gate in (50, 55, 60, 65, 70, 75, 80):
-        row, _ = evaluate(cfg, engine, contexts, {"scoring.threshold": gate},
-                          f"gate_{gate}", splits=bnds, ci=True)
-        row["dial"] = "score_gate"
-        rows.append(row)
-        print(f"  gate {gate:3d}: n={row['n']:5d} tpd={row['tpd']:.2f} "
-              f"wr={row['wr']:.2f} exp={row['exp']:+.4f}", flush=True)
-    frame = show(rows, cols=CORE + ["exp_ci_low", "exp_ci_high",
-                                    "wr_ci_low", "wr_ci_high"],
-                 path=os.path.join(OUT, "frontier_gate.csv"))
+    # The FREQUENCY dial is the score gate, and round S1 already swept it over
+    # exactly these variants -- rerunning it would burn half an hour to
+    # reproduce a CSV. It is read back instead.
+    gate_path = os.path.join(OUT, "round_s1.csv")
+    frame = pd.read_csv(gate_path) if os.path.exists(gate_path) else pd.DataFrame()
 
-    # The target-width dial, at the adopted gate.
+    # The TARGET-WIDTH dial. This is the one that buys a win rate without
+    # buying any edge, so it is reported next to the frequency dial rather
+    # than in place of it.
     rows = []
     for rr in (0.25, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0):
         over = dict(base)

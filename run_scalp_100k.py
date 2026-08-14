@@ -33,7 +33,7 @@ from smc_sniper.metrics import compute_metrics, expectancy_ci, win_rate_ci
 from smc_sniper.data import DataEngine
 
 REPO = os.path.dirname(os.path.abspath(__file__))
-OUT = os.path.join(REPO, "reports", "scalp100k")
+OUT = os.path.join(REPO, "reports", "scalp100k")   # overridden by --out
 
 
 def build_ledger(trades: pd.DataFrame, cfg, start_balance: float) -> pd.DataFrame:
@@ -104,11 +104,15 @@ def main():
     ap.add_argument("--balance", type=float, default=100000.0)
     ap.add_argument("--risk", type=float, default=2.0)
     ap.add_argument("--stack", default="scalp15")
-    ap.add_argument("--profile", default="scalp")
+    ap.add_argument("--profile", default="scalp",
+                    help="config profile to overlay, or 'none' for v2 defaults")
+    ap.add_argument("--out", default=None, help="output subdirectory name")
     ap.add_argument("--source", default="tradelocker")
     args = ap.parse_args()
 
-    cfg = load_config().apply_profile(args.profile)
+    cfg = load_config()
+    if args.profile and args.profile != "none":
+        cfg = cfg.apply_profile(args.profile)
     cfg.set("active_stack", args.stack)
     cfg.set("risk.starting_balance", args.balance)
     cfg.set("risk.compounding", True)
@@ -124,6 +128,10 @@ def main():
     scale = args.risk / 0.5
     cfg.set("risk.max_daily_loss_pct", round(2.0 * scale, 2))
     cfg.set("risk.max_weekly_loss_pct", round(5.0 * scale, 2))
+
+    global OUT
+    if args.out:
+        OUT = os.path.join(REPO, "reports", args.out)
 
     engine = DataEngine(cfg, source=args.source)
     bt = Backtester(cfg, engine)

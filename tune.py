@@ -40,6 +40,7 @@ from smc_sniper.config import load_config
 from smc_sniper.data import DataEngine
 from smc_sniper.metrics import breakdown, compute_metrics, expectancy_ci, win_rate_ci
 from smc_sniper import walkforward
+from smc_sniper.signal_engine import CONTEXT_CACHE_VERSION
 
 REPO = os.path.dirname(os.path.abspath(__file__))
 OUT = os.path.join(REPO, "reports", "tuning")
@@ -60,7 +61,9 @@ def load_env(stack: str = "swing", source: str = "tradelocker"):
     if os.path.exists(cache):
         try:
             with open(cache, "rb") as fh:
-                contexts = pickle.load(fh)
+                version, contexts = pickle.load(fh)
+            if version != CONTEXT_CACHE_VERSION:
+                raise ValueError(f"cache v{version} != code v{CONTEXT_CACHE_VERSION}")
             print(f"contexts: {len(contexts)} pairs (cached)")
             return cfg, engine, contexts
         except Exception as exc:  # noqa: BLE001
@@ -70,7 +73,8 @@ def load_env(stack: str = "swing", source: str = "tradelocker"):
     print(f"contexts: {len(contexts)} pairs built in {time.time() - t0:.0f}s")
     try:
         with open(cache, "wb") as fh:
-            pickle.dump(contexts, fh, protocol=pickle.HIGHEST_PROTOCOL)
+            pickle.dump((CONTEXT_CACHE_VERSION, contexts), fh,
+                        protocol=pickle.HIGHEST_PROTOCOL)
     except Exception as exc:  # noqa: BLE001
         print(f"  (context cache not written: {exc})")
     return cfg, engine, contexts

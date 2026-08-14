@@ -106,11 +106,30 @@ def _write_table(ws, frame: pd.DataFrame, title: str, note: str = "") -> None:
     ws.freeze_panes = ws.cell(row=row + 1, column=1)
 
 
+def _num(value):
+    """Coerce a summary value to a real number where it is one.
+
+    ``summary.csv`` carries dates and numbers in one column, so pandas types it
+    as ``object`` and every figure arrives as a string. Excel then stores the
+    headline money numbers as TEXT -- right-aligned formats ignored, no
+    arithmetic, a little green triangle in the corner of every cell. Silently
+    shipping the owner's ROI as a string is a bad way to fail.
+    """
+    if value is None or isinstance(value, (int, float)):
+        return value
+    try:
+        text = str(value).strip()
+        return int(text) if text.lstrip("-").isdigit() else float(text)
+    except (TypeError, ValueError):
+        return value
+
+
 def build_summary_sheet(ws, summary: pd.DataFrame) -> None:
-    val = {r["metric"]: r["value"] for _, r in summary.iterrows()}
+    val = {r["metric"]: _num(r["value"]) for _, r in summary.iterrows()}
     ws.cell(row=1, column=1, value="SMC Scalper -- Results Summary").font = TITLE_FONT
+    raw = {r["metric"]: r["value"] for _, r in summary.iterrows()}
     ws.cell(row=2, column=1,
-            value=(f"{val.get('window_start')} to {val.get('window_end')}  ·  "
+            value=(f"{raw.get('window_start')} to {raw.get('window_end')}  ·  "
                    f"{val.get('window_days')} days  ·  "
                    f"{val.get('risk_per_trade_pct')}% risk per trade  ·  "
                    f"compounding")).font = NOTE_FONT

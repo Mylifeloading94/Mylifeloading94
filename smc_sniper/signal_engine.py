@@ -38,6 +38,16 @@ from .structure import StructureState, build_structure, displacement_near
 from .zones import Zone, ZoneMap
 
 
+# Bump whenever the SHAPE of a PairContext changes -- new attributes on
+# LiquidityMap / ZoneMap / StructureState, or a change to how any of them is
+# built. The tuning harnesses pickle contexts to disk and a cache written
+# before such a change unpickles into objects that are missing the attributes
+# the new code reads, which surfaces as an AttributeError deep inside a
+# four-hour run, or (worse) as a silently different result. Version-stamping
+# the cache turns that into a rebuild.
+CONTEXT_CACHE_VERSION = 3
+
+
 # ---------------------------------------------------------------------------
 # Models
 # ---------------------------------------------------------------------------

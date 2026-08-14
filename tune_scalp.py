@@ -236,6 +236,59 @@ def round_viability(cfg, engine, contexts):
 
 
 # ---------------------------------------------------------------------------
+# Round DIAG -- does this entry model have ANY edge, at any target?
+# ---------------------------------------------------------------------------
+def round_diag(cfg, engine, contexts):
+    """The question that has to be answered before any tuning is worth doing.
+
+    Round S1 came back negative at every score gate and every cost gate, on
+    TRAIN and on TEST alike. Two very different things produce that: exits that
+    give back a real edge, or entries that never had one. The matched-R control
+    separates them in one pass -- strip the management off, put a single flat
+    target at each R, and see whether ANY of them is profitable. If the entries
+    carry edge, some R is positive. If none is, no exit tuning can help and the
+    honest move is to say so rather than to keep searching.
+    """
+    bnds = bounds(contexts)
+    rows = []
+    for rr in (0.5, 1.0, 1.5, 2.0, 3.0, 4.0):
+        over = {"targets.mode": "fixed_rr", "targets.fixed_rr": float(rr),
+                "targets.min_rr": float(min(rr, 1.0)),
+                "targets.partial_tp.enabled": False,
+                "targets.breakeven.enabled": False,
+                "targets.trailing.enabled": False,
+                "targets.intraday.enabled": False}
+        row, _ = evaluate(cfg, engine, contexts, over, f"flat_{rr}R", splits=bnds)
+        row["breakeven_wr_needed"] = round(100.0 / (1.0 + rr), 2)
+        rows.append(row)
+        print(f"  flat {rr}R: n={row['n']:5d} wr={row['wr']:.2f}% "
+              f"(needs {row['breakeven_wr_needed']:.1f}%) "
+              f"train_exp={row['train_exp']:+.4f} test_exp={row['test_exp']:+.4f}",
+              flush=True)
+    show(rows, cols=CORE + ["breakeven_wr_needed"],
+         path=os.path.join(OUT, "diag_matched_r.csv"))
+
+    # Where the base config's trades actually end, and who carries them.
+    _, frames = evaluate(cfg, engine, contexts, {}, "base", splits=bnds)
+    for split in ("train", "test"):
+        frame = frames[split]
+        if frame.empty:
+            continue
+        frame = frame.copy()
+        frame["hour"] = pd.to_datetime(frame["signal_time"]).dt.hour
+        frame["dir"] = frame["direction"].map({"bullish": "long", "bearish": "short"})
+        for dim in ("exit_reason", "session", "hour", "dir", "liquidity_type",
+                    "symbol", "zone_kind"):
+            table = subgroup(frame, dim)
+            if table.empty:
+                continue
+            print(f"\n--- {split.upper()} by {dim} ---")
+            print(table.to_string(index=False), flush=True)
+            table.to_csv(os.path.join(OUT, f"diag_{split}_{dim}.csv"), index=False)
+    return frames
+
+
+# ---------------------------------------------------------------------------
 # Round S1 -- the two gates. Score threshold and cost threshold.
 # ---------------------------------------------------------------------------
 def round_s1(cfg, engine, contexts):
@@ -262,51 +315,106 @@ def round_s1(cfg, engine, contexts):
 
 
 # ---------------------------------------------------------------------------
-# Round S2 -- exit geometry. Every row here needs the matched-R control.
+# Round S2 -- follow the cost. The matched-R control says the entries have no
+# edge at any target, so the only question left worth asking is WHY.
 # ---------------------------------------------------------------------------
-def round_s2(cfg, engine, contexts, base: dict):
-    """Target and stop geometry, plus the two leads v2 flagged and never tested.
+# Pairs whose typical 15m scalp stop (1.5x median London/NY ATR) clears the
+# round-trip cost by a wide margin. Chosen from `cost_viability.csv` -- an
+# arithmetic property of the broker's spreads, computed BEFORE any backtest,
+# so it is not a performance selection dressed up as a cost argument.
+COST_VIABLE_5 = ["USDJPY", "EURUSD", "GBPUSD", "EURJPY", "GBPJPY"]          # >10x
+COST_VIABLE_12 = COST_VIABLE_5 + ["GBPCAD", "CHFJPY", "AUDUSD", "AUDJPY",
+                                  "USDCHF", "USDCAD", "GBPAUD"]            # >6.5x
 
-    ``S2_cost15`` and ``S2_flat4R`` are the v2 perturbation leads
-    (``min_stop_over_cost`` = 15 and a flat 4R target) getting the TRAIN/TEST
-    cycle they never had. A perturbation sweep is scored on the full window,
-    which is exactly the selection this repo forbids, so neither was adoptable
-    as it stood.
+
+def gross_vs_net(cfg, engine, contexts, splits) -> pd.DataFrame:
+    """How much of the result is the strategy and how much is the toll?
+
+    Every Trade carries `gross_r` (the realised move) and `r_multiple` (the
+    same thing after commission; spread and slippage are already inside the
+    fill price). The gap between them is what a 15m scalp pays to exist. If
+    gross expectancy is positive and net is negative, the entry model works and
+    the cost structure is the problem. If gross is negative too, there is
+    nothing to rescue.
     """
-    bnds = bounds(contexts)
-    variants = {
-        "S2_base": {},
-        "S2_no_intraday_flat": {"targets.intraday.enabled": False},
-        "S2_flat_17utc": {"targets.intraday.flat_by_utc_hour": 17},
-        "S2_hold_48": {"targets.max_hold_bars": 48},
-        "S2_hold_36": {"targets.max_hold_bars": 36},
-        "S2_minrr_15": {"targets.min_rr": 1.5},
-        "S2_minrr_25": {"targets.min_rr": 2.5},
-        "S2_be_at_05R": {"targets.breakeven.trigger_r": 0.5},
-        "S2_no_breakeven": {"targets.breakeven.enabled": False},
-        "S2_tp1_70pct": {"targets.partial_tp.tp1_close_pct": 0.7,
-                         "targets.partial_tp.tp2_close_pct": 0.2},
-        "S2_buffer_015": {"stops.buffer_atr": 0.15},
-        "S2_buffer_040": {"stops.buffer_atr": 0.40},
-        # v2 leads, finally on a TRAIN/TEST cycle
-        "S2_lead_cost15x": {"stops.min_stop_over_cost": 15.0},
-        "S2_lead_flat4R": {"targets.mode": "fixed_rr", "targets.fixed_rr": 4.0,
-                           "targets.partial_tp.enabled": False,
-                           "targets.breakeven.enabled": False,
-                           "targets.trailing.enabled": False},
-        "S2_lead_flat2R": {"targets.mode": "fixed_rr", "targets.fixed_rr": 2.0,
-                           "targets.partial_tp.enabled": False,
-                           "targets.breakeven.enabled": False,
-                           "targets.trailing.enabled": False},
-    }
     rows = []
-    for name, over in variants.items():
+    _, frames = evaluate(cfg, engine, contexts, {}, "base", splits=splits)
+    for tag in ("full", "train", "test"):
+        frame = frames[tag]
+        if frame.empty:
+            continue
+        # Spread + slippage are baked into the fill, so reconstruct the
+        # pre-cost R as well: what the same move would have paid on a mid fill.
+        gross = frame["gross_r"].mean()
+        net = frame["r_multiple"].mean()
+        rows.append({
+            "split": tag, "n": len(frame),
+            "gross_exp_r": round(float(gross), 4),
+            "net_exp_r": round(float(net), 4),
+            "commission_drag_r": round(float(gross - net), 4),
+            "win_rate": round(float((frame["r_multiple"] > 0).mean() * 100), 2),
+            "gross_win_rate": round(float((frame["gross_r"] > 0).mean() * 100), 2),
+            "median_stop_pips_over_cost": "see cost_viability.csv",
+        })
+    out = pd.DataFrame(rows)
+    print("\n=== GROSS vs NET (what the toll costs) ===")
+    print(out.to_string(index=False), flush=True)
+    out.to_csv(os.path.join(OUT, "gross_vs_net.csv"), index=False)
+    return out
+
+
+def round_s2(cfg, engine, contexts, base: dict):
+    """Cost-driven hypotheses, plus the exit levers, plus the v2 leads."""
+    bnds = bounds(contexts)
+    gross_vs_net(cfg, engine, contexts, bnds)
+
+    variants = {
+        "S2_base": ({}, None),
+        # -- the cost hypothesis, three ways
+        "S2_cost_12x": ({"stops.min_stop_over_cost": 12.0}, None),
+        "S2_cost_15x_v2lead": ({"stops.min_stop_over_cost": 15.0}, None),
+        "S2_cost_20x": ({"stops.min_stop_over_cost": 20.0}, None),
+        "S2_universe_top5": ({}, COST_VIABLE_5),
+        "S2_universe_top12": ({}, COST_VIABLE_12),
+        "S2_top5_cost12x": ({"stops.min_stop_over_cost": 12.0}, COST_VIABLE_5),
+        "S2_no_commission": ({"execution.commission_per_lot_rt": 0.0}, None),
+        "S2_observed_spreads": ({}, None),      # filled in below
+        # -- exits
+        "S2_no_intraday_flat": ({"targets.intraday.enabled": False}, None),
+        "S2_no_breakeven": ({"targets.breakeven.enabled": False}, None),
+        "S2_minrr_10": ({"targets.min_rr": 1.0}, None),
+        "S2_flat4R_v2lead": ({"targets.mode": "fixed_rr", "targets.fixed_rr": 4.0,
+                              "targets.partial_tp.enabled": False,
+                              "targets.breakeven.enabled": False,
+                              "targets.trailing.enabled": False}, None),
+        # -- the hard gates (selection, not exits)
+        "S2_require_structure_align": (
+            {"filters.require_structure_alignment": True}, None),
+        "S2_require_ltf_confirm": ({"filters.require_ltf_confirmation": True}, None),
+        "S2_ny_only": ({"sessions.allowed": ["ny"]}, None),
+        "S2_skip_early_london": ({"filters.hours_exclude": [8, 9]}, None),
+    }
+    # The backtester deliberately runs ~3x the broker's live quotes, because
+    # over-estimating cost is the safe direction. On a swing stack that is
+    # cheap insurance; on a scalp it may be the entire result, so the live
+    # sample is run as a SENSITIVITY -- reported, never adopted.
+    observed = dict(cfg.get("data.observed_broker_spreads_pips") or {})
+    variants["S2_observed_spreads"] = (
+        {f"execution.spreads.{k}": v for k, v in observed.items()}, None)
+
+    rows = []
+    for name, (over, allowed) in variants.items():
         merged = dict(base)
         merged.update(over)
-        row, _ = evaluate(cfg, engine, contexts, merged, name, splits=bnds)
+        row, _ = evaluate(cfg, engine, contexts, merged, name, splits=bnds,
+                          allowed=allowed)
+        row["pairs"] = len(allowed) if allowed else len(contexts)
         rows.append(row)
-        print(f"  {name:26s} done", flush=True)
-    return show(rows, path=os.path.join(OUT, "round_s2.csv"))
+        print(f"  {name:28s} n={row['n']:5d} tpd={row['tpd']:.2f} "
+              f"wr={row['wr']:.2f} train_exp={row['train_exp']:+.4f} "
+              f"test_exp={row['test_exp']:+.4f}", flush=True)
+    return show(rows, cols=["variant", "pairs"] + CORE[1:],
+                path=os.path.join(OUT, "round_s2.csv"))
 
 
 # ---------------------------------------------------------------------------
@@ -442,7 +550,7 @@ def round_frontier(cfg, engine, contexts, base: dict):
 
     # The target-width dial, at the adopted gate.
     rows = []
-    for rr in (0.5, 0.75, 1.0, 1.25, 1.5, 2.0, 2.5, 3.0, 4.0):
+    for rr in (0.25, 0.4, 0.5, 0.75, 1.0, 1.5, 2.0, 3.0, 4.0):
         over = dict(base)
         over.update({"targets.mode": "fixed_rr", "targets.fixed_rr": float(rr),
                      "targets.min_rr": float(min(rr, 1.0)),
@@ -542,7 +650,9 @@ def main():
     args = ap.parse_args()
     name = args.round.lower()
     cfg, engine, contexts = load_env(args.stack, args.profile)
-    if name == "viability":
+    if name == "diag":
+        round_diag(cfg, engine, contexts)
+    elif name == "viability":
         round_viability(cfg, engine, contexts)
     elif name == "s1":
         round_s1(cfg, engine, contexts)

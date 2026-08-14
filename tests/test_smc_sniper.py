@@ -995,3 +995,30 @@ def test_concurrency_caps_are_inert_unless_enforced(cfg):
     engine2.set_open_positions([_trade("EURUSD"), _trade("EURJPY")])
     ok, reason = engine2.can_trade("EURGBP", _Sig())
     assert not ok and reason.startswith("max_exposure_EUR")
+
+
+def test_volatility_regime_gate_defaults_off_and_is_lookahead_free(cfg):
+    """The ATR band must be off by default, and must not see its own bar.
+
+    The rank is shifted one bar precisely so a setup cannot be admitted on the
+    strength of volatility that had not happened yet when the decision was made.
+    """
+    assert cfg.get("filters.atr_pct_min") is None
+    assert cfg.get("filters.atr_pct_max") is None
+
+    rng = np.random.default_rng(5)
+    bars, price = [], 1.10
+    for i in range(600):
+        # volatility deliberately explodes in the last 100 bars
+        scale = 0.0004 if i < 500 else 0.0040
+        c = price + rng.normal(0, scale)
+        bars.append((price, max(price, c) + abs(rng.normal(0, scale)),
+                     min(price, c) - abs(rng.normal(0, scale)), c))
+        price = c
+    frame = make_frame(bars, freq="15min")
+    ranks = (frame["atr"].rolling(500, min_periods=100)
+             .rank(pct=True).shift(1).values * 100.0)
+    # the shift means bar i's rank is computed from bars strictly before i
+    unshifted = (frame["atr"].rolling(500, min_periods=100)
+                 .rank(pct=True).values * 100.0)
+    assert np.allclose(ranks[1:], unshifted[:-1], equal_nan=True)

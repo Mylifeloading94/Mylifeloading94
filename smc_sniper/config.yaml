@@ -569,6 +569,12 @@ filters:
   require_ltf_confirmation: false      # entry-TF displacement confirmation is mandatory
   require_major_sweep: false           # only equal levels / PD / PW / session extremes
   require_ob_and_fvg: false            # the FVG must sit inside an order block
+  # Volatility-regime band. The setup bar's ATR is ranked (percentile) against
+  # a TRAILING window of that instrument's own ATR, shifted one bar, so the
+  # band is instrument-neutral and lookahead-free. null on both = no gate.
+  atr_pct_min: null
+  atr_pct_max: null
+  atr_pct_window: 500
   # Early structural invalidation: close the position when the SETUP timeframe
   # prints a BOS/MSS/CHoCH against the trade after entry, instead of waiting
   # for the full stop. Uses only bars whose close_time has passed -- the exit

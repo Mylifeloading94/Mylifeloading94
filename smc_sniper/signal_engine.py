@@ -328,6 +328,18 @@ def generate_signals(ctx: PairContext, cfg,
     need_ltf = bool(fcfg.get("require_ltf_confirmation", False))
     need_major_sweep = bool(fcfg.get("require_major_sweep", False))
     need_ob_and_fvg = bool(fcfg.get("require_ob_and_fvg", False))
+    # Volatility-regime gate. The setup bar's ATR is ranked against a trailing
+    # window of its OWN ATR history, so the band means the same thing on gold
+    # as on EURGBP. The window is trailing and ends at the previous bar, so no
+    # future volatility leaks into the decision.
+    vol_lo = fcfg.get("atr_pct_min")
+    vol_hi = fcfg.get("atr_pct_max")
+    vol_rank = None
+    if vol_lo is not None or vol_hi is not None:
+        window = int(fcfg.get("atr_pct_window", 500))
+        atr_series = frame["atr"]
+        vol_rank = (atr_series.rolling(window, min_periods=window // 5)
+                    .rank(pct=True).shift(1).values * 100.0)
 
     highs, lows = frame["high"].values, frame["low"].values
     closes = frame["close"].values
@@ -378,6 +390,15 @@ def generate_signals(ctx: PairContext, cfg,
         if hours_exclude and int(pd.Timestamp(ts).hour) in hours_exclude:
             reject(i, direction, "filter", f"hour_{pd.Timestamp(ts).hour}_excluded")
             continue
+        if vol_rank is not None:
+            rank = vol_rank[i]
+            if not np.isfinite(rank):
+                reject(i, direction, "filter", "atr_rank_unknown")
+                continue
+            if (vol_lo is not None and rank < float(vol_lo)) or \
+               (vol_hi is not None and rank > float(vol_hi)):
+                reject(i, direction, "filter", f"atr_pct_{rank:.0f}_out_of_band")
+                continue
 
         # --- session gate ---------------------------------------------
         ok_sess, sess_reason = is_tradeable(ts, sess_cfg, allowed_sessions)

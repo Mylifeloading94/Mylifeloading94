@@ -244,7 +244,7 @@ consistent between TRAIN and TEST.
 
 ---
 
-## What was unlocked first: the data was never the limit
+### What was unlocked first: the data was never the limit
 
 Both previous versions of this repo recorded that the broker only serves
 ~120 days of 5m history, and shelved the idea of a validated scalping stack on
@@ -267,7 +267,7 @@ it is the only reason anything below is a validation rather than an anecdote.
 
 ---
 
-## Cost viability — which pairs can be scalped at all
+### Cost viability — which pairs can be scalped at all
 
 On a swing trade the spread is a rounding error. On a scalp it is a large
 fraction of the risk, so this was computed **before** any backtest, from median
@@ -276,19 +276,25 @@ is the typical scalp stop.
 
 | | 5m setup | 15m setup |
 |---|---|---|
-| Best pair (USDJPY) | cost = 5.2% of R | cost = 5.2% of R |
-| Median pair | cost ≈ 38% of R | cost ≈ 18% of R |
-| Worst pair (AUDNZD) | cost = 62% of R | cost = 37% of R |
-| Pairs clearing 10× cost | **0** | 5 |
+| Best pair (USDJPY) | cost = **9.1%** of R | cost = **5.2%** of R |
+| Median pair | cost = **30.3%** of R | cost = **17.6%** of R |
+| Worst pair (AUDNZD) | cost = **62.4%** of R | cost = **36.7%** of R |
+| Pairs where the stop clears 10× cost | **1 of 29** | **5 of 29** |
 
-**The 5m setup timeframe is not viable on this broker's spreads and is
-rejected on that ground**, before any performance number is consulted. On a
-5m stop, the median pair pays 38% of its risk to the spread. The 15m stack is
-the honest scalping timeframe here, and that is what everything below uses.
+**The 5m setup timeframe is rejected on this arithmetic, before any performance
+number is consulted.** The median pair pays 30% of its risk to the spread on
+every 5m scalp, and only one pair in twenty-nine has a typical stop that clears
+ten times its round-trip cost. That is a property of the broker's book, not of
+the strategy, and it is the honest ground on which to exclude a timeframe. The
+15m stack is the viable scalping timeframe here, and everything below uses it.
+
+(The 5m stack was also run, and independently confirms the arithmetic: at the
+v2 score gate it produced **13 signals per pair in 700 days** — 0.02 a day —
+and no setup on the 5m stack ever scored above 75 out of 95.)
 
 ---
 
-## The frontier the owner actually asked about
+### The frontier the owner actually asked about
 
 Two independent dials move win rate and frequency, and they are reported
 together because quoting either alone is how this repo used to publish a 70%
@@ -335,7 +341,7 @@ trade.
 
 ---
 
-## It is not a cost problem, and that took ruling out three ways
+### It is not a cost problem, and that took ruling out three ways
 
 The obvious explanation for a losing scalper is the toll. It was tested
 directly and it is not the answer.
@@ -363,7 +369,7 @@ until TRAIN noise looks like signal, and it is the same shape as v2 lead (a).
 
 ---
 
-## The v2 leads, finally tested — one replicated, one did not
+### The v2 leads, finally tested — one replicated, one did not
 
 Both were flagged in v2 and neither had a TRAIN/TEST cycle, because both were
 scored on the **full window**, which is the one selection this repo forbids.
@@ -404,7 +410,7 @@ spanning zero**, though with a negative tail a third narrower than the ladder's
 
 ---
 
-## Engineering fixes that came out of this session
+### Engineering fixes that came out of this session
 
 **1. The intraday history limit was a misread empty payload.** Documented
 above. `fetch_deep.py`, and 6× more 5m history for every pair.
@@ -439,7 +445,7 @@ exactly 153 trades / 54.90% WR / PF 1.260 / +0.114R / 3.98% max DD, and
 
 ---
 
-## v3 caveats
+### v3 caveats
 
 1. **The scalper's expectancy CI is clear of zero on the wrong side.** v1 and
    v2 could not rule out that they made no money. v3's scalper can: it is
@@ -474,7 +480,7 @@ exactly 153 trades / 54.90% WR / PF 1.260 / +0.114R / 3.98% max DD, and
 
 ---
 
-## How to run v3
+### How to run v3
 
 ```bash
 # Deepen the intraday cache (chunked; this is what makes 5m/15m testable)
@@ -504,7 +510,7 @@ python3 run_backtest.py --stack swing --profile swing_4r
 
 ---
 
-## Everything that was tried, and its number
+### Everything that was tried, and its number
 
 Rounds S1–S3 ran 40 configurations of the scalping stack. **Not one is
 positive on TRAIN and TEST.** Not one is positive on TRAIN alone at a sample

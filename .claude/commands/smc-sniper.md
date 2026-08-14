@@ -485,7 +485,21 @@ exactly 153 trades / 54.90% WR / PF 1.260 / +0.114R / 3.98% max DD, and
    countdown.** The deliverable is produced at 2% because the owner asked for
    2%, and the risk-of-ruin block is printed next to it for the same reason.
 
-6. **Everything else from the v2 caveats still applies** — no news filter, BID
+6. **The intraday flat is counted in bars, and three trades escaped it.**
+   `targets.max_hold_bars` counts *entry-timeframe bars*, and the session-flat
+   deadline resolves to the first bar at or after it. A Friday-evening fill
+   therefore has no bar to exit on until the Sunday open, so 3 of the 185
+   deliverable trades were held over a weekend — 182 of 185 closed same-day, as
+   intended. It is immaterial to a −48.94% result and it is disclosed rather
+   than fixed, because fixing it would mean re-running the deliverable to
+   change nothing. A live scalper would need a hard Friday cutoff.
+
+7. **`exit_price` on a scaled-out position is the last leg only.** The ledger
+   reports `final_exit_price` and derives pips from realised R, so the pip,
+   dollar and R columns agree. Anyone recomputing pips from the price columns
+   will get the last portion's result, not the trade's.
+
+8. **Everything else from the v2 caveats still applies** — no news filter, BID
    bars with modelled spread, XAUUSD is the broker's own contract, and nothing
    has ever traded live or on demo.
 

@@ -667,6 +667,82 @@ def round_final(cfg, engine, contexts):
     return row
 
 
+# ---------------------------------------------------------------------------
+# The tuning log. Every row carries the TRAIN and TEST numbers the decision was
+# made on, so a reader can disagree with a call without re-running anything.
+# The `decision` column is the only editorial judgement in the file.
+# ---------------------------------------------------------------------------
+DECISIONS: dict[str, tuple[str, str]] = {
+    # -- S1: the two gates
+    "S1_gate_55": ("BEST FREQUENCY", "3.78 trades/day -- the only setting that "
+                   "meets the owner's 3/day floor. TRAIN -0.105R. Frequency "
+                   "achieved, expectancy negative."),
+    "S1_gate_65": ("reference", "profile placeholder"),
+    "S1_gate_80": ("REJECTED", "v2's gate carried over unchanged starves the "
+                   "15m stack to 0.38 trades/day AND is the worst TRAIN "
+                   "expectancy (-0.271R). The gate does not transfer."),
+    "S1_cost_10x": ("BEST TRAIN", "-0.073R, the least-bad cost gate on TRAIN, "
+                    "but only 1.14 trades/day and TEST does not follow."),
+    # -- S2: follow the cost
+    "S2_no_commission": ("DIAGNOSTIC", "Commission is worth 0.033R. Removing it "
+                         "entirely leaves TRAIN -0.093R. Not the problem."),
+    "S2_observed_spreads": ("DIAGNOSTIC", "The broker's real live quotes (~3x "
+                            "narrower than the backtester's deliberately "
+                            "conservative ones): TRAIN -0.139R, TEST -0.120R. "
+                            "Still negative. A cheaper broker does not fix it."),
+    "S2_universe_top5": ("REJECTED", "Restricting to the 5 pairs where cost is "
+                         "<10% of R made TEST WORSE (-0.230R vs -0.144R). The "
+                         "cost-viability hypothesis is falsified by its own "
+                         "best case."),
+    "S2_universe_top12": ("REJECTED", "Same shape as top5: TEST -0.240R."),
+    "S2_cost_20x": ("REJECTED", "TRAIN -0.011R looks like progress until TEST "
+                    "reads -0.205R on 119 trades. Sample shrinkage, not edge."),
+    "S2_cost_15x_v2lead": ("NOT REPLICATED", "The v2 lead on the scalping "
+                           "stack: TRAIN -0.052R, TEST -0.150R."),
+    "S2_minrr_10": ("no-op", "Bit-identical to base -- the liquidity ladder's "
+                    "TP2 already always exceeds 2R, so min_rr never binds."),
+    "S2_no_intraday_flat": ("REJECTED", "Removing the session-flat exit made "
+                            "both splits worse. The flat exit is not the cause."),
+    "S2_no_breakeven": ("REJECTED", "Win rate collapses 43.17% -> 38.20% and "
+                        "TEST worsens. Break-even management is helping."),
+    "S2_flat4R_v2lead": ("REJECTED", "The other v2 lead on the scalping stack: "
+                         "TRAIN -0.092R, TEST -0.121R. It works on 1H, not 15m."),
+}
+
+
+def write_improvements() -> pd.DataFrame:
+    """Assemble the v3 tuning log from the round CSVs."""
+    rows = []
+    for phase, fname in (("viability", "cost_viability.csv"),
+                         ("diag", "diag_matched_r.csv"),
+                         ("S1", "round_s1.csv"), ("S2", "round_s2.csv"),
+                         ("S3", "round_s3.csv"),
+                         ("S3", "matched_r_generous_hold.csv"),
+                         ("frontier", "frontier_target.csv")):
+        path = os.path.join(OUT, fname)
+        if not os.path.exists(path) or fname == "cost_viability.csv":
+            continue
+        frame = pd.read_csv(path)
+        for _, r in frame.iterrows():
+            name = r.get("variant", "")
+            decision, reason = DECISIONS.get(name, ("", ""))
+            rows.append({
+                "round": phase, "variant": name,
+                "full_n": r.get("n"), "trades_per_day": r.get("tpd"),
+                "full_wr": r.get("wr"), "full_pf": r.get("pf"),
+                "full_exp_r": r.get("exp"), "full_max_dd_pct": r.get("max_dd"),
+                "train_n": r.get("train_n"), "train_wr": r.get("train_wr"),
+                "train_exp_r": r.get("train_exp"),
+                "test_n": r.get("test_n"), "test_wr": r.get("test_wr"),
+                "test_exp_r": r.get("test_exp"),
+                "decision": decision, "reason": reason,
+            })
+    out = pd.DataFrame(rows)
+    out.to_csv(os.path.join(OUT, "improvements.csv"), index=False)
+    print(f"wrote {OUT}/improvements.csv ({len(out)} rows)")
+    return out
+
+
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", default="viability")
@@ -674,6 +750,9 @@ def main():
     ap.add_argument("--profile", default="scalp")
     args = ap.parse_args()
     name = args.round.lower()
+    if name == "log":          # pure bookkeeping -- no contexts needed
+        write_improvements()
+        return 0
     cfg, engine, contexts = load_env(args.stack, args.profile)
     if name == "diag":
         round_diag(cfg, engine, contexts)

@@ -113,20 +113,28 @@ def _label_swings(swings: list[Swing]) -> None:
 # ---------------------------------------------------------------------------
 # Displacement
 # ---------------------------------------------------------------------------
+_BAR_CACHE_ATTR = "_smc_bar_arrays"
+
+
 def bar_arrays(frame: pd.DataFrame) -> dict:
     """Cached raw numpy columns for a frame.
 
     ``frame.iloc[i]`` costs a pandas row construction, which is invisible on a
-    20k-bar 1H frame and dominates the profile on a 143k-bar 5m one (it was
-    ~34s of a 178s signal pass). The values are identical; only the access path
-    changes. Cached on ``frame.attrs`` so it follows the frame around.
+    20k-bar 1H frame and dominates the profile on a 143k-bar 5m one (~34s of a
+    178s signal pass). The values are identical; only the access path changes.
+
+    The cache is stored via ``object.__setattr__`` and deliberately NOT in
+    ``frame.attrs``. ``attrs`` looks like the right home and is a trap twice
+    over: pandas **deep-copies** it inside ``__finalize__`` on every operation
+    that derives a new frame, so parking numpy arrays there made the context
+    build *slower* than the pandas access it replaced (46s of a 74s build), and
+    it propagates to copies, which is a stale-cache hazard. A plain instance
+    attribute is neither copied nor inherited, so a derived frame simply builds
+    its own. The fingerprint guard stays as a belt-and-braces check.
     """
-    # `.attrs` is inherited by copies and slices, so the guard fingerprints the
-    # frame rather than trusting the tag: a stale cache here would feed the
-    # wrong bars into every displacement test.
     n = len(frame)
     stamp = (n, float(frame["close"].iloc[0]), float(frame["close"].iloc[-1])) if n else (0,)
-    cache = frame.attrs.get("_bar_arrays")
+    cache = getattr(frame, _BAR_CACHE_ATTR, None)
     if cache is None or cache.get("_stamp") != stamp:
         cache = {
             "_stamp": stamp,
@@ -135,15 +143,20 @@ def bar_arrays(frame: pd.DataFrame) -> dict:
             "atr": (frame["atr"].values if "atr" in frame
                     else np.full(n, np.nan)),
         }
-        frame.attrs["_bar_arrays"] = cache
+        object.__setattr__(frame, _BAR_CACHE_ATTR, cache)
     return cache
 
 
-def is_displacement(frame: pd.DataFrame, i: int, cfg: dict) -> tuple[bool, Direction]:
-    """Was bar ``i`` a displacement candle (big directional body vs ATR)?"""
-    if i < 1 or i >= len(frame):
+def _is_displacement_at(cols: dict, n: int, i: int,
+                        cfg: dict) -> tuple[bool, Direction]:
+    """``is_displacement`` against already-fetched columns.
+
+    Split out so hot loops resolve the cache once instead of once per bar --
+    the fingerprint check costs a pandas ``__getitem__`` and it was being paid
+    159k times per context build.
+    """
+    if i < 1 or i >= n:
         return False, "neutral"
-    cols = bar_arrays(frame)
     open_, close = cols["open"][i], cols["close"][i]
     body = abs(close - open_)
     rng = max(cols["high"][i] - cols["low"][i], 1e-12)
@@ -156,12 +169,19 @@ def is_displacement(frame: pd.DataFrame, i: int, cfg: dict) -> tuple[bool, Direc
     return True, ("bullish" if close > open_ else "bearish")
 
 
+def is_displacement(frame: pd.DataFrame, i: int, cfg: dict) -> tuple[bool, Direction]:
+    """Was bar ``i`` a displacement candle (big directional body vs ATR)?"""
+    return _is_displacement_at(bar_arrays(frame), len(frame), i, cfg)
+
+
 def displacement_near(frame: pd.DataFrame, i: int, cfg: dict,
                       direction: Direction | None = None) -> bool:
     """Displacement within ``lookback_bars`` ending at bar ``i`` (inclusive)."""
+    cols = bar_arrays(frame)
+    n = len(frame)
     start = max(1, i - int(cfg.get("lookback_bars", 5)) + 1)
     for j in range(start, i + 1):
-        ok, d = is_displacement(frame, j, cfg)
+        ok, d = _is_displacement_at(cols, n, j, cfg)
         if ok and (direction is None or d == direction):
             return True
     return False

@@ -195,17 +195,24 @@ def detect_sweeps(frame: pd.DataFrame, pools: list[LiquidityPool],
         by_index.setdefault(pool.index, []).append(pool)
 
     sweeps: list[Sweep] = []
+    # `active` is appended in ascending pool.index order, so it stays sorted and
+    # the live window is a contiguous slice [head, ...]. Advancing a head
+    # pointer replaces the old "rebuild the list once it passes 4000 entries"
+    # scan, which on a 47k-bar 15m frame was 16s of a 74s context build. Same
+    # pools are examined -- the inner `continue`s already enforced this window.
+    head = 0
     for i in range(n):
         active.extend(by_index.get(i, []))
-        if len(active) > 4000:
-            active = [p for p in active if i - p.index <= lookback]
+        while head < len(active) and i - active[head].index > lookback:
+            head += 1
         bar_atr = atr_vals[i]
         if not np.isfinite(bar_atr) or bar_atr <= 0:
             continue
         need = min_pierce * bar_atr
-        for pool in active:
-            if pool.index >= i or i - pool.index > lookback:
-                continue
+        for k in range(head, len(active)):
+            pool = active[k]
+            if pool.index >= i:
+                break   # sorted: nothing beyond this is knowable yet
             if pool.side == "buy_side":
                 # wick above the pool, close back below it
                 if highs[i] >= pool.price + need and (

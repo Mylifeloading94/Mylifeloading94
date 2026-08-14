@@ -26,7 +26,7 @@ from typing import Literal
 import numpy as np
 import pandas as pd
 
-from .structure import StructureState, is_displacement
+from .structure import StructureState, _is_displacement_at, bar_arrays
 
 ZoneKind = Literal["order_block", "breaker", "mitigation", "fvg"]
 
@@ -148,8 +148,9 @@ def find_order_blocks(frame: pd.DataFrame, state: StructureState,
         event_dir[event.index] = event.direction
 
     zones: list[Zone] = []
+    cols = bar_arrays(frame)
     for i in range(1, n):
-        has_disp, disp_dir = is_displacement(frame, i, disp_cfg)
+        has_disp, disp_dir = _is_displacement_at(cols, n, i, disp_cfg)
         if require_disp and not has_disp:
             continue
         if not has_disp:

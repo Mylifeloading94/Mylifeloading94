@@ -102,7 +102,7 @@ def build_periods(ledger: pd.DataFrame, start_balance: float,
     equity = frame["end_balance"].values
     peak = np.maximum.accumulate(np.concatenate([[start_balance], equity]))
     curve = np.concatenate([[start_balance], equity])
-    max_dd = float(-((curve - peak) / peak).min() * 100)
+    max_dd = max(0.0, float(-((curve - peak) / peak).min() * 100))
     return {"daily": daily_out, "weekly": weekly, "monthly": monthly,
             "max_dd_pct": max_dd}
 

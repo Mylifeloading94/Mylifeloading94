@@ -168,10 +168,20 @@ class Backtester:
         size_lots, risk_amount = self.risk_engine.size(sig.symbol, risk_price)
 
         tps = [sig.tp1, sig.tp2, sig.tp3]
+        # Portions closed at TP1 / TP2 / TP3. These MUST sum to 1.0.
+        # When scale-outs are disabled the FIRST target closes the whole
+        # position -- otherwise a "no partials" run allocates 0% to TP1 and
+        # TP2, banks nothing on reaching its target, needs three separate bars
+        # to exit, and can reverse into a full -1R loss after price already
+        # traded through the target. That bug silently corrupted the matched-R
+        # control, which is the one measurement that has to be trustworthy.
         pcfg = icfg.get("targets.partial_tp")
-        closes_pct = [float(pcfg.get("tp1_close_pct", 0.5)),
-                      float(pcfg.get("tp2_close_pct", 0.3))] if pcfg.get("enabled", True) else [0.0, 0.0]
-        closes_pct.append(max(0.0, 1.0 - closes_pct[0] - closes_pct[1]))
+        if pcfg.get("enabled", True):
+            closes_pct = [float(pcfg.get("tp1_close_pct", 0.5)),
+                          float(pcfg.get("tp2_close_pct", 0.3))]
+            closes_pct.append(max(0.0, 1.0 - closes_pct[0] - closes_pct[1]))
+        else:
+            closes_pct = [1.0, 0.0, 0.0]
 
         be_cfg = icfg.get("targets.breakeven")
         tr_cfg = icfg.get("targets.trailing")
@@ -218,7 +228,8 @@ class Backtester:
             if tp_hit:
                 px = nxt
                 part = closes_pct[tp_stage]
-                if tp_stage == 2 or part >= remaining:
+                # Close the remainder once nothing is allocated to later stages.
+                if part >= remaining or sum(closes_pct[tp_stage + 1:]) <= 0:
                     part = remaining
                 realised_r += part * r_of(px)
                 remaining -= part

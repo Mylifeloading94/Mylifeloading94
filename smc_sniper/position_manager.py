@@ -82,16 +82,22 @@ class PositionManager:
             return reason
 
         tps = [pos.tp1, pos.tp2, pos.tp3]
+        # Must mirror backtest.simulate_trade exactly: with scale-outs off, the
+        # first target closes the entire position rather than banking nothing.
         pcfg = icfg.get("targets.partial_tp")
-        portions = ([float(pcfg.get("tp1_close_pct", 0.5)),
-                     float(pcfg.get("tp2_close_pct", 0.3))]
-                    if pcfg.get("enabled", True) else [0.0, 0.0])
-        portions.append(1.0)
+        if pcfg.get("enabled", True):
+            portions = [float(pcfg.get("tp1_close_pct", 0.5)),
+                        float(pcfg.get("tp2_close_pct", 0.3))]
+            portions.append(max(0.0, 1.0 - portions[0] - portions[1]))
+        else:
+            portions = [1.0, 0.0, 0.0]
 
         if pos.stage < 3:
             target = tps[pos.stage]
             if (high >= target) if long else (low <= target):
-                part = min(portions[pos.stage], pos.remaining) if pos.stage < 2 else pos.remaining
+                part = portions[pos.stage]
+                if part >= pos.remaining or sum(portions[pos.stage + 1:]) <= 0:
+                    part = pos.remaining
                 pos.realised_r += part * pos.r_of(target)
                 pos.remaining -= part
                 pos.events.append({"event": f"TP{pos.stage + 1}", "price": target,

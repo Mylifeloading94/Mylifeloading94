@@ -492,6 +492,36 @@ def test_partial_tp_and_breakeven(cfg):
     assert pos.stop >= pos.entry, "break-even must engage past 1R"
 
 
+def test_disabled_partials_close_everything_at_first_target(cfg):
+    """Regression: with scale-outs off, TP1 must close 100%.
+
+    The original code allocated 0% to TP1 and TP2 when partials were disabled,
+    so a 'no partials' run banked nothing on reaching its target, needed three
+    separate bars to exit, and could reverse into a full -1R loss after price
+    had already traded through the target. That silently corrupted the
+    matched-R control -- the one measurement that must be trustworthy."""
+    variant = cfg.with_override("targets.partial_tp.enabled", False)
+    pm = PositionManager(variant)
+    pos = _managed(variant)
+    bar = pd.Series({"high": 1.1025, "low": 1.1005, "close": 1.1020, "atr": 0.001})
+    reason = pm.on_bar(pos, bar, 1)
+    assert pos.remaining == 0.0, "TP1 must close the whole position"
+    assert reason == "TP1"
+    assert pos.realised_r == pytest.approx(1.0), "banked exactly the TP1 R"
+
+
+def test_partial_portions_always_sum_to_one(cfg):
+    for enabled in (True, False):
+        variant = cfg.with_override("targets.partial_tp.enabled", enabled)
+        pcfg = variant.get("targets.partial_tp")
+        if pcfg.get("enabled"):
+            portions = [pcfg["tp1_close_pct"], pcfg["tp2_close_pct"]]
+            portions.append(max(0.0, 1.0 - sum(portions)))
+        else:
+            portions = [1.0, 0.0, 0.0]
+        assert sum(portions) == pytest.approx(1.0)
+
+
 def test_stop_checked_before_target_same_bar(cfg):
     """Ambiguous bars resolve against the strategy."""
     pm = PositionManager(cfg)

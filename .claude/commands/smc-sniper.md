@@ -352,18 +352,29 @@ sample per pair is thinner still (max 7 TRAIN trades), so the refusal stands.
 Each parameter nudged with everything else held. Context-shaping parameters
 (FVG sizing, swing lookback) trigger a full context rebuild.
 
+v2 config, 29 pairs (profit factor at each value):
+
 | Parameter | Values → profit factor | Reading |
 |---|---|---|
-| `scoring.threshold` | 75 → **0.87**, 80 → 1.11, 85 → **1.26** | Selectivity helps, monotonically. Supports the sniper thesis. |
-| `stops.min_stop_over_cost` | 0 → **0.93**, 6 → 1.00, 10 → 1.11, 15 → 1.09 | Monotonic to 10× then flat — a real cost effect, not a fitted number. |
-| `stops.buffer_atr` | 0.20 → 1.04, 0.25 → 1.11, 0.35 → 1.06 | Shallow, no knife-edge. |
-| `fvg.min_size_atr` | 0.14 → 1.11, 0.18 → 1.11, 0.25 → 1.08 | Flat. |
-| `structure.swing_lookback` | 2 → 1.11, 3 → 1.12 | Flat. |
-| `targets.min_rr` | 1.5 → 1.11, 2.0 → 1.11, 2.5 → 1.03 | Flat until it starves the sample. |
+| `scoring.threshold` | 75 → **0.974** (351 trades), 80 → **1.260**, 85 → 0.992 (20 trades) | Loosening destroys it; tightening starves it. 80 is a genuine optimum here, not a plateau. |
+| `stops.min_stop_over_cost` | 0 → 1.022, 6 → 1.039, 10 → **1.260**, 15 → **1.644** (94 trades) | Still monotonic, and now *keeps rising* past 10×. See below. |
+| `stops.buffer_atr` | 0.20 → 1.213, 0.25 → **1.260**, 0.35 → 1.222 | Shallow, no knife-edge. |
+| `fvg.min_size_atr` | 0.14 → 1.232, 0.18 → **1.260**, 0.25 → 1.191 | Flat. |
+| `structure.swing_lookback` | 2 → 1.260, 3 → 1.258 | Flat. |
+| `targets.min_rr` | 1.5 → 1.260, 2.0 → 1.260, 2.5 → 1.431 (69 trades) | Flat until it starves the sample. |
 
-Nothing here depends on one exact value, which is the main thing a perturbation
-check is for. The two parameters that move the result — selectivity and the
-cost gate — move it in the direction theory predicts.
+Most parameters are flat, which is the main thing a perturbation check is for.
+Two are not, and both matter:
+
+* **The score gate is now a peak, not a plateau.** In v1, PF rose monotonically
+  with selectivity (75 → 0.87, 85 → 1.26). In v2 it falls off on *both* sides.
+  80 is the right gate on this data, but a parameter that has a single best
+  value deserves more suspicion than one that does not.
+* **`min_stop_over_cost` = 15 looks better than the configured 10** (PF 1.644,
+  +0.245R) at the cost of 40% of the trades. It was **not** adopted: it was
+  never put through a TRAIN/TEST cycle, and a perturbation sweep is scored on
+  the full window, which is exactly the selection this repo forbids. It is a
+  **candidate for the next round**, recorded here so it is not lost.
 
 ### Adaptive analysis — what actually carries the expectancy
 

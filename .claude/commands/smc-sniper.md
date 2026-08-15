@@ -454,6 +454,20 @@ exactly 153 trades / 54.90% WR / PF 1.260 / +0.114R / 3.98% max DD, and
 `detect_sweeps` was run side by side with the original implementation over
 432,000 sweeps across 8 pair/timeframe combinations with every field matching.
 
+**4. The context cache is version-stamped.** The tuning harnesses pickle 850MB
+of PairContexts and reuse them across rounds. A cache written before a change to
+`LiquidityMap` or `ZoneMap` unpickles into objects missing the attributes the
+new code reads — an AttributeError an hour into a run, or worse, a silently
+different result. `signal_engine.CONTEXT_CACHE_VERSION` now travels with the
+pickle and a mismatch forces a rebuild.
+
+**5. A display bug in the deliverable ledger.** With partial take-profits,
+`exit_price` is only where the *remainder* closed, so computing pips as
+`exit_price − entry` measured the last leg while `profit_usd` measured the whole
+trade. Six of 185 rows showed a pip loss beside a dollar profit. Pips are now
+derived from realised R. Headline money numbers were never affected — they come
+from `pnl` — but the pip column is one the owner asked for by name.
+
 ---
 
 ### v3 caveats

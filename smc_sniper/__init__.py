@@ -22,6 +22,13 @@ from . import backtest_report
 from . import walk_forward
 from . import monte_carlo
 
+# NOTE: live_runner is intentionally NOT imported here. It pulls in
+# trading_agent.py, which requires TL_EMAIL/TL_PASSWORD to be set just to
+# import — every other module in this package works standalone (backtests,
+# scoring, sizing, journaling) without live credentials. Import it
+# explicitly when you actually want live execution:
+#   from smc_sniper import live_runner
+
 __all__ = [
     "CONFIG", "SniperConfig",
     "score_setup", "rank_setups", "ScoreBreakdown",

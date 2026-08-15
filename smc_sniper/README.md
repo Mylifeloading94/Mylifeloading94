@@ -23,7 +23,7 @@ the current validated numbers and caveats before changing anything here.
 | 11 | Position Sizing | `risk.py::position_size` | new |
 | 12 | News Filter | `news_filter.py` | new (needs a live calendar feed wired in — see below) |
 | 13 | Correlation Manager | `correlation.py` | new |
-| 14 | Trade Execution | `../trading_agent.py` / `../autopilot.py` | existing |
+| 14 | Trade Execution | `live_runner.py` (scanner-pipeline wired to TradeLocker orders) | new |
 | 15 | Position Management | `risk.py::assert_sl_not_widened`, `config.py::PARTIAL_TARGETS` | new (partial config only) |
 | 16 | Trade Journal | `journal.py` | new |
 | 17 | Backtesting Engine | `../sniper_backtest.py` + `backtest_report.py` | existing + new |
@@ -31,6 +31,33 @@ the current validated numbers and caveats before changing anything here.
 | 19 | Monte Carlo Analysis | `monte_carlo.py` | new |
 | 20 | Performance Dashboard | `backtest_report.py::print_report` | new |
 | 21 | Alerts / Logging | `../autopilot.py` (Telegram) | existing |
+
+## Live execution (`live_runner.py`)
+
+`live_runner.run_once()` is the full SCAN -> FILTER -> SCORE -> CONFIRM ->
+SIZE -> EXECUTE cycle, wired to real TradeLocker orders. Two things about
+it are non-negotiable:
+
+- **`dry_run=True` is the default everywhere** — the function signature,
+  and the `__main__` block. It prints the full signal explanation for
+  every setup that clears every gate and places *no order* until you pass
+  `dry_run=False` explicitly. Review dry-run output before ever flipping
+  that flag, especially on an account with prior drawdown.
+- **No "take everything" mode exists.** Every order placed by
+  `execute_plan` has already passed `scanner.run_pipeline` — instrument
+  spec, spread, news, score >= `MIN_SETUP_SCORE`, R:R, position sizing,
+  correlation, and daily guardrails. There is no parameter that bypasses
+  the score gate; removing the discipline isn't a config change, it's a
+  different, unvalidated bot.
+- **Credentials**: `live_runner` imports `trading_agent.py`, which reads
+  `TL_EMAIL` / `TL_PASSWORD` / `TL_SERVER` from the environment at import
+  time — set those through your environment's secrets config, never in
+  chat or in a file that could be committed. Because of this,
+  `live_runner` is deliberately **not** imported by `smc_sniper/__init__.py`
+  — every other module in this package works standalone, without live
+  credentials, for backtesting/scoring/journaling. Import it explicitly
+  (`from smc_sniper import live_runner`) only when you actually want live
+  execution.
 
 `config.py` centralizes every configurable threshold (spec §28) that the
 other modules read from — nothing above should hard-code a number that

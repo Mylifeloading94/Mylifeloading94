@@ -64,6 +64,7 @@ def sniper_bt(name, lo_i=0, hi_i=None, disp_mult=0.6, sl_buf=0.5, tp1_R=1.0, tp1
     b15=d["15m"]; b4=d["4H"]
     hi_i = hi_i if hi_i is not None else len(b15)
     wins=losses=be_ct=0; gW=gL=R=0.0; trades=0
+    trade_log=[]
     i=max(210,lo_i); last_exit=0
     lim=min(hi_i,len(b15)-max_hold-1)
     while i<lim:
@@ -122,25 +123,32 @@ def sniper_bt(name, lo_i=0, hi_i=None, disp_mult=0.6, sl_buf=0.5, tp1_R=1.0, tp1
         if risk < max(6*pip, sp*3): i+=1; continue
         entry_eff = entry + sign*sp  # pay spread on entry
         tp1=entry+risk*tp1_R*sign; tp2=entry+risk*tp2_R*sign
-        realR=0.0; part=False; movedbe=False; outcome=None
+        realR=0.0; part=False; movedbe=False; outcome=None; exit_j=None
         for j in range(filled_k, min(filled_k+max_hold,len(b15))):
             hb=b15[j]
             if be and not part and ((sign==1 and hb["h"]>=tp1) or (sign==-1 and hb["l"]<=tp1)):
                 realR+=tp1_R*tp1_close; part=True; sl=entry
             if (sign==1 and hb["l"]<=sl) or (sign==-1 and hb["h"]>=sl):
-                realR+= 0.0 if (part and sl==entry) else -1.0*(1-(tp1_close if part else 0)); outcome="done"; break
+                realR+= 0.0 if (part and sl==entry) else -1.0*(1-(tp1_close if part else 0)); outcome="done"; exit_j=j; break
             if (sign==1 and hb["h"]>=tp2) or (sign==-1 and hb["l"]<=tp2):
-                realR+= tp2_R*(1-(tp1_close if part else 0)); outcome="done"; break
+                realR+= tp2_R*(1-(tp1_close if part else 0)); outcome="done"; exit_j=j; break
         if outcome is None:
-            lp=b15[min(filled_k+max_hold,len(b15)-1)]["c"]; rr=((lp-entry)/risk)*sign
+            exit_j=min(filled_k+max_hold,len(b15)-1)
+            lp=b15[exit_j]["c"]; rr=((lp-entry)/risk)*sign
             realR+= rr*(1-(tp1_close if part else 0))
         trades+=1; R+=realR
         if realR>0.05: wins+=1; gW+=realR
         elif realR<-0.05: losses+=1; gL+=abs(realR)
         else: be_ct+=1
+        trade_log.append({
+            "symbol": name, "direction": "bullish" if sign==1 else "bearish",
+            "entry_ts": b15[filled_k]["t"], "exit_ts": b15[exit_j]["t"],
+            "session_hour": hour_of(b15[filled_k]["t"]), "R": round(realR, 4),
+        })
         last_exit=filled_k+1; i=last_exit
     dec=wins+losses; wr=wins/dec*100 if dec else 0; pf=gW/gL if gL>0 else 999
-    return {"n":trades,"WR":round(wr,1),"PF":round(pf,2),"expR":round(R/trades,3) if trades else 0,"totR":round(R,1)}
+    return {"n":trades,"WR":round(wr,1),"PF":round(pf,2),"expR":round(R/trades,3) if trades else 0,
+            "totR":round(R,1),"trades":trade_log}
 
 if __name__=="__main__":
     print("SNIPER-SMC 90-DAY BACKTEST (sweep -> MSS -> FVG mitigation entry)\n")

@@ -127,6 +127,7 @@ def analyze_sniper(name, cfg, headers):
             # OTE golden-pocket gate: entry must sit at 62-90% retrace of the leg
             leg = w[s_idx:j+1]
             leg_lo = min(b["l"] for b in leg); leg_hi = max(b["h"] for b in leg)
+            depth = None
             if leg_hi > leg_lo:
                 depth = (leg_hi - zone_mid) / (leg_hi - leg_lo) if swept == "bull" \
                         else (zone_mid - leg_lo) / (leg_hi - leg_lo)
@@ -136,28 +137,30 @@ def analyze_sniper(name, cfg, headers):
             price = w[-1]["c"]
             bars_since = n - 1 - j
             if bars_since > RETRACE_BARS: continue  # stale
+            meta = {"atr": a, "disp_body": body, "ote_depth": depth,
+                    "bias_htf": bias4, "mss_bar_ts": cj.get("t"), "sweep_ext": sweep_ext}
             if swept == "bull":
                 sl = round(sweep_ext - SL_BUF * a, 5)
                 if price <= zone_mid * 1.0005:   # in/near zone -> ready
                     entry = zone_mid
                     risk = abs(entry - sl)
                     if risk < max(6*pip, 3*pip): continue
-                    return _mk(name, "bullish", entry, sl, risk, sign, pip, cfg, b15, zone_mid, "ready")
+                    return _mk(name, "bullish", entry, sl, risk, sign, pip, cfg, b15, zone_mid, "ready", meta)
                 else:
-                    return _mk(name, "bullish", zone_mid, sl, abs(zone_mid-sl), sign, pip, cfg, b15, zone_mid, "pending")
+                    return _mk(name, "bullish", zone_mid, sl, abs(zone_mid-sl), sign, pip, cfg, b15, zone_mid, "pending", meta)
             else:
                 sl = round(sweep_ext + SL_BUF * a, 5)
                 if price >= zone_mid * 0.9995:
                     entry = zone_mid
                     risk = abs(entry - sl)
                     if risk < max(6*pip, 3*pip): continue
-                    return _mk(name, "bearish", entry, sl, risk, sign, pip, cfg, b15, zone_mid, "ready")
+                    return _mk(name, "bearish", entry, sl, risk, sign, pip, cfg, b15, zone_mid, "ready", meta)
                 else:
-                    return _mk(name, "bearish", zone_mid, sl, abs(zone_mid-sl), sign, pip, cfg, b15, zone_mid, "pending")
+                    return _mk(name, "bearish", zone_mid, sl, abs(zone_mid-sl), sign, pip, cfg, b15, zone_mid, "pending", meta)
     return None
 
 
-def _mk(name, direction, entry, sl, risk, sign, pip, cfg, b15, zone_mid, state):
+def _mk(name, direction, entry, sl, risk, sign, pip, cfg, b15, zone_mid, state, meta=None):
     tp1 = round(entry + risk*TP1_R*sign, 5)
     tp2 = round(entry + risk*TP2_R*sign, 5)
     wr, pf = PAIR_STATS.get(name, (0, 0))
@@ -166,6 +169,7 @@ def _mk(name, direction, entry, sl, risk, sign, pip, cfg, b15, zone_mid, state):
         "entry": round(entry, 5), "sl": round(sl, 5), "tp1": tp1, "tp2": tp2,
         "zone_mid": zone_mid, "risk_pips": round(risk/pip, 1),
         "bt_wr": wr, "bt_pf": pf, "cfg": cfg, "bars_15m": b15,
+        "meta": meta or {},
     }
 
 

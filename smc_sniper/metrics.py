@@ -30,6 +30,27 @@ def compute_metrics(trades: pd.DataFrame, starting_balance: float = 10000.0) -> 
     wins = r > 0
     losses = ~wins
 
+    # v5 AUDIT. A break-even exit is a SCRATCH, and this engine books it as a
+    # win because it lands a hair above zero (stop moved to entry + 0.05R, less
+    # slippage). Measured on the v2 swing ledger: 7 of 153 trades exit at
+    # +0.010R to +0.045R having banked no partial at all -- price tagged +1R
+    # intrabar, which is enough to trigger the break-even move but not enough
+    # to reach a TP1 that sits further out, and the position then scratched.
+    # With a +/-0.10R scratch band the v2 swing ledger holds 10 such trades
+    # (7 booked as wins, 3 as losses) and the headline win rate goes from
+    # 54.90% to 53.85% -- an inflation of about one point, not the ~15 points
+    # the same defect class was worth in the uploaded bot, because here the
+    # partial P/L is genuinely realised rather than assumed.
+    #
+    # The P/L is honest (each of those trades really did make a few dollars),
+    # so `win_rate` is left alone and the scratch-adjusted figure is reported
+    # NEXT TO it rather than instead of it. A flat-R configuration with
+    # management stripped off has no scratch band at all, which is one reason
+    # to prefer one when a win rate is going to be quoted.
+    scratch_band = 0.10
+    scratches = np.abs(r) < scratch_band
+    decisive = ~scratches
+
     gross_win = pnl[wins].sum()
     gross_loss = -pnl[losses].sum()
 
@@ -67,6 +88,9 @@ def compute_metrics(trades: pd.DataFrame, starting_balance: float = 10000.0) -> 
         "losses": int(losses.sum()),
         "win_rate": float(wins.mean() * 100),
         "loss_rate": float(losses.mean() * 100),
+        "scratches": int(scratches.sum()),
+        "win_rate_ex_scratch": float(_safe((wins & decisive).sum(),
+                                           decisive.sum()) * 100),
         "profit_factor": float(_safe(gross_win, gross_loss, float("inf") if gross_win else 0.0)),
         "net_profit": float(pnl.sum()),
         "net_profit_pct": float(pnl.sum() / starting_balance * 100),

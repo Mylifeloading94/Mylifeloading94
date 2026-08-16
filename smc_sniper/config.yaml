@@ -298,6 +298,10 @@ entry:
   # forms; without this a stale block from 60 bars ago satisfies step 7 while
   # having nothing to do with the setup that is being traded.
   zone_must_form_after_sweep: true
+  # v5 AUDIT FIX. `valid_bars` was really N+1 entry bars: the fill scan included
+  # the first bar the limit had already expired on. Default off so v2 stays
+  # reproducible; on in the v5 profile.
+  exact_expiry: false
   # A touch is NOT a fill. Price must trade THROUGH the limit. This single
   # rule is the difference between an honest 45% and a published 70% in this
   # repo's history. Non-negotiable -- see execution.require_trade_through.
@@ -688,6 +692,44 @@ profiles:
   # v2's published 153 / 54.90% / 1.260 exactly.
   swing_4r:
     active_stack: "swing"
+    targets.mode: "fixed_rr"
+    targets.fixed_rr: 4.0
+    targets.min_rr: 2.0
+    targets.partial_tp.enabled: false
+    targets.breakeven.enabled: false
+    targets.trailing.enabled: false
+
+  # -------------------------------------------------------------------
+  # v5 -- the audited configuration.
+  #
+  # It is the v2/v3 swing entry model with every defect the v5 audit found
+  # switched ON, plus the target width the owner asked about. Nothing about the
+  # entry logic changed: the audit tested fill depth, fill window, sweep
+  # recency, stop buffer, stop floor, the premium/discount veto and the
+  # sequencing rule, and NONE of them beat the defaults on TRAIN and TEST
+  # together. What changed is that four measured defects are gone and the
+  # accounting is honest.
+  #
+  #   causal_structure_association  removes a 2-bar lookahead in the OB quality
+  #                                 rank (11.16% of 88,299 order blocks)
+  #   quote_ccy_conversion          JPY crosses were paying 0.0002R of
+  #                                 commission against 0.036R on USD-quoted
+  #                                 pairs; 36% of trades were commission-free
+  #   book_on_exit                  the daily/weekly loss gates and the loss
+  #                                 cooldown were reading the outcome of
+  #                                 positions that were still open
+  #   tp_trade_through              the entry limit needed trade-through; the
+  #                                 take profit filled on a touch
+  #   exact_expiry                  `valid_bars: 8` was really a 9-bar window
+  #
+  # READ THE TARGET NOTE AT `targets.fixed_rr` BEFORE QUOTING A WIN RATE.
+  v5:
+    active_stack: "swing"
+    order_blocks.causal_structure_association: true
+    risk.quote_ccy_conversion: true
+    risk.book_on_exit: true
+    execution.tp_trade_through: true
+    entry.exact_expiry: true
     targets.mode: "fixed_rr"
     targets.fixed_rr: 4.0
     targets.min_rr: 2.0

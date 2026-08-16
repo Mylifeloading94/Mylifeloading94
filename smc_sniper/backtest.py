@@ -222,9 +222,17 @@ class Backtester:
             return None
 
         # The limit expires with the setup bar window.
+        # v5 AUDIT FIX (`entry.exact_expiry`). `end` is the index of the first
+        # entry bar that OPENS at or after the limit's expiry -- i.e. the first
+        # bar the order is already cancelled for. The fill scan then ran
+        # `range(start, end + 1)`, so it included that bar: an `entry.valid_bars`
+        # of 8 was really a 9-bar fill window. Off by one in the strategy's
+        # favour. Default off so v2 stays reproducible.
         expiry_idx = min(sig.valid_until_bar, len(ctx.setup) - 1)
         expiry_time = ctx.setup["close_time"].iloc[expiry_idx]
         end = int(eframe.index.searchsorted(expiry_time, side="left"))
+        if bool(icfg.get("entry.exact_expiry", False)):
+            end -= 1
 
         spread_price = sig.spread_pips * pip * _spread_multiplier(sig.time, cfg)
         slip = float(cfg.get("execution.slippage_pips", 0.2)) * pip

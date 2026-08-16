@@ -251,8 +251,12 @@ def round_loss():
     print(f"\nbaseline TRAIN {base_train}")
     print(f"baseline TEST  {base_test}")
 
+    # `exit reason` is an OUTCOME, not an entry-time property -- excluding the
+    # stop-loss bucket is just deleting the losses. It is tabulated above for
+    # completeness and it is never a filter candidate.
     cand = allcuts[(allcuts.train_n >= MIN_TRAIN_N)
-                   & (allcuts.train_exp < 0)].sort_values("train_exp")
+                   & (allcuts.train_exp < 0)
+                   & (allcuts.cut != "exit reason")].sort_values("train_exp")
     print("\n=== CANDIDATE EXCLUSIONS: negative on TRAIN with n>=8 ===")
     if cand.empty:
         print("  NONE. No entry-time cut with an adequate TRAIN sample is "
@@ -393,7 +397,60 @@ def round_pairs():
     return res
 
 
-ROUNDS = {"ledger": round_ledger, "loss": round_loss, "pairs": round_pairs}
+# ---------------------------------------------------------------------------
+# Round 4 -- the one live lever the loss audit exposed: the break-even stop
+# ---------------------------------------------------------------------------
+def round_exits():
+    """v7 inherited v6's break-even trigger of +3R, which a 1:2 target can
+    never reach -- so trade management is INERT in the adopted config (the
+    ledger's exit reasons are TP1 and stop_loss, nothing else).
+
+    The audit says 66% of losers ran to +0.5R and 27% to +1.0R before
+    reversing, so arming the stop somewhere reachable is the one mechanical
+    change the loss shape actually suggests. Every row is entry-matched by
+    construction -- the entries are identical and only the exit differs -- and
+    the cost is real: a winner that dips back past break-even after arming is
+    converted from +2R into a scratch.
+    """
+    cfg, engine, contexts = env()
+    sp = bounds(contexts)
+    rows = []
+    variants = [("break-even OFF", {"targets.breakeven.enabled": False})]
+    variants += [(f"break-even arms at +{t:.2f}R",
+                  {"targets.breakeven.enabled": True, "targets.breakeven.trigger_r": t})
+                 for t in (0.5, 0.75, 1.0, 1.25, 1.5, 2.0)]
+    variants += [("v7 adopted (+3R, inert)",
+                  {"targets.breakeven.enabled": True, "targets.breakeven.trigger_r": 3.0})]
+    for label, over in variants:
+        merged = dict(V7)
+        merged.update(over)
+        row, frames = evaluate(cfg, engine, contexts, merged, label, splits=sp)
+        full = frames["full"]
+        m = compute_metrics(full, 10000.0)
+        clo, chi, nc = cluster_bootstrap(full, 5000)
+        row.update({"ccl_lo": round(clo, 4), "ccl_hi": round(chi, 4),
+                    "clears": "YES" if not (clo < 0 < chi) else "no",
+                    "scratch": int((full.r_multiple.abs() < 0.05).sum()),
+                    "streak": m.get("max_consecutive_losses", 0),
+                    "exp_usd": round(row["exp"] * BALANCE * RISK_PCT, 2)})
+        rows.append(row)
+        print(f"\n{label}")
+        cols = ["n", "wr", "pf", "exp", "exp_usd", "train_n", "train_wr", "train_exp",
+                "val_n", "val_exp", "test_n", "test_wr", "test_exp", "max_dd",
+                "streak", "scratch", "ccl_lo", "ccl_hi", "clears"]
+        print(pd.DataFrame([row])[[c for c in cols if c in row]].to_string(index=False))
+    print("\n=== V8 ROUND 4: BREAK-EVEN ARMING (entry-matched, exit-only) ===")
+    frame = pd.DataFrame(rows)
+    keep = [c for c in ["variant", "n", "wr", "pf", "exp", "exp_usd", "train_exp",
+                        "val_exp", "test_exp", "max_dd", "streak", "scratch",
+                        "ccl_lo", "ccl_hi", "clears"] if c in frame.columns]
+    print(frame[keep].to_string(index=False))
+    frame.to_csv(os.path.join(OUT, "v8_breakeven.csv"), index=False)
+    return frame
+
+
+ROUNDS = {"ledger": round_ledger, "loss": round_loss, "pairs": round_pairs,
+          "exits": round_exits}
 
 
 def main():

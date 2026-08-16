@@ -781,6 +781,71 @@ profiles:
     # 2% risk this deliverable is produced at.
     risk.enforce_concurrency: true
 
+  # -------------------------------------------------------------------
+  # v6 -- the audited v5 configuration plus ONE change: a break-even stop
+  # that arms only at +3R.
+  #
+  # WHERE IT CAME FROM. The v6 loss-side audit cut the adopted ledger by pair,
+  # session, hour, day, direction, liquidity type, zone kind and setup type,
+  # and found NO diagnosable loss cluster -- every cut that agreed across
+  # TRAIN and TEST agreed POSITIVE. The single mechanically actionable fact in
+  # the whole ledger was this: **14 of 127 losing trades (11.0%) reached beyond
+  # +3R before reversing all the way through the stop.** Those are not bad
+  # entries; they are won trades given back.
+  #
+  # WHY +3R AND NOT +1R. v5 measured the stock break-even trigger (+1R) as
+  # actively harmful -- it converts trades that would have run into scratches
+  # booked as wins (audit defect 6) and clips the runners that pay for the
+  # losers. Arming at +3R inverts that: by +3R the trade has done nearly all
+  # the work, and the mechanic can only fire on a position that is already
+  # deep in profit. Measured across the trigger:
+  #
+  #   trigger      trades  scratches  TRAIN E   TEST E   max DD  streak
+  #   none (v5)      195        0     +0.3617  +0.3553   7.65%     14
+  #   BE at +2R      192       26     +0.4171  +0.1586   5.11%     10
+  #   BE at +3R      193        3     +0.4022  +0.3553   7.51%     11
+  #
+  # +2R buys TRAIN by manufacturing 26 scratches and gives back more than half
+  # of TEST doing it. +3R makes 3 scratches and leaves TEST untouched.
+  #
+  # READ THIS BEFORE TREATING IT AS AN EDGE IMPROVEMENT. **TEST is a NO-OP:
+  # +0.3553 with the mechanic and +0.3553 without it, to four decimals**,
+  # because no TEST trade both reached +3R and then reversed. TEST therefore
+  # provides no evidence FOR this change -- only evidence that it does no harm.
+  # By this repo's stated rule (adopt only if TRAIN and TEST both improve) it
+  # would NOT be adopted on performance grounds, and it is not claimed as a
+  # performance improvement.
+  #
+  # IT IS ADOPTED ON RISK GROUNDS, on the same footing as
+  # `enforce_concurrency`: it shortens the longest losing streak from 14 to 11
+  # and trims max drawdown, at no measured cost on the untouched split. The
+  # 14-trade streak is the single most dangerous property this system has at
+  # 2% risk, and this is the only change found that shortens it without
+  # shrinking the target.
+  #
+  # THE CONFIDENCE INTERVAL, STATED HONESTLY. Its full-window CLUSTER interval
+  # is [+0.0092, +0.6948] -- clear of zero, and the first configuration in this
+  # repo to clear it while also satisfying the TRAIN/TEST selection rule and
+  # the spec's concurrency caps. Its WALK-FORWARD cluster interval is
+  # [-0.0431, +0.7079] and SPANS ZERO. The edge is still not established.
+  v6:
+    active_stack: "swing"
+    order_blocks.causal_structure_association: true
+    risk.quote_ccy_conversion: true
+    risk.book_on_exit: true
+    execution.tp_trade_through: true
+    entry.exact_expiry: true
+    targets.mode: "fixed_rr"
+    targets.fixed_rr: 4.0
+    targets.min_rr: 2.0
+    targets.min_rr_on_liquidity: true
+    targets.partial_tp.enabled: false
+    targets.trailing.enabled: false
+    targets.breakeven.enabled: true
+    targets.breakeven.trigger_r: 3.0
+    dedupe.enabled: false
+    risk.enforce_concurrency: true
+
   scalp:
     active_stack: "scalp15"
 

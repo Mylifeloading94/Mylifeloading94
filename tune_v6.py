@@ -317,8 +317,61 @@ def round_perturb(extra=None):
     return show(rows, name="v6_perturb")
 
 
+def round_runner():
+    """The runner exit, on the adopted config -- entry-matched by construction.
+
+    The loss-side audit found the one mechanically actionable thing in the
+    ledger: **11.0% of losing trades (14 of 127) reached beyond +2R before
+    reversing all the way through the stop.** Recovering even part of that is
+    worth ~0.18R per trade if it were free. It is not free -- any stop that
+    protects a runner also clips the 45 trades that reach the full +4R at an
+    average of +3.68R -- so the arithmetic has to be measured rather than
+    assumed. v5 measured break-even and trailing on the LADDER; neither has
+    ever been measured on the flat-4R configuration that is actually shipped.
+
+    Every row selects the identical entries (`min_rr_on_liquidity` gates on the
+    liquidity that is there, not on the target), so this is a clean
+    entry-matched control: only the exit changes.
+    """
+    cfg, engine, contexts = env()
+    sp = bounds(contexts)
+    variants = {
+        "adopted (no management)": {},
+        "trail from +1R": {"targets.trailing.enabled": True,
+                           "targets.trailing.start_after_r": 1.0},
+        "trail from +2R": {"targets.trailing.enabled": True,
+                           "targets.trailing.start_after_r": 2.0},
+        "trail from +3R": {"targets.trailing.enabled": True,
+                           "targets.trailing.start_after_r": 3.0},
+        "trail ATR from +2R": {"targets.trailing.enabled": True,
+                               "targets.trailing.mode": "atr",
+                               "targets.trailing.start_after_r": 2.0},
+        "BE at +2R": {"targets.breakeven.enabled": True,
+                      "targets.breakeven.trigger_r": 2.0},
+        "BE at +3R": {"targets.breakeven.enabled": True,
+                      "targets.breakeven.trigger_r": 3.0},
+        "BE +2R & trail +3R": {"targets.breakeven.enabled": True,
+                               "targets.breakeven.trigger_r": 2.0,
+                               "targets.trailing.enabled": True,
+                               "targets.trailing.start_after_r": 3.0},
+        "partial 50% at +2R": {"targets.partial_tp.enabled": True},
+    }
+    rows = []
+    for label, over in variants.items():
+        merged = dict(V5)
+        merged.update(over)
+        row, frames = priced(cfg, engine, contexts, merged, label, splits=sp)
+        f = frames["full"]
+        row["avg_win_r"] = round(float(f.loc[f.r_multiple > 0, "r_multiple"].mean()), 3)
+        row["scratch"] = int((f.r_multiple.abs() < 0.10).sum())
+        rows.append(row)
+        show([row], PCOLS + ["avg_win_r", "scratch"])
+    print("\n=== V6 ROUND 3: THE RUNNER EXIT (entry-matched) ===")
+    return show(rows, PCOLS + ["avg_win_r", "scratch"], name="v6_runner")
+
+
 ROUNDS = {"dedupe": round_dedupe, "rr": round_rr, "loss": round_loss,
-          "final": round_final, "perturb": round_perturb}
+          "runner": round_runner, "final": round_final, "perturb": round_perturb}
 
 
 def main():

@@ -584,6 +584,28 @@ def generate_signals(ctx: PairContext, cfg,
             reject(i, direction, "risk_reward", f"rr2_{gate_rr:.2f}<{min_rr}", score)
             continue
 
+        # --- step 10b: minimum TARGET DISTANCE in pips -------------------
+        # A cost-viability gate, not a target cap. `stops.min_stop_over_cost`
+        # already refuses a setup whose RISK is small relative to the
+        # round-trip cost; this refuses one whose REWARD is small in absolute
+        # terms, which is a different failure (a wide stop with a 4R target can
+        # still clear the cost ratio while the target itself is only a handful
+        # of pips on a quiet cross). It can only ever REMOVE a setup -- it
+        # never moves a target, so the reward-to-risk of everything that
+        # survives is unchanged and the population stays entry-comparable.
+        #
+        # `icfg.pip` is the per-instrument pip from `markets.<sym>.pip`
+        # (XAUUSD 0.1, JPY crosses 0.01, else 0.0001). v5 defect 2 was exactly
+        # a unit error of this kind, so the value is read from the instrument
+        # spec rather than inferred from the symbol string.
+        min_target_pips = float(tcfg.get("min_target_pips", 0.0) or 0.0)
+        if min_target_pips > 0:
+            target_pips = abs(tp2 - entry) / icfg.pip
+            if target_pips < min_target_pips:
+                reject(i, direction, "target_distance",
+                       f"target_{target_pips:.1f}pips<{min_target_pips}", score)
+                continue
+
         # --- step 12: score gate ----------------------------------------
         if score < threshold:
             reject(i, direction, "score", f"score_{score:.0f}<{threshold:.0f}", score,

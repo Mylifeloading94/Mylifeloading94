@@ -422,6 +422,16 @@ targets:
   # runs with it ON -- the control is not entry-matched to the thing it
   # controls. Default off so v2 stays reproducible.
   min_rr_on_liquidity: false
+  # v7 COST-VIABILITY GATE. Reject a setup whose TARGET sits closer than this
+  # many pips. This is NOT a cap on the target -- it never shrinks anything,
+  # it only refuses setups whose reward is too small for the round-trip cost
+  # to be a rounding error. `stops.min_stop_over_cost` already does this on the
+  # RISK side; this is the same argument applied to the REWARD side.
+  # Pip size is per instrument (`markets.<sym>.pip`): 0.1 on XAUUSD, 0.01 on
+  # every JPY cross, 0.0001 elsewhere -- the same table the commission bug in
+  # v5 was traced to, so it is read from the instrument spec, never assumed.
+  # 0.0 = off, which is the default so every published v6 number reproduces.
+  min_target_pips: 0.0
   preferred_rr_max: 4.0
   tp1_internal_liquidity: true
   tp2_previous_swing: true

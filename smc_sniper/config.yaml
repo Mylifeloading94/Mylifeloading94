@@ -758,6 +758,28 @@ profiles:
     targets.partial_tp.enabled: false
     targets.breakeven.enabled: false
     targets.trailing.enabled: false
+    # The duplicate-setup cooldown OFF. This is the only change in the whole v5
+    # session that improves TRAIN and TEST and raises frequency and lowers
+    # drawdown, and the effect is MONOTONE in how much deduplication is applied
+    # (TRAIN +0.132 at cooldown 8, +0.158 at 4, +0.246 at 2, +0.405 at off) --
+    # the shape of a real effect rather than a spike.
+    #
+    # READ THIS BEFORE TRUSTING ITS CONFIDENCE INTERVAL. With the cooldown off,
+    # 87 of 231 trades are same-pair, same-direction re-entries inside 24 hours
+    # -- several bets on ONE liquidity event, against one such pair with the
+    # cooldown on. An ordinary bootstrap resamples trades as if independent and
+    # reports [+0.110, +0.644]; a CLUSTER bootstrap that draws whole correlated
+    # groups reports [+0.0155, +0.7397]. It still clears zero, barely, and the
+    # walk-forward version of the same interval does not.
+    dedupe.enabled: false
+    # Concurrency caps ENFORCED. Not a performance choice -- it costs
+    # expectancy (+0.373R -> +0.326R) and takes the full-window cluster
+    # interval back to spanning zero. It is here because `max_open_positions:
+    # 3` is part of the spec's risk layer and was simply never wired up until
+    # v3 found it inert, and because with the cooldown off the system otherwise
+    # runs SIX simultaneous positions -- 12% of the account live at once at the
+    # 2% risk this deliverable is produced at.
+    risk.enforce_concurrency: true
 
   scalp:
     active_stack: "scalp15"

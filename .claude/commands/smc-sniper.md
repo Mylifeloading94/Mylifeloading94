@@ -20,14 +20,15 @@ measured to a definite answer and the answer is **no**.
 |---|---|---|---|
 | Setup timeframe | 1H | 15m (5m fills) | **1H** |
 | Target | liquidity ladder | ladder | **flat 4R, no management** |
-| Full window (~1200d) | 153 tr, 54.90%, PF 1.260, +0.114R | 1888 tr, 43.64%, PF 0.749, −0.131R | **144 tr, 32.64%, PF 1.341, +0.2438R** |
-| Break-even win rate | — | — | **20.0% — cleared by 12.6 points** |
-| Walk-forward OOS | 132 tr, 55.30%, +0.107R | 362 tr, 39.78%, −0.204R | **125 tr, 32.80%, PF 1.345, +0.2466R** |
-| Expectancy 95% CI | −0.061 to +0.286 | entirely below zero | **−0.071 to +0.560** |
-| CI clear of zero? | NO | yes — WRONG side | **NO** |
-| Max drawdown | 3.98% | 124% | **7.06%** |
-| Longest losing streak | 5 | 12 | **15** |
-| Trades/day | 0.17 | 3.78 | **0.12** |
+| Full window (~1200d) | 153 tr, 54.90%, PF 1.260, +0.114R | 1888 tr, 43.64%, PF 0.749, −0.131R | **195 tr, 34.87%, PF 1.468, +0.3255R** |
+| Break-even win rate | — | — | **20.0% — cleared by 14.9 points** |
+| Walk-forward OOS | 132 tr, 55.30%, +0.107R | 362 tr, 39.78%, −0.204R | **167 tr, 34.13%, PF 1.423, +0.2994R** |
+| Expectancy 95% CI (naive) | −0.061 to +0.286 | entirely below zero | **+0.045 to +0.609 — clears** |
+| Expectancy 95% CI (**cluster**) | — | — | **−0.013 to +0.668 — spans zero** |
+| CI clear of zero? | NO | yes — WRONG side | **NO, once its own correlation is priced in** |
+| Max drawdown | 3.98% | 124% | **7.65%** |
+| Longest losing streak | 5 | 12 | **14** |
+| Trades/day | 0.17 | 3.78 | **0.17** |
 | **3 trades/day reached?** | NO | YES (losing) | **NO** |
 
 **The audit is the headline.** Two lookaheads (an order-block quality rank
@@ -50,11 +51,24 @@ frontier is now measured.** 1H tops out at 0.62 trades/day and is negative
 there; a new 30m rung tops out at 1.25/day and is negative at every score gate
 on TRAIN and TEST independently; only 15m reaches 3.78/day, and that is the one
 configuration in this repo whose confidence interval is clear of zero — below
-it. **The achievable frequency on a working engine is about 0.12 trades a day.**
+it. **The achievable frequency on a working engine is about 0.17 trades a day.**
 
-**The 90-day $100k deliverable is five trades**, −3.83% at 1% risk and −7.56% at
-2%. Five trades cannot evaluate anything; the ~1200-day number is the one that
-means something, and its interval still contains zero.
+**The nearest thing to a breakthrough, and why it is reported with an asterisk.**
+Removing the duplicate-setup cooldown improves TRAIN, VALIDATION and TEST, adds
+60% more trades, and *lowers* drawdown — the only change in the session to do
+all four, and the effect is monotone in how much deduplication is applied. Its
+ordinary bootstrap interval **clears zero**, the first time that has happened
+here on the right side. But 87 of its 231 trades are same-pair, same-direction
+re-entries inside 24 hours — several bets on one liquidity event — so a
+**cluster bootstrap** that resamples correlated groups whole was run instead.
+Unconstrained it still clears, barely: **[+0.0155, +0.7397]**. With the spec's
+own concurrency caps enforced (they were inert until v3 found the bug, and
+without them the system runs six positions at once) it goes back to spanning
+zero: **[−0.0128, +0.6683]**. The shipped configuration is the conservative one.
+
+**The 90-day $100k deliverable is seven trades**, −4.69% at 1% risk and −9.23%
+at 2%. Seven trades cannot evaluate anything; the ~1200-day number is the one
+that means something, and its cluster interval still contains zero.
 
 **Forward results: still PENDING DEMO RUN.** Nothing in this repo has ever
 placed an order.
@@ -112,7 +126,7 @@ the result at 1% and 2% risk, and deliver a clean 90-day workbook. The first
 one is where the value was, and it produced **seven real defects**. The second
 one is measured to a definite answer and the answer is **no**.
 
-### The seven defects, with what each one cost
+### The eight defects, with what each one cost
 
 Each fix ships behind a flag that defaults to the OLD behaviour, so
 `python3 run_backtest.py --stack swing` still returns exactly 153 trades /
@@ -124,9 +138,10 @@ Each fix ships behind a flag that defaults to the OLD behaviour, so
 | 2 | **Commission ~190× too small on every JPY cross.** `contract_value` returned a flat 100,000 for all non-metal pairs, which is only right when the QUOTE currency is USD. A 1.0-unit move on 1 lot of USDJPY is 100,000 *JPY*, ≈$666. | `risk.py::contract_value` | Commission drag by quote currency: USD **0.0359R**, CHF 0.0320R, CAD 0.0259R, NZD 0.0130R, AUD 0.0150R, **JPY 0.00019R**. 36% of v2's trades were effectively commission-free. Fixing it costs **−0.0123R** (+0.114 → +0.102). |
 | 3 | **Lookahead in the risk layer.** `register` booked realised P/L, the consecutive-loss counter and the running balance at *signal* time, so the daily/weekly loss gates and the loss cooldown were evaluated against the outcome of positions that were still open. | `risk.py::register` | +1 trade, +0.0033R. Small on a stack that trades 0.13 times a day; structural on anything faster. |
 | 4 | **Asymmetric fill rule.** The entry limit required trade-through; the take profit — also a resting limit — filled on a touch. | `backtest.py` | **Zero measurable change** on 1H float prices. Fixed anyway: the rule should be symmetric, and it will bite on a tick-quantised feed or around round numbers. |
-| 5 | **Off-by-one in the fill window.** `end` is the first entry bar the limit is *already cancelled* for, and the scan ran `range(start, end + 1)`. `entry.valid_bars: 8` was really a 9-bar window, in the strategy's favour. | `backtest.py::simulate_trade` | (see round M) |
+| 5 | **Off-by-one in the fill window.** `end` is the first entry bar the limit is *already cancelled* for, and the scan ran `range(start, end + 1)`. `entry.valid_bars: 8` was really a 9-bar window, in the strategy's favour. | `backtest.py::simulate_trade` | 149 → 148 trades, **−0.0115R** (+0.126 → +0.115). Verified exactly: `exact_expiry` with `valid_bars: 9` reproduces the old result to the last decimal, so the window was off by precisely one bar. |
 | 6 | **Break-even exits are scored as wins.** A stop moved to entry + 0.05R exits a hair above zero, so `r > 0` books it as a win. 7 of 153 v2 trades exit at **+0.010R to +0.045R having banked no partial at all** — price tagged +1R intrabar, which triggers the break-even move but does not reach a TP1 sitting further out. | `metrics.py` | With a ±0.10R scratch band: 10 scratches, win rate **54.90% → 53.85%**. About one point, not the ~15 the same defect class was worth in the uploaded bot, because here the partial P/L is genuinely realised rather than assumed. `win_rate` is left alone; `win_rate_ex_scratch` is reported beside it. |
-| 7 | **The matched-R control is not entry-matched.** `min_rr` is applied to `rr_tp2`, which in `fixed_rr` mode is the flat multiple the config just asserted — so the reward-to-risk gate is inert for any flat target ≥ `min_rr` and lethal for any below it. `matched_r_control` papers over the second half by setting `min_rr = min(rr, 2.0)`, which means **every row of the matched-R table runs with the reward-to-risk filter switched off while the ladder baseline it is compared against runs with it on.** | `signal_engine.py`, `walkforward.py` | This is the check this repo leans on hardest — it is how `swing_4r` was adopted. (see round R) |
+| 7 | **The matched-R control is not entry-matched.** `min_rr` is applied to `rr_tp2`, which in `fixed_rr` mode is the flat multiple the config just asserted — so the reward-to-risk gate is inert for any flat target ≥ `min_rr` and lethal for any below it. `matched_r_control` papers over the second half by setting `min_rr = min(rr, 2.0)`, which means **every row of the matched-R table runs with the reward-to-risk filter switched off while the ladder baseline it is compared against runs with it on.** | `signal_engine.py`, `walkforward.py` | The check this repo leans on hardest — it is how `swing_4r` was adopted. Verified inert in ladder mode; with it on, every row of the matched-R sweep selects 144–146 trades against the ladder's 149 instead of an unfiltered population. |
+| 8 | **A requested 2% risk silently becomes 1%.** `Config.risk_per_trade_pct` clamps to `risk.risk_per_trade_max_pct`, which the spec sets to 1.0. | `config.py` | The first draft of the 1% and 2% deliverable tables came back **bit-for-bit identical**, same end balance to the cent. `run_scalp_100k.py` raises the cap (so v3's 2% figure is real); nothing warns a caller that does not. |
 
 ### What audited CLEAN — this is the valuable half
 
@@ -273,9 +288,10 @@ Every lever the brief named was tried:
   experiment to make sure the risk engine was not the thing being measured.
 * **An intermediate timeframe** — built, measured, negative.
 
-**The achievable frequency on a working engine is about 0.13 trades a day**
-(roughly one a week across 29 pairs), rising to the values in the gate table
-below at a cost in expectancy that is stated there. Manufacturing 3/day means
+**The achievable frequency on a working engine is about 0.17 trades a day**
+(roughly one a week across 29 pairs) — and that figure already includes the one
+change that raised it, removing the duplicate-setup cooldown. It rises to the
+values in the gate table below at a cost in expectancy that is stated there. Manufacturing 3/day means
 moving to a timeframe this repo has now measured as loss-making twice, at two
 different resolutions. That is not a trade worth making, and the brief said so:
 *if 3/day is not honestly reachable without destroying expectancy, say so.*
@@ -383,73 +399,6 @@ switched off cannot book a scratch as a win, because every trade ends at exactly
 +4R or exactly −1R. When the number being quoted is a win rate, that matters
 more than a tenth of an R.
 
-### The adopted v5 configuration, fully validated
-
-`profiles.v5` — 1D bias / 4H structure / 1H setup / 1H entry, 29 pairs, score
-gate 80/95, session-extreme sweeps excluded, **flat 4R target with all
-management stripped off**, all seven audit fixes on, ~1200 days of TradeLocker
-1H bars.
-
-| Split | Window | Trades | Win rate | PF | Expectancy |
-|---|---|---|---|---|---|
-| **IN-SAMPLE (train)** | 2023-05 → 2024-12 | 65 | 29.23% | 1.182 | +0.1318R |
-| **VALIDATION** | 2024-12 → 2025-08 | 38 | 31.58% | 1.405 | +0.2871R |
-| **OUT-OF-SAMPLE (test)** | 2025-08 → 2026-08 | 41 | 39.02% | 1.562 | +0.3814R |
-| **FULL WINDOW** | 2023-05 → 2026-08 | **144** | **32.64%** | **1.341** | **+0.2438R** |
-| **WALK-FORWARD (OOS only)** | 5 rolling folds | **125** | **32.80%** | **1.345** | **+0.2466R** |
-
-* Win-rate 95% CI **25.00 – 40.28%**, against a **20.0%** break-even line at 4R.
-* **Expectancy 95% CI [−0.0710R, +0.5597R] — IT STILL SPANS ZERO.**
-* Walk-forward OOS CI [−0.0851R, +0.6010R] — also spans zero.
-* Max drawdown **7.06%**. **Longest losing streak: 15.**
-* **0.123 trades a day.** Average winner +2.874R, average loser −1.031R.
-
-Walk-forward folds:
-
-| Fold | Fit → OOS | Fit trades | Fit E | OOS trades | OOS WR | OOS E |
-|---|---|---|---|---|---|---|
-| 1 | 2023-05 → 2024-06 | 19 | +0.226R | 23 | 34.78% | **+0.270R** |
-| 2 | 2023-11 → 2024-12 | 23 | +0.270R | 23 | 21.74% | −0.084R |
-| 3 | 2024-06 → 2025-07 | 23 | −0.084R | 33 | 36.36% | **+0.489R** |
-| 4 | 2024-12 → 2026-01 | 33 | +0.489R | 28 | 32.14% | −0.007R |
-| 5 | 2025-07 → 2026-08 | 28 | −0.007R | 18 | 38.89% | **+0.589R** |
-
-The walk-forward number (+0.2466R over 125 unseen trades) landing on top of the
-full-window number (+0.2438R over 144) is the most reassuring line in this
-document. Three of five folds are clearly positive, one is flat and one is
-negative, on 18–33 trade folds — the spread the confidence interval is
-describing.
-
-Pair selection still refuses to select: no pair reaches 12 fit-window trades
-(max 5 across 29 pairs), so every fold keeps everything and says so.
-
-**This is a better configuration than v2 by every measure that matters — nearly
-double the expectancy, a profit factor of 1.34, and a walk-forward that agrees
-with the full window. It is still not an established edge.** The interval
-contains zero. 144 trades cannot pin down a 33% win rate against a 20%
-break-even line, and the difference between the two is the whole result.
-
-### An eighth defect, found while building the deliverable
-
-`Config.risk_per_trade_pct` **clamps** to `risk.risk_per_trade_max_pct`, which
-the spec sets to 1.0. Asking the engine for 2% therefore returns a 1% run,
-silently: the first draft of the 1% and 2% tables came back **bit-for-bit
-identical** — same end balance to the cent — which reads as a copy-paste error
-rather than as a clamp. `run_scalp_100k.py` raises the cap explicitly (so v3's
-2% deliverable really was at 2%), but nothing warns a caller that does not.
-`run_v5_100k.py` now raises it deliberately and says so.
-
-The same block hides a second trap. The daily and weekly loss gates are
-percentages of the account, so at 2% risk an untouched `max_daily_loss_pct: 2.0`
-is tripped by **one** losing trade and `max_weekly_loss_pct: 5.0` by two and a
-half. A 2% run against unscaled gates measures the circuit breaker, not the
-strategy. Both are scaled with the risk step-up so that they bind at the same
-*number of losing trades* at every risk level and the two runs stay comparable.
-
-**2% is outside this system's own stated risk band** (`risk_per_trade_max_pct:
-1.0`). It is produced because the owner asked for it, with the loss-streak
-arithmetic printed beside it.
-
 ### Round H — the time stop against a wide target, matched-R
 
 The adopted 4R configuration has an average winner of **+2.874R**, not the ~3.5R
@@ -473,6 +422,173 @@ to harvest in profit go on to hit their stop instead. 96 bars is the TRAIN
 optimum in both directions, and the 2R control shows the identical shape, so it
 is a property of the time stop rather than of the target. **Audited clean.**
 
+### Round Q — setup-quality hypotheses
+
+Fourteen filters, on the all-fixes ladder baseline. Selection on TRAIN.
+
+| Change | Trades | TRAIN E | TEST E | Verdict |
+|---|---|---|---|---|
+| BASE | 149 | +0.106 | +0.032 | reference |
+| require OB **and** FVG | 149 | +0.106 | +0.032 | **NO-OP** |
+| require LTF confirmation | 149 | +0.106 | +0.032 | **NO-OP** |
+| require major sweep | 149 | +0.106 | +0.032 | **NO-OP** |
+| require structure-TF alignment | 148 | +0.124 | +0.032 | one trade — noise |
+| score gate 85 | **19** | +0.569 | −0.139 | REJECTED — n=6 on TRAIN |
+| `min_stop_over_cost` 15 | 91 | **+0.375** | **−0.007** | REJECTED — v3's non-replication, again |
+| `min_stop_over_cost` 6 | 221 | +0.049 | −0.017 | REJECTED |
+| `min_rr` 2.5 | 64 | **+0.209** | **+0.102** | better on both, costs 57% of trades |
+| dedupe cooldown 4 | 152 | +0.106 | +0.042 | flat |
+| dedupe cooldown 16 | 149 | +0.106 | +0.032 | no-op |
+| **dedupe OFF** | **237** | **+0.153** | **+0.118** | better on both **and 59% more trades** |
+| sessions + late NY | 174 | −0.021 | +0.077 | REJECTED |
+| sessions + Asian | 245 | −0.131 | +0.066 | REJECTED — max DD 15.9% |
+
+**Three of the four v3 hard gates are exact no-ops at a score gate of 80.** A
+setup that scores 80 out of 95 has already earned the order block, the FVG, the
+major sweep and the LTF confirmation — promoting any of them to a pass/fail
+requirement removes nothing. That is a useful negative: the gates only do work
+at the lower thresholds a scalping stack needs, which is where they were
+measured (and rejected) in v3.
+
+The two candidates that improve **both** splits are `min_rr 2.5` and turning the
+duplicate-setup cooldown **off**. Both were carried to the adopted configuration.
+
+### Round M — the caps, now that they are no longer inert
+
+| Change | Trades | TRAIN E | TEST E | Reading |
+|---|---|---|---|---|
+| BASE | 149 | +0.106 | +0.032 | reference |
+| `enforce_concurrency` ON | 147 | +0.106 | +0.032 | costs 2 trades — the natural maximum is exactly 3 |
+| `max_trades_per_day` 12 | 149 | +0.106 | +0.032 | **NO-OP** — the cap of 3 never binds at 0.13 trades/day |
+| consecutive-loss cooldown off | 150 | +0.106 | +0.063 | one trade |
+| 13-pair universe | 91 | +0.157 | +0.115 | better per trade, 39% fewer trades — v2's finding, unchanged |
+| structural invalidation ON | — | — | — | v2's rejected exit, still rejected |
+
+**`risk.max_trades_per_day: 3` would bind hard at the owner's target frequency
+and does not bind at all today** — it was raised to 30 in every frequency
+experiment so the risk engine could not be mistaken for the strategy.
+`max_open_positions: 3` turns out to sit exactly on the natural maximum: with
+enforcement on it costs two trades in 1200 days.
+
+### The one change that improved everything — and what is wrong with it
+
+`dedupe.enabled: false` removes the duplicate-setup cooldown, which by default
+suppresses any second signal on the same pair and direction within 8 setup bars.
+On the adopted 4R configuration:
+
+| Dedupe setting | Trades | /day | WR | PF | Full E | TRAIN E | TEST E | Max DD | Max concurrent | Clustered (24h) |
+|---|---|---|---|---|---|---|---|---|---|---|
+| **cooldown 8 (default)** | 144 | 0.123 | 32.64% | 1.341 | +0.244R | +0.132 | +0.381 | 7.06% | 3 | **1** |
+| cooldown 4 | 148 | 0.126 | 33.11% | 1.357 | +0.253R | +0.158 | +0.348 | 7.38% | 3 | 3 |
+| cooldown 2 | 183 | 0.156 | 34.43% | 1.442 | +0.304R | +0.246 | +0.468 | 6.50% | 4 | 36 |
+| **off** | **231** | **0.197** | 35.93% | **1.549** | **+0.373R** | **+0.405** | **+0.409** | 6.48% | 6 | **87** |
+| off + concurrency enforced | 195 | 0.166 | 34.87% | 1.468 | +0.326R | +0.362 | +0.355 | 7.65% | 3 | 51 |
+
+Every column moves the right way and the effect is **monotone in how much
+deduplication is applied** — +0.132 → +0.158 → +0.246 → +0.405 on TRAIN, with
+TEST rising too, 60% more trades, and *lower* maximum drawdown. That is the
+shape of a real effect rather than a spike, and its ordinary bootstrap interval
+is **[+0.110, +0.644] — the first interval in this repo's history to clear zero
+on the right side.**
+
+**And that interval is not trustworthy, for a reason visible in the last
+column.** With the cooldown off, **87 of 231 trades are same-pair,
+same-direction re-entries inside 24 hours** — several bets on one liquidity
+event — against **one** with the cooldown on. A percentile bootstrap that
+resamples individual trades treats those as independent observations. It is the
+same statistic that would call 87 copies of one coin flip 87 pieces of evidence.
+
+#### The cluster bootstrap
+
+So a **cluster bootstrap** was run instead: a cluster is a run of same-symbol,
+same-direction trades whose signals are within 24 hours of each other, and the
+resampling draws or drops each cluster **whole**. It is the same statistic asked
+a fairer question — *how many independent things did this system actually do?*
+
+| Configuration | Trades | **Clusters** | E | Naive 95% CI | **Cluster 95% CI** |
+|---|---|---|---|---|---|
+| dedupe ON | 144 | 143 | +0.2438R | [−0.0710, +0.5597] spans | [−0.0623, +0.5686] spans |
+| **dedupe OFF** | 231 | **144** | **+0.3726R** | [+0.1101, +0.6444] clears | **[+0.0155, +0.7397] CLEARS** |
+| dedupe OFF + concurrency | 195 | **144** | +0.3255R | [+0.0454, +0.6092] clears | [−0.0128, +0.6683] spans |
+
+Read the clusters column. **All three configurations do the same 144 independent
+things.** Turning the cooldown off does not find 87 new opportunities; it takes
+87 extra positions on opportunities it already had. On the deduped baseline the
+cluster interval is indistinguishable from the naive one (143 clusters, 144
+trades) — which is the check that the method is measuring what it claims to.
+
+**Unconstrained, the interval clears zero by 0.0155R.** That is the first
+right-side clearance in this repo's history and it is a whisker, on a definition
+of "correlated" (24 hours, same pair, same direction) that was chosen once and
+not tuned. Widen the window and it would close.
+
+#### What was shipped, and why it is the weaker number
+
+`profiles.v5` takes the cooldown off **and turns the concurrency caps on**.
+That costs expectancy (+0.373R → +0.326R) and puts the cluster interval back
+across zero. It is not a performance choice:
+
+* `max_open_positions: 3` is part of the spec's risk layer. It was read by the
+  risk engine and written by nothing until v3 found it inert — so it has never
+  bound in any published backtest here. Turning it on is honouring the spec.
+* Without it, the cooldown-off configuration runs **six simultaneous positions**.
+  At the 2% risk this deliverable is produced at, that is 12% of the account
+  live at once, on positions that are correlated by construction.
+
+**The configuration whose interval clears zero is the one that runs six
+correlated positions at a time. The one that is shipped does not clear.** Both
+rows are printed so nobody has to take that on trust.
+
+Walk-forward tells the same story with less flattery: shipped, 167 out-of-sample
+trades across 122 clusters, 34.13% win rate, PF 1.423, **+0.2994R**, naive CI
+[+0.0070, +0.6144] and **cluster CI [−0.0500, +0.6764] — spans zero.** Even the
+unconstrained version's walk-forward cluster interval spans zero
+([−0.0514, +0.7157]).
+
+### The adopted v5 configuration, fully validated
+
+`profiles.v5` — 1D bias / 4H structure / 1H setup / 1H entry, 29 pairs, score
+gate 80/95, session-extreme sweeps excluded, **flat 4R target with all
+management stripped off**, **no duplicate-setup cooldown**, **concurrency caps
+enforced**, all eight audit fixes on, ~1200 days of TradeLocker 1H bars.
+
+| Split | Window | Trades | Win rate | PF | Expectancy |
+|---|---|---|---|---|---|
+| **IN-SAMPLE (train)** | 2023-05 → 2024-12 | 95 | 33.68% | 1.531 | +0.3617R |
+| **VALIDATION** | 2024-12 → 2025-08 | 43 | 30.23% | 1.240 | +0.1738R |
+| **OUT-OF-SAMPLE (test)** | 2025-08 → 2026-08 | 58 | 39.66% | 1.509 | +0.3553R |
+| **FULL WINDOW** | 2023-05 → 2026-08 | **195** | **34.87%** | **1.468** | **+0.3255R** |
+| **WALK-FORWARD (OOS only)** | 5 rolling folds | **167** | **34.13%** | **1.423** | **+0.2994R** |
+
+* **Break-even win rate at 4R is 20.0%. The measured 34.87% clears it by 14.9
+  points.**
+* Expectancy 95% CI, naive [+0.0454, +0.6092]; **cluster [−0.0128, +0.6683] —
+  spans zero.**
+* Walk-forward OOS cluster CI [−0.0500, +0.6764] — spans zero.
+* Max drawdown **7.65%**. **Longest losing streak: 14.** 144 independent
+  clusters across 195 trades.
+* **0.166 trades a day.**
+
+All three splits are positive, TRAIN → TEST barely moves (+0.362 → +0.355), and
+the walk-forward number sits just under the full-window one. That is the
+strongest set of internal agreements this repo has produced.
+
+**And the interval still contains zero once the trade correlation is priced in.**
+Every version of this document has had to end that sentence the same way. v5
+gets closer than any of them — the naive interval clears, and the unconstrained
+cluster interval clears — but the configuration that is actually shipped does
+not.
+
+**Compared with everything before it:**
+
+| | v1 | v2 | v3 `swing_4r` | **v5** |
+|---|---|---|---|---|
+| Expectancy | +0.052R | +0.114R | +0.263R | **+0.3255R** |
+| Profit factor | 1.113 | 1.260 | 1.375 | **1.468** |
+| Walk-forward OOS | +0.092R | +0.107R | not run | **+0.2994R** |
+| Trades/day | 0.17 | 0.17 | 0.17 | **0.17** |
+| Contains a measured lookahead | yes | yes | yes | **no** |
+
 ### The $100,000 / 90-day deliverable, at 1% AND 2%
 
 `profiles.v5`, most recent 90 days of broker data (2026-05-16 → 2026-08-14),
@@ -481,33 +597,44 @@ $100,000, compounding trade by trade, two independent runs.
 | | **1% risk** | **2% risk** |
 |---|---|---|
 | Start balance | $100,000.00 | $100,000.00 |
-| **End balance** | **$96,166.57** | **$92,436.37** |
-| **Total profit** | **−$3,833.43** | **−$7,563.63** |
-| **Total ROI** | **−3.83%** | **−7.56%** |
-| Trades | **5** | **5** |
-| Win rate | 20.00% (1 of 5) | 20.00% |
-| Profit factor | 0.082 | 0.080 |
-| Max drawdown | 4.18% | 8.22% |
-| Longest losing streak | 4 | 4 |
-| Trades per weekday | 0.078 | 0.078 |
+| **End balance** | **$95,313.02** | **$90,769.95** |
+| **Total profit** | **−$4,686.98** | **−$9,230.05** |
+| **Total ROI** | **−4.69%** | **−9.23%** |
+| Trades | **7** | **7** |
+| Win rate | 28.57% (2 of 7) | 28.57% |
+| Profit factor | 0.094 | 0.091 |
+| Max drawdown | 5.18% | 10.16% |
+| Longest losing streak | 5 | 5 |
+| Trades per weekday | 0.109 | 0.109 |
 | Active days | 5 of 91 | 5 of 91 |
-| Expectancy CI | n=5 — refused | n=5 — refused |
+| Expectancy CI | n=7 — refused | n=7 — refused |
 
-Monthly: May 0.00%, June 0.00%, July −2.11% / −4.19%, August −1.76% / −3.52%.
-
-**Five trades is not a result and this document will not pretend otherwise.** A
-four-loss run is completely ordinary at a 33% win rate — it is the modal outcome
-of five trades — and it is most of what this window contains. The same
-configuration returns **+0.2438R over 144 trades** and **+0.2466R over 125
-walk-forward trades**. Ninety days at 0.12 trades a day cannot distinguish a
-working system from a broken one, and the bootstrap interval is **refused**
-rather than reported below 30 trades, because an interval on five trades is not
-evidence in either direction.
+**Seven trades is not a result and this document will not pretend otherwise.**
+A five-loss run is ordinary at a 35% win rate, and it is most of what this
+window contains. The same configuration returns **+0.3255R over 195 trades**
+and **+0.2994R over 167 walk-forward trades**. Ninety days at 0.17 trades a day
+cannot distinguish a working system from a broken one, and the bootstrap
+interval is **refused** rather than reported below 30 trades, because an
+interval on seven trades is not evidence in either direction.
 
 This is the third time this repo has produced a thin 90-day deliverable, and the
 reason is structural rather than unlucky: the configurations with an edge do not
 trade often enough for a quarter to detect it, and the configuration that trades
 often enough has no edge. That sentence is the whole session.
+
+### The deliverable workbook
+
+`Bot_Performance_90d.xlsx` — five sheets and exactly the columns the owner asked
+for, **Date, Pair, Trades, Profit, ROI**, with both risk levels behind a
+`Risk %` column so one filter shows either.
+
+| Sheet | Contents |
+|---|---|
+| **Summary** | Start/end balance, total profit, total ROI, win rate, profit factor, max drawdown, trades, trades per day — at each risk level. Under it, the long-window numbers and the reason the 90-day ones cannot carry a claim. |
+| **Trades** | One row per closed trade. |
+| **Daily** | All 91 days. Flat days and weekends shaded, not deleted. |
+| **Weekly** | 14 weeks. |
+| **Monthly** | 4 months. |
 
 ### What 2% actually implies here
 
@@ -516,38 +643,49 @@ often enough has no edge. That sentence is the whole session.
 
 | | |
 |---|---|
-| Longest losing streak in the 90-day window | 4 |
-| **Longest losing streak over the full ~1200 days** | **15** |
-| Drawdown from that 15-loss streak at **1%** | **14.0%** |
-| Drawdown from that 15-loss streak at **2%** | **26.1%** |
+| Longest losing streak in the 90-day window | 5 |
+| **Longest losing streak over the full ~1200 days** | **14** |
+| Drawdown from that 14-loss streak at **1%** | **13.1%** |
+| Drawdown from that 14-loss streak at **2%** | **24.7%** |
 | Consecutive losses needed to lose 20% at 2% | 11 |
-| Probability of a single loss | **0.67** |
+| Probability of a single loss | **0.65** |
 
-A 15-loss streak sounds extreme and is not: at a 67% loss rate over 144 trades
-the *expected* longest run is about 12, so 15 is ordinary. **At 2% that ordinary
-run is a 26% drawdown, and the expectancy interval still contains zero** — which
+A 14-loss streak sounds extreme and is not: at a 65% loss rate over 195 trades
+the *expected* longest run is about 12, so 14 is ordinary. **At 2% that ordinary
+run is a 25% drawdown, and the cluster interval still contains zero** — which
 means the system is not yet known to make the money back. On a configuration
 with a demonstrated edge 2% would be aggressive. On this one it is a bet that
 the edge is real, sized as though it already were.
 
-At 1% the same streak costs 14%. That is not an argument that 1% is safe; it is
+At 1% the same streak costs 13%. That is not an argument that 1% is safe; it is
 the same bet at half the stake.
 
 ### v5 caveats
 
-1. **The expectancy CI still spans zero.** [−0.0710R, +0.5597R] on the full
-   window, [−0.0851R, +0.6010R] walk-forward. This is the best configuration
-   this repo has measured and it is still not an established edge. Getting this
-   interval clear of zero remains the most valuable available outcome and **v5
-   did not achieve it either.**
+1. **The expectancy CI still spans zero once trade correlation is priced in.**
+   Naive [+0.0454, +0.6092] — clears. **Cluster [−0.0128, +0.6683] — does not.**
+   Walk-forward cluster [−0.0500, +0.6764] — does not. This is the best
+   configuration this repo has measured, it is the closest any version has come,
+   and it is still not an established edge. **v5 did not achieve it either.**
+
+1b. **The cluster definition was chosen once and not tuned**, deliberately —
+   24 hours, same pair, same direction. It is a judgement call, and the
+   unconstrained result clears zero by 0.0155R, which is inside the range a
+   different reasonable definition could move it. Nobody should read that
+   clearance as a fact.
 2. **Two of the eight defects were flattering the out-of-sample half.** Honest
    v2 TEST expectancy is +0.032R, not +0.083R. Every historical number in this
    document that predates v5 carries that correction.
-3. **The 15-trade losing streak is a property of a 33% win rate, not a warning
+3. **The 14-trade losing streak is a property of a 35% win rate, not a warning
    sign.** It is also the number that decides what risk setting is survivable.
-4. **144 trades cannot pin a 33% win rate against a 20% break-even line.** The
-   win-rate CI is 25.00–40.28%; the bottom of it is *above* break-even, which is
-   the most encouraging single fact here, and it is still a 15-point interval.
+4. **195 trades across 144 independent clusters cannot pin a 35% win rate
+   against a 20% break-even line.** The margin over break-even is the whole
+   result, and the sample is not large enough to measure it precisely.
+4b. **Removing the duplicate-setup cooldown is the session's one adopted
+   improvement and it buys correlation.** 51 of the shipped configuration's 195
+   trades are same-pair, same-direction re-entries inside 24 hours. It improved
+   TRAIN, VALIDATION and TEST, it lowered drawdown, and it did not add a single
+   independent opportunity — 144 clusters before and after.
 5. **Pair selection still refuses to select** — no pair reaches 12 fit-window
    trades (max 5 across 29 pairs) in any walk-forward fold.
 6. **A window-median FX rate is used for the quote-currency conversion.** It

@@ -1,0 +1,3 @@
+variant,seconds,per_day,n,wr,pf,exp,max_dd,total_r,max_loss_streak,train_n,train_wr,train_pf,train_exp,validation_n,validation_wr,validation_pf,validation_exp,test_n,test_wr,test_pf,test_exp,ci_lo,ci_hi,wr_lo,wr_hi
+causal OB only,20.4,0.127,149,55.7,1.322,0.1391,2.29,20.72,5,68,52.94,1.256,0.117,39,66.67,1.882,0.2788,42,50.0,1.085,0.0452,-0.0375,0.3167,47.65,63.76
+ALL v5 audit fixes,16.0,0.127,149,55.7,1.289,0.1262,2.31,18.8,5,68,52.94,1.232,0.1064,39,66.67,1.821,0.2622,42,50.0,1.057,0.0319,-0.0497,0.3034,47.65,63.76

@@ -28,8 +28,12 @@ measured to a definite answer and the answer is **no**.
 | CI clear of zero? | NO | yes — WRONG side | **NO, once its own correlation is priced in** |
 | Max drawdown | 3.98% | 124% | **7.65%** |
 | Longest losing streak | 5 | 12 | **14** |
-| Trades/day | 0.17 | 3.78 | **0.17** |
+| Trades/day | 0.13 | 3.78 | **0.17** |
 | **3 trades/day reached?** | NO | YES (losing) | **NO** |
+
+*(Trades/day is measured the same way in every column of this table — trades
+divided by the span from the first signal to the last exit. Earlier versions of
+this document quoted 0.17 for v2 on a different denominator.)*
 
 **The audit is the headline.** Two lookaheads (an order-block quality rank
 reading two bars into the future on 11.16% of 88,299 blocks; the risk engine

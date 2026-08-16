@@ -7,7 +7,176 @@ honestly.
 
 ---
 
-## STATUS — read this first  ·  **v6**
+## STATUS — read this first  ·  **v7**
+
+**Do not trade any of this live.**
+
+v7 was asked one question: *"Backtest, find multiple high win rate setups, 90
+days, $100k. Keep improving until the bot meets all requirements: 20 pip target
+minimum"* — read together with the standing ask for **60% win rate, nothing
+less**, at **1:2 to 1:5 reward-to-risk**. The win-rate / reward-to-risk frontier
+was measured properly at both gate settings, and the answer is definite.
+
+### 60% is reachable. It is the worst configuration on the board.
+
+| Target | Trades (gate off → 20p) | WR | Break-even WR | **Clears by** | PF | Full E | **$/trade** | TRAIN E | TEST E | Max DD | Streak | Cluster CI | Clears? |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| flat 1.0R | 204 → **171** (−16.2%) | **60.82%** | 50.00% | **+10.82** | 1.288 | +0.1196 | **$119.60** | +0.1238 | **−0.0436** | 3.82% | 8 | [−0.0507, +0.2818] | no |
+| flat 1.5R | 199 → 190 | 51.58% | 40.00% | +11.58 | 1.325 | +0.1671 | $167.10 | +0.1979 | +0.0127 | 4.03% | 8 | [−0.0416, +0.3664] | no |
+| **flat 2.0R — ADOPTED** | 198 → **196** | **47.45%** | 33.33% | **+14.12** | 1.478 | +0.2660 | **$266.00** | **+0.2931** | **+0.1688** | **3.57%** | **7** | **[+0.0245, +0.5151]** | **YES** |
+| flat 2.5R | 195 → 195 | 41.54% | 28.57% | +12.97 | 1.402 | +0.2512 | $251.20 | +0.2418 | +0.2597 | 4.02% | 9 | [−0.0139, +0.5159] | no |
+| flat 3.0R | 192 → 192 | 38.54% | 25.00% | +13.54 | 1.387 | +0.2557 | $255.70 | +0.3684 | +0.1237 | 7.26% | 9 | [−0.0441, +0.5649] | no |
+| **flat 4.0R (v6)** | 193 → 193 | 36.27% | 20.00% | **+16.27** | **1.520** | **+0.3521** | **$352.10** | **+0.4022** | **+0.3553** | 7.51% | 11 | **[+0.0092, +0.6948]** | **YES** |
+
+Dollar expectancy is `expectancy_R × $1,000` — 1% of a $100,000 account. Every
+row is entry-matched (`min_rr_on_liquidity` TRUE throughout), so the rows differ
+in their **exit only** and never in which setups they take. Harness sanity
+check: the 4.0R row reproduces `profiles.v6` bit-for-bit at 193 / 36.27% /
+PF 1.520 / +0.3521R / [+0.0092, +0.6948].
+
+**Answered plainly:**
+
+* **Is 60% reached? Yes — 60.82% at flat 1:1** (61.27% with the gate off).
+* **Does it earn more than 1:4? No, less than half.** $119.60 a trade against
+  $352.10. Over the same 196-ish trade window that is roughly **$20,500 against
+  $68,000** on a flat-R basis.
+* **Is it a real configuration? No.** Its out-of-sample TEST half is
+  **negative** (−0.0436R), its cluster interval spans zero, and 1:1 sits
+  **outside the owner's own stated 1:2–1:5 band**. It buys the win rate by
+  shrinking the reward — the operation this repo has now rejected five times
+  under matched-R, entry-matched controls.
+* **Read "clears by", never the win rate.** 60.82% at 1:1 clears its 50% line by
+  10.82 points. 47.45% at 1:2 clears its 33.33% line by 14.12, and 36.27% at 1:4
+  clears its 20% line by 16.27. **The win rate ranking and the money ranking are
+  exactly inverted**, and that is the whole finding.
+
+### "Multiple high win rate setups" — the honest count is one, not several
+
+The bar set for this was **2+ configurations at 55%+ WR with a cluster CI that
+is not deeply negative**. Only **one** row on the frontier clears 55%, and it is
+the 1:1 row that fails on every other measure. **There is no plural answer at
+55%+ and none is fabricated here.**
+
+What there *are* two of is **configurations whose cluster interval clears zero
+and which are positive on TRAIN and TEST independently** — and that is the
+useful pair to put in front of the owner:
+
+| | **flat 1:2 (v7)** | **flat 1:4 (v6)** |
+|---|---|---|
+| Win rate | **47.45%** | 36.27% |
+| Clears break-even by | +14.12 | **+16.27** |
+| Expectancy | +0.2660R (**$266/trade**) | **+0.3521R ($352/trade)** |
+| $100k over 1,200 days @1% | $161,928.66 (**+61.93%**) | **$182,651.16 (+82.65%)** |
+| CAGR | 15.80% | **20.12%** |
+| **Max drawdown** | **7.57%** | 17.76% |
+| **Longest losing streak** | **7** | 11 |
+| TRAIN / VALIDATION / TEST | **+0.2931 / +0.3503 / +0.1688** | +0.4022 / +0.1738 / +0.3553 |
+| Full-window cluster CI | [+0.0245, +0.5151] **clears** | [+0.0092, +0.6948] **clears** |
+| Walk-forward cluster CI | [−0.0305, +0.5005] **spans** | [−0.0431, +0.7079] **spans** |
+
+**1:2 is adopted for the owner's brief; 1:4 remains the higher-earning config.**
+The choice costs about **$20,700 over 3.29 years** and buys **less than half the
+drawdown and a losing streak of 7 instead of 11**. Both are stated so nobody
+picks one blind.
+
+**Why 1:2 and not "the row with the best number":** it is the **highest-win-rate
+point inside the 1:2–1:5 band the owner specified** — a constraint-driven
+selection, not a full-window argmax. v6 explicitly warned that adopting 2R
+*because its full-window interval clears* would be selecting on the full window,
+and that warning still stands; this is not that. The supporting fact is that
+**1:2 is positive on all three splits** (+0.2931 / +0.3503 / +0.1688), where v6's
+1:4 has a validation dip to +0.1738.
+
+### The 20-pip gate: it binds now, and it changes almost nothing
+
+`targets.min_target_pips` was added in the last session and measured as a
+complete no-op at 4R. Once the target shrinks it finally binds:
+
+| Target | Setups removed by the 20-pip gate | Effect |
+|---|---|---|
+| 1:4, 1:3, 1:2.5 | **0** | still a no-op — smallest target in the ledger is 37.8 pips |
+| 1:2 | **2 of 198 (1.0%)** | +0.2523R → +0.2660R, CI [+0.0049, +0.4935] → [+0.0245, +0.5151] |
+| 1:1.5 | 9 of 199 (4.5%) | +0.1576R → +0.1671R |
+| **1:1** | **33 of 204 (16.2%)** | +0.1205R → +0.1196R — costs a sixth of the population and buys nothing |
+
+**The gate is a cost-viability floor, and this system was already above it
+almost everywhere.** The reason is structural and was established last session:
+the target is `risk_distance × RR`, and the risk distances are structural stops
+(sweep extreme / zone boundary / ATR buffer) that are large in absolute terms.
+Only at 1:1 does a meaningful share of targets fall under 20 pips. The two
+trades it removes at the adopted 1:2 improve every statistic slightly; **that is
+two trades out of 198 and is not claimed as an improvement.** The requirement is
+met by construction, and it was never the thing holding the win rate down.
+
+### The deliverable
+
+`Mylifeloading_SMC_Sniper_v7_100k_backtest.xlsx`, built with `report_format.py`
+(the house standard), $100,000 at 1% risk, compounding:
+
+| | **Full window (1,200 days)** | **Most recent 90 days** |
+|---|---|---|
+| Trades | **196** | **7** |
+| Win rate | **47.45%** | 28.57% |
+| Profit factor | 1.424 | 0.094 |
+| Ending balance | **$161,928.66** | $95,313.02 |
+| ROI | **+61.93%** | −4.69% |
+| CAGR | 15.80% | — |
+| Max drawdown | 7.57% | 5.18% |
+| Longest losing streak | 7 | — |
+
+**The 90-day window is seven trades and it is not evidence** — unchanged from v5
+and v6, because at 0.17 trades a day 90 days is seven trades and a five-loss run
+is completely ordinary at this win rate. It is on its own sheet, labelled.
+Sheets: `Summary` · `Trade Log` · `Periods` (house standard, in that order) plus
+`Daily Profit` · `Weekly Profit` · `Monthly Profit` (continuous calendars with
+period, trades, wins, losses, win rate, P&L $, ROI %, cumulative ROI %, running
+balance) · `RR Frontier` · `90-Day Window`.
+
+**One reporting defect found and fixed while building it:** the trade log was
+rebuilding P&L as `R × 1% of balance` instead of reading the engine's booked
+`pnl`. That discards lot rounding, the XAUUSD risk override and the daily/weekly
+loss gates, and it overstated the ending balance by ~3% ($165,167 against the
+run's $161,929). The workbook now agrees with the run it reports.
+
+### The honest verdict on 60%
+
+**No configuration of this system reaches 60% at a reward-to-risk the owner
+asked for, and the one that reaches 60% at all loses most of the money and
+fails out of sample.** The constraint set — 60% WR *and* 1:2–1:5 RR *and* a
+20-pip floor *and* positive expectancy — has no solution here, and the binding
+constraint is not the pip floor or the pair list. It is arithmetic: at 1:2 the
+break-even win rate is 33.3%, and a system clearing that line by 14 points is
+doing well; asking it to also clear 60% is asking for a **1.8× better edge than
+it has**, not a better filter. The 20-pip requirement is met. The 1:2–1:5 band
+is met. Positive expectancy is met on all three splits. **60% is not met and
+this document does not pretend it is.**
+
+**Forward results: still PENDING DEMO RUN.** Nothing in this repo has ever
+placed an order. The walk-forward cluster interval still spans zero at both 1:2
+and 1:4 — **the edge is encouraging and it is not established.**
+
+### How to run v7
+
+```bash
+# The frontier, both gate settings
+python3 tune_v7.py --round rr --gate 0
+python3 tune_v7.py --round rr --gate 20
+
+# Walk-forward on the adopted config
+python3 tune_v7.py --round final --extra '{"targets.fixed_rr": 2.0, "targets.min_target_pips": 20.0}'
+
+# The $100k deliverable, both windows
+python3 run_v7_100k.py --full   --rr 2.0 --gate 20 --risks 1.0 --tag full_2r
+python3 run_v7_100k.py --days 90 --rr 2.0 --gate 20 --risks 1.0 --tag 90d_2r
+python3 build_v7_workbook.py    # -> Mylifeloading_SMC_Sniper_v7_100k_backtest.xlsx
+
+# v6 must STILL reproduce: 193 / 36.27% / PF 1.520 / +0.3521R
+python3 tune_v7.py --round pipgate
+```
+
+---
+
+## STATUS — v6 (superseded by v7, kept for continuity)
 
 **Do not trade any of this live.**
 

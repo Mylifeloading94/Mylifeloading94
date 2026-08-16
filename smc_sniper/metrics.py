@@ -10,6 +10,8 @@ to meaningless on its own. This repo's history contains a 70% that was really
 """
 from __future__ import annotations
 
+from statistics import NormalDist
+
 import numpy as np
 import pandas as pd
 
@@ -185,3 +187,88 @@ def equity_curve(trades: pd.DataFrame, starting_balance: float = 10000.0) -> pd.
     peak = frame["equity"].cummax()
     frame["drawdown_pct"] = (frame["equity"] - peak) / peak * 100
     return frame
+
+
+# ---------------------------------------------------------------------------
+# Multiple-testing correction: the Probabilistic and Deflated Sharpe Ratios
+# ---------------------------------------------------------------------------
+# ADDED IN v7, from outside research rather than from this repo's own habits.
+#
+# Bailey, D. H. & Lopez de Prado, M. (2014), "The Deflated Sharpe Ratio:
+# Correcting for Selection Bias, Backtest Overfitting, and Non-Normality",
+# Journal of Portfolio Management 40(5), 94-107.
+#   https://papers.ssrn.com/sol3/papers.cfm?abstract_id=2460551
+# and Bailey, Borwein, Lopez de Prado & Zhu (2014), "The Probability of
+# Backtest Overfitting", https://www.davidhbailey.com/dhbpapers/backtest-prob.pdf
+#
+# WHY IT BELONGS HERE. This repo already prices correlation (the cluster
+# bootstrap) and already refuses to select on the full window. It does NOT
+# price the one remaining source of optimism: **the number of configurations
+# that were measured before one was kept.** Several hundred variants have been
+# scored across v2-v7. The maximum of several hundred noisy Sharpe estimates is
+# well above zero even when every one of them has zero true edge, and the
+# ordinary interval says nothing about that. The DSR is the standard correction
+# and it is applied here to the per-trade R series, where the "return period"
+# is one trade.
+#
+# It is expected to be unflattering. That is the point of running it.
+EULER_MASCHERONI = 0.5772156649015329
+
+
+def sharpe_stats(returns) -> dict:
+    """Per-observation Sharpe and the higher moments the PSR needs."""
+    r = np.asarray(returns, dtype=float)
+    r = r[np.isfinite(r)]
+    n = len(r)
+    if n < 3:
+        return {"n": n, "sr": float("nan"), "skew": float("nan"),
+                "kurt": float("nan"), "se": float("nan")}
+    mu, sd = float(r.mean()), float(r.std(ddof=1))
+    sr = mu / sd if sd > 0 else float("nan")
+    z = (r - mu) / sd if sd > 0 else r * 0.0
+    skew = float((z ** 3).mean())
+    kurt = float((z ** 4).mean())          # NON-excess kurtosis, per the paper
+    # Mertens / Lo standard error of the Sharpe estimator under non-normality.
+    var = (1.0 - skew * sr + 0.25 * (kurt - 1.0) * sr ** 2) / (n - 1)
+    return {"n": n, "sr": sr, "skew": skew, "kurt": kurt,
+            "se": float(np.sqrt(var)) if var > 0 else float("nan")}
+
+
+def probabilistic_sharpe(returns, benchmark_sr: float = 0.0) -> float:
+    """P(true Sharpe > benchmark), corrected for skew, kurtosis and sample size."""
+    st = sharpe_stats(returns)
+    if not np.isfinite(st["sr"]) or not np.isfinite(st["se"]) or st["se"] <= 0:
+        return float("nan")
+    return float(NormalDist().cdf((st["sr"] - benchmark_sr) / st["se"]))
+
+
+def expected_max_sharpe(n_trials: int, trial_sr_std: float) -> float:
+    """E[max SR] over `n_trials` independent zero-skill trials.
+
+    Bailey & Lopez de Prado's approximation:
+        E[max] ~ sd(SR_k) * [ (1 - g) * Z^-1(1 - 1/N) + g * Z^-1(1 - 1/(N*e)) ]
+    with g the Euler-Mascheroni constant. `trial_sr_std` is the dispersion of
+    the Sharpe estimates ACROSS the trials that were actually run -- a strategy
+    search over near-identical variants has a small dispersion and is deflated
+    less than one that ranged widely.
+    """
+    nd = NormalDist()
+    n = max(int(n_trials), 2)
+    g = EULER_MASCHERONI
+    maxz = ((1.0 - g) * nd.inv_cdf(1.0 - 1.0 / n)
+            + g * nd.inv_cdf(1.0 - 1.0 / (n * np.e)))
+    return float(trial_sr_std * maxz)
+
+
+def deflated_sharpe(returns, n_trials: int, trial_sr_std: float) -> dict:
+    """DSR = PSR evaluated against the Sharpe a zero-skill search would produce.
+
+    Returns the components as well as the probability, because the components
+    are what make the number auditable: a DSR of 0.6 on 400 trials means
+    something different from a DSR of 0.6 on 4.
+    """
+    st = sharpe_stats(returns)
+    sr0 = expected_max_sharpe(n_trials, trial_sr_std)
+    return {**st, "n_trials": int(n_trials), "trial_sr_std": float(trial_sr_std),
+            "sr0": sr0, "psr_vs_zero": probabilistic_sharpe(returns, 0.0),
+            "dsr": probabilistic_sharpe(returns, sr0)}

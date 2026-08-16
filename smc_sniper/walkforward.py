@@ -96,7 +96,8 @@ def select_pairs_on_train(train_trades: pd.DataFrame, cfg,
 
 
 def walk_forward(bt, contexts, folds: int = 5, train_frac: float = 0.5,
-                 anchored: bool = False, starting_balance: float = 10000.0) -> dict:
+                 anchored: bool = False, starting_balance: float = 10000.0,
+                 allowed_symbols=None) -> dict:
     """Rolling fit -> out-of-sample evaluation.
 
     Each fold selects pairs on its own fit window and scores those pairs on the
@@ -117,10 +118,17 @@ def walk_forward(bt, contexts, folds: int = 5, train_frac: float = 0.5,
         fit_b = start + pd.Timedelta(seconds=step * (k + 1))
         oos_b = start + pd.Timedelta(seconds=step * (k + 2))
 
+        # `allowed_symbols` restricts BOTH halves of every fold. Filtering the
+        # out-of-sample frame after the fact would leave the concurrency caps
+        # binding on pairs that are not in the universe, which is a different
+        # system from the one being walked forward.
         fit_trades, _, _ = bt.run(contexts=contexts, start=fit_a, end=fit_b,
-                                  collect_rejections=False)
+                                  collect_rejections=False,
+                                  allowed_symbols=allowed_symbols)
         fit_frame = trades_to_frame(fit_trades)
         chosen, note = select_pairs_on_train(fit_frame, bt.cfg, with_note=True)
+        if allowed_symbols is not None:
+            chosen = [s for s in chosen if s in set(allowed_symbols)]
 
         oos_trades, _, _ = bt.run(contexts=contexts, start=fit_b, end=oos_b,
                                   collect_rejections=False, allowed_symbols=chosen)

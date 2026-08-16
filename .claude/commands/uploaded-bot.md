@@ -105,10 +105,12 @@ which setups clear the minimum-risk gate and that shifts the non-overlap sequenc
 | **All four combined (= Run B)** | **−15.4 pp** | **−0.44** | **−0.249R** | **−30.34 pp** | COMBINED |
 
 **1. Touch-fill** (`sniper_backtest.py` ~L114): `if swept=="bull" and ck["l"]<=zone_mid:
-entry=zone_mid`. A resting limit needs price to trade *through* the level. Measured cost
-on this data: **zero** — over 90 days no retrace bar's extreme landed exactly on the zone
-midpoint to float precision. The bug is real and would bite on tick-quantised or
-round-number levels, but here it cost nothing. Reporting it as zero rather than guessing.
+entry=zone_mid`. A resting limit needs price to trade *through* the level. Measured cost on
+this data: **zero — but read that as "not measurable on this sample", not "harmless".** Exact
+touches do occur in these bars: 1,336 times across 409,112 bar/zone pairs (0.33%). None
+happened to land on the *first* qualifying retrace bar of an actual signal. At ~70 trades ×
+8 retrace bars the expected number of affected trades is only 1–2, so a zero here is the
+luck of the draw. On a tick-quantised feed or around round numbers this bug would bite.
 
 **2. Spread computed then discarded** (~L124): `entry_eff = entry + sign*sp  # pay spread
 on entry`. `entry_eff` appears **exactly once in the whole file**. `tp1`, `tp2`, the stop

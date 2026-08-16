@@ -400,9 +400,12 @@ def sheet_bugs(wb, d):
 
     for line in [
         "Why 'fill' and 'denom' measure zero on this data:",
-        "  fill  — over 90 days no retrace bar's extreme landed exactly on the zone midpoint to "
-        "float precision, so touch and trade-through selected the same fills. The bug is real and "
-        "would bite on tick-quantised or round-number levels; on this sample it cost nothing.",
+        "  fill  — an exact touch (bar extreme equal to the zone midpoint to float precision) does "
+        "occur in this data: 1,336 times across 409,112 bar/zone pairs, about 0.33%. It simply never "
+        "landed on the FIRST qualifying retrace bar of an actual signal. At ~70 trades x 8 retrace "
+        "bars the expected number of affected trades is only 1-2, so measuring zero here is the luck "
+        "of the draw, NOT evidence the bug is harmless. On a tick-quantised feed or around round "
+        "numbers it would bite. Treat this row as 'not measurable on this sample', not 'costless'.",
         "  denom — the engine books a break-even stop as +0.5R (the TP1 partial was already taken), "
         "not 0.0R, so `be_ct` was 0 in every run and the denominator never actually dropped a trade. "
         "The deeper problem is the same line: scoring a BE exit as a +0.5R WIN is what lets the "

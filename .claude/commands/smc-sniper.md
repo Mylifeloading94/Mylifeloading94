@@ -7,7 +7,199 @@ honestly.
 
 ---
 
-## STATUS — read this first  ·  **v7**
+## STATUS — read this first  ·  **v8**
+
+**Do not trade any of this live.**
+
+v8 was asked: *"Find out the losing trades, see what needs to be improved and
+tweak the bot and improve, increase win rate. Aim for minimum 3 trades a day
+across all pairs and gold, remove any pairs that's under 60% win rate. Give
+feedback, profit, ROI."*
+
+### The result: the configuration is UNCHANGED, and that is the finding
+
+Three searches were run. All three came back negative on the half they were not
+fitted on. Nothing was adopted. **v7's flat 1:2 config ships untouched** —
+196 trades, 47.45% WR, PF 1.424, +0.2660R, $161,928.66 (+61.93%) on $100k at 1%.
+
+Both prior adopted configs reproduce exactly first (`tune_v8.py --round ledger`):
+v7 at **196 / 47.45% / PF 1.478 / +0.2660R / [+0.0245, +0.5151]**, v6 at
+**193 / 36.27% / PF 1.520 / +0.3521R / [+0.0092, +0.6948]**.
+
+### 1. The loss audit — no cluster, on the population that actually exists
+
+v6 audited its losses on a **4R** ledger. That population is gone at 1:2, so the
+audit was re-run from scratch: 196 trades, 93 winners, **103 losers (52.6%)**,
+twelve entry-time cuts scored on TRAIN and TEST independently.
+
+Six buckets are negative on TRAIN with n≥8. **Not one survives:**
+
+| Bucket | TRAIN E | TEST E | VAL E | verdict |
+|---|---|---|---|---|
+| `pair=CHFJPY` (n=8 TRAIN) | −0.6618 | **+1.2743** | +1.9212 | flips hard |
+| `liquidity=PDL` (n=8) | −0.2977 | **+0.3583** | −0.3514 | flips |
+| `weekday=Wednesday` (n=14) | −0.0124 | **+0.5980** | +1.0696 | flips |
+| `stop-pips quartile 2` (n=19) | −0.1418 | +0.1689 | **+0.5607** | 25% of the book for a **+0.0073** TEST gain, **−0.1269** on VAL |
+| `hour ≥ 16 UTC` (n=13) | −0.0072 | −0.1051 | **+0.3809** | the only both-halves candidate — and see below |
+| `session=ny` | +0.3831 | −0.0295 | — | positive on TRAIN, not a candidate |
+
+**`hour ≥ 16` is the trap of this round.** It is the single cut that improves
+TRAIN (+0.0476) *and* TEST (+0.0327). It was still rejected, before it ever
+reached the engine, because the bucket it deletes is **positive over the full
+window (+0.0348R)**, **positive on the untouched validation split (+0.3809R)**,
+and removing it **hurts** validation (−0.0070). n=23, cluster CI
+[−0.4908, +0.6080]. Two of three splits say no; a filter selected from ~45
+buckets that clears two of three is what noise looks like when you go looking.
+
+**Verdict: no loss cluster.** Same answer as v6, now established on the current
+trades rather than inherited. The losses are not concentrated in a pair, an
+hour, a session, a setup, a liquidity type, a zone kind or a score band. Score
+is **flat between winners and losers (80.54 vs 80.58)** — the score gate has no
+discrimination left in it at 80, which is a separate useful negative.
+
+### 2. The win rate — 60% IS reachable at 1:2, and it is scratches
+
+The audit exposed one live lever. **v7 inherited v6's break-even trigger of
++3R, which a 1:2 target can never reach — trade management has been INERT in
+the adopted config all along** (exit reasons in the ledger are `TP1` and
+`stop_loss`, nothing else). And the loss shape points straight at it: **66.0% of
+losers ran to +0.5R and 27.2% to +1.0R before reversing.**
+
+Swept entry-matched (identical entries, exit-only change):
+
+| Break-even arms at | n | **WR** | **WR ex-scratch** | E (R) | $/trade | TRAIN | **TEST** | Cluster CI |
+|---|---|---|---|---|---|---|---|---|
+| OFF / +3R (adopted) | 196 | 47.45% | 47.45% | **+0.2660** | **$266** | +0.2931 | **+0.1688** | **[+0.0245, +0.5151]** |
+| **+0.50R** | 205 | **66.34%** | **47.78%** | +0.1475 | $148 | +0.2104 | **−0.0653** | [−0.0144, +0.3085] |
+| +0.75R | 203 | 61.58% | — | +0.1642 | $164 | +0.1843 | **−0.0066** | [−0.0203, +0.3542] |
+| +1.00R | 201 | 57.71% | 46.31% | +0.2006 | $201 | +0.2350 | +0.0534 | [−0.0041, +0.4068] |
+| +1.25R | 200 | 53.50% | — | +0.1787 | $179 | +0.2353 | +0.0751 | [−0.0335, +0.3918] |
+| +1.50R | 196 | 48.98% | — | +0.2516 | $252 | +0.3066 | +0.1399 | [+0.0156, +0.4935] |
+
+**The owner's 60% is cleared — 66.34% — and it is fake.** 115 of those 205
+trades exit *at* the break-even offset. The win rate **excluding scratches is
+47.78%** against the baseline's 47.45%: unmoved. It costs **45% of the
+expectancy**, turns the **TEST half negative**, and breaks the cluster interval.
+
+**The relationship is monotone across the entire sweep: every arming level that
+raises the printed win rate lowers the money.** This is the same trade the 1:1
+target offered in v7, reached from the opposite direction — target width there,
+exit management here. Two independent levers, one answer. **Nothing adopted.**
+
+### 3. The pair cull — the sample cannot support the question
+
+Per-pair win rate on **TRAIN only**, then the TRAIN-chosen list scored on the
+untouched TEST and the walk-forward, with `allowed_symbols` passed **into the
+engine** so concurrency caps bind on the restricted universe.
+
+* 29 instruments configured, **24 trade at all** in the window.
+* **2 pairs have TRAIN n ≥ 8.** **1** clears 60% — GBPUSD, n=14, 71.43%.
+* The other 22 carry **0–7 TRAIN trades each**. Their win rates are arithmetic,
+  not measurement.
+
+**The binomial check, which is the whole argument.** A pair whose *true* win
+rate is the system's own 47.45% prints 60%-or-better on TRAIN:
+
+| n | 4 | 6 | 8 | 10 | 12 | 15 | 20 | 30 |
+|---|---|---|---|---|---|---|---|---|
+| P(fakes ≥60%) | 27.5% | 29.7% | 30.9% | **31.6%** | 14.8% | 23.7% | 18.4% | 11.6% |
+
+Screening 24 pairs at a 60% threshold on single-digit samples **manufactures a
+winning list every time**. It cannot fail to produce one, which is exactly why
+the list it produces means nothing.
+
+| Universe | pairs | n | /day | WR | E | TRAIN | **TEST** | walk-fwd |
+|---|---|---|---|---|---|---|---|---|
+| **all pairs (adopted)** | 29 | 196 | 0.167 | 47.45% | +0.2660 | +0.2931 | **+0.1688** | **+0.2304** |
+| TRAIN WR≥60% & n≥8 | **1** | 23 | **0.024** | 60.87% | +0.7000 | +0.8810 | +0.8234 | +0.6382 (n=17) |
+| TRAIN WR≥60% + thin pairs | 23 | 187 | 0.160 | 47.59% | +0.2744 | **+0.3801** | **+0.0918** | **+0.2304** |
+
+**Both rejected.** The one-pair universe is 23 trades in 1,200 days and 17
+walk-forward trades — too few for a cluster interval to be computed at all, and
+0.024 trades a day against an ask for 3. The 23-pair list is the textbook trap:
+**+0.087R on the half it was fitted to, −0.077R on the half it was not**, and
+walk-forward expectancy identical to four decimal places (+0.2304 either way).
+The cull moves only the half it was chosen from.
+
+**All 29 pairs are kept.** Removing pairs under 60% cannot be done honestly on
+this sample.
+
+### 4. Three trades a day — restated, not re-tested
+
+Fully measured in v5–v7 and **not re-run here**. It does not exist profitably on
+this engine: the **1H stack tops out at 0.62 trades/day and is negative there**;
+the **30m stack tops out at 1.25/day and is negative at every score gate on both
+splits**; only the **15m stack reaches 3.78/day, and its cluster interval lies
+entirely below zero** — a measured loser, not an untested option. The shipped
+config trades **0.163/day**. Raising frequency to 3/day means moving onto a
+stack already proven to lose money, so the answer stays no.
+
+### The deliverable
+
+`Mylifeloading_SMC_Sniper_v8_100k_backtest.xlsx` via `report_format.py`,
+$100,000 at 1% risk, compounding:
+
+| | **Full window (1,200 days)** | **Most recent 90 days** |
+|---|---|---|
+| Trades | **196** | **7** |
+| Win rate | **47.45%** | 28.57% |
+| Profit factor | 1.424 | 0.094 |
+| Ending balance | **$161,928.66** | $95,313.02 |
+| **Profit / ROI** | **+$61,928.66 / +61.93%** | −$4,686.98 / −4.69% |
+| CAGR | 15.80% | — |
+| Max drawdown | 7.57% | 5.18% |
+| Longest losing streak | 7 | 5 |
+
+**The 90-day window is seven trades and it is not evidence** — five of them
+lost, which is completely ordinary at a 47% win rate; the full window contains a
+seven-loss run and still ends +61.93%. Sheets: `Summary` · `Trade Log` ·
+`Periods` (house standard) plus `Daily/Weekly/Monthly Profit` · `Loss Audit` ·
+`Loss Shape` · `Break-Even Sweep` · `Pair Cull` · `Universe Test` ·
+`RR Frontier` · `90-Day Window`.
+
+**One reporting defect caught and fixed:** `build_v8_workbook.py` was renaming
+sheet columns *positionally*, which prints a TEST expectancy under a VALIDATION
+header the moment the harness column set differs by one. It is an explicit
+name→label mapping now and raises rather than mislabelling.
+
+### The honest verdict
+
+**Everything the owner asked for this round was searched for properly and none
+of it is there.** There is no loss cluster to filter. The win rate can be pushed
+to 66% and doing so costs 45% of the money and turns the out-of-sample half
+negative. The pairs cannot be culled at 60% because 22 of 24 have too few trades
+for the threshold to mean anything, and the cull that *can* be built helps only
+the data it was built from. Three trades a day exists only on a stack measured
+to lose.
+
+**The walk-forward cluster interval still spans zero ([−0.0305, +0.5005]). The
+edge is encouraging and it is NOT established. Forward results: still PENDING
+DEMO RUN — nothing in this repo has ever placed an order.**
+
+### How to run v8
+
+```bash
+# Sanity check + the adopted ledger (v6 and v7 must reproduce exactly)
+python3 tune_v8.py --round ledger
+
+# The loss audit: twelve cuts, TRAIN selects, TEST judges
+python3 tune_v8.py --round loss
+
+# The break-even sweep (entry-matched, exit-only) -- where 60% comes from
+python3 tune_v8.py --round exits
+
+# The per-pair 60% cull, TRAIN-selected and TEST-scored
+python3 tune_v8.py --round pairs
+
+# The deliverable (config unchanged, so the v7 $100k runs are reused)
+python3 run_v7_100k.py --full   --rr 2.0 --gate 20 --risks 1.0 --tag full_2r
+python3 run_v7_100k.py --days 90 --rr 2.0 --gate 20 --risks 1.0 --tag 90d_2r
+python3 build_v8_workbook.py    # -> Mylifeloading_SMC_Sniper_v8_100k_backtest.xlsx
+```
+
+---
+
+## STATUS — v7 (superseded by v8, kept for continuity)
 
 **Do not trade any of this live.**
 
@@ -2566,6 +2758,16 @@ python3 run_backtest.py --stack swing --profile v5   # the audited config
 python3 run_backtest.py --stack mid30_swing          # the 30m rung
 python3 run_v5_100k.py --days 90 --profile v5        # 1% AND 2%
 python3 build_v5_workbook.py                         # -> Bot_Performance_90d.xlsx
+
+# --- v8 ------------------------------------------------------------------
+# The loss audit and the 60% pair cull. Round `ledger` re-runs v6 and v7 first
+# and they must come back at 193 / 36.27% / +0.3521R and 196 / 47.45% /
+# +0.2660R -- if they do not, nothing downstream is trustworthy.
+python3 tune_v8.py --round ledger
+python3 tune_v8.py --round loss     # twelve cuts, TRAIN selects, TEST judges
+python3 tune_v8.py --round exits    # break-even arming: where 60% comes from
+python3 tune_v8.py --round pairs    # per-pair 60% cull, TEST-scored
+python3 build_v8_workbook.py        # -> Mylifeloading_SMC_Sniper_v8_100k_backtest.xlsx
 
 # Any stack with any profile overlaid
 python3 run_backtest.py --stack swing --profile swing_4r

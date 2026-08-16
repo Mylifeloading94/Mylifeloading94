@@ -470,6 +470,16 @@ experiment so the risk engine could not be mistaken for the strategy.
 `max_open_positions: 3` turns out to sit exactly on the natural maximum: with
 enforcement on it costs two trades in 1200 days.
 
+### Round M — everything else that needed a run
+
+| Change | Trades | TRAIN E | TEST E | Reading |
+|---|---|---|---|---|
+| `exact_expiry` (defect 5) | 148 | +0.081 | +0.032 | costs 0.012R — the fill window really was a bar too long |
+| `exact_expiry` + `valid_bars: 9` | **149** | **+0.106** | **+0.032** | reproduces the old result **exactly** — proof the error was precisely one bar |
+| OB `min_quality` 3 | 109 | +0.209 | **−0.416** | REJECTED — the worst TEST inversion in the session |
+| equal-level touches 3 | 103 | +0.159 | +0.031 | REJECTED — hurts TEST, costs 31% of trades |
+| structural invalidation ON | 149 | −0.001 | −0.065 | REJECTED again — v2's finding replicates |
+
 ### The one change that improved everything — and what is wrong with it
 
 `dedupe.enabled: false` removes the duplicate-setup cooldown, which by default

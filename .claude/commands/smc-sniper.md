@@ -7,7 +7,143 @@ honestly.
 
 ---
 
-## STATUS — read this first  ·  **v5**
+## STATUS — read this first  ·  **v6**
+
+**Do not trade any of this live.**
+
+v6 was asked for the deliverable the owner has twice been denied — the
+$100,000 run over a window big enough to mean something — and told to keep
+improving. Both were done. **The headline is that the full-window dollar result
+exists now, and it is good; the caveat is that it is still 195 trades and its
+honest confidence interval only just clears zero on the full window and does
+not clear on walk-forward.**
+
+### The $100,000 result the owner actually asked for
+
+Full TradeLocker window, **1,200 days (3.29 years)**, 29 pairs, compounding
+trade by trade, `profiles.v6`:
+
+| | **1% risk** | **2% risk** |
+|---|---|---|
+| Starting balance | $100,000 | $100,000 |
+| **Ending balance** | **$182,651** | **$293,607** |
+| Total profit | **+$82,651** | **+$193,607** |
+| Total ROI | **+82.65%** | **+193.61%** |
+| **CAGR** | **+20.12% a year** | **+38.80% a year** |
+| **Max drawdown** | **17.76%** | **32.73%** |
+| Longest losing streak | 11 | 13 |
+| Trades | 193 | 193 |
+| Trades/day | 0.161 | 0.161 |
+| Win rate | 36.27% (break-even line 20%) | 35.75% |
+| Profit factor | 1.520 | 1.386 |
+| Expectancy | +0.3521R | +0.3468R |
+| Cluster 95% CI | **[+0.0092, +0.6948] clears** | [+0.0020, +0.6906] clears |
+| Total pips | +5,853.6 | +5,831.7 |
+
+The shipped v5 configuration over the same window returns **$174,664 (+74.66%,
+18.50% CAGR)** at 1% and **$280,144 (+180.14%, 36.83% CAGR)** at 2%.
+
+**Every one of the 3.29 years is positive at 1% risk**: 2023 (partial, from
+2 May) +19.17% on 39 trades, 2024 +17.91% on 56, 2025 **+4.07%** on 66, 2026
+(partial, to 14 Aug) +24.91% on 32. 2025 is the year that matters most in that
+list — it is the year this system nearly did nothing, and it is the shape a
+thin edge has.
+
+### The 90-day figure, and why it is not evidence
+
+**Seven trades. −4.69% at 1% risk, −9.23% at 2%.** Unchanged from v5 and
+unchanged between v5 and v6, because neither the cooldown work nor the
+break-even change touches any of those seven trades. Seven trades cannot
+distinguish a working system from a broken one — a five-loss run is completely
+ordinary at a 35% win rate and it is most of what that window contains. **It is
+reported because it was asked for. It settles nothing, in either direction.**
+
+### Did the cluster CI clear zero?
+
+**On the full window, yes — for the first time on a configuration that also
+obeys the TRAIN/TEST selection rule and the spec's concurrency caps.**
+`profiles.v6` returns **[+0.0092, +0.6948]**. v5's shipped interval was
+[−0.0128, +0.6683] and spanned.
+
+**On walk-forward, no. [−0.0431, +0.7079] still spans zero.** That is the
+harder test and it is the one to believe. The margin on the full window is
+0.0092R — a whisker, on 142 independent clusters. **The edge is encouraging and
+it is not established.** Nothing about this changed the fundamental arithmetic:
+this system does roughly 140 independent things in 3.3 years, and 140
+observations of a +0.35R mean with a ~2R spread sit right on the edge of
+significance no matter how they are sliced.
+
+### What v6 changed, and what it closed
+
+* **The cooldown lead is CLOSED, negative.** v5's best open finding was that a
+  middle ground between "all re-entries" and "no re-entries" might keep the
+  trade-count gain without the correlation. Twelve variants were built and
+  measured, including a genuinely structural one (`max_signals_per_sweep` —
+  re-enter only once a NEW sweep has formed). **Not one improves on the shipped
+  configuration, and every one makes the cluster interval worse.** The decisive
+  number is that the **cluster count sits at 139–144 in every single variant**.
+  Deduplication policy does not change how many independent things the system
+  does; it only changes how many bets sit inside each one. The correlation
+  cannot be engineered away.
+* **There is no diagnosable loss cluster.** The ledger was cut nine ways — pair,
+  session, hour, day of week, direction, liquidity type, zone kind, setup type,
+  exit reason — with TRAIN and TEST scored separately. **Every cut that agrees
+  across both splits agrees POSITIVE.** With the eight v5 defects fixed the
+  losses are homogeneous. v2's session-extreme filter has no successor, and
+  there is no filter left to find.
+* **One change adopted, on risk grounds only: a break-even stop that arms at
+  +3R** (`profiles.v6`). It came from the only mechanically actionable fact in
+  the ledger — 14 of 127 losers (11.0%) got past +2R before reversing all the
+  way through the stop. It shortens the longest losing streak **14 → 11**,
+  improves TRAIN (+0.3617 → +0.4022), and leaves **TEST bit-for-bit unchanged
+  (+0.3553 either way)** because no TEST trade both reached +3R and reversed.
+  **TEST is therefore evidence of no harm and nothing more**, so this is not
+  claimed as a performance improvement and by the repo's own adoption rule it
+  would not qualify as one. It is adopted the way `enforce_concurrency` was:
+  because it reduces the worst risk property this system has.
+* **Target geometry beyond 4R: rejected.** Re-measured on the adopted
+  population (v5's frontier was measured on the dedupe-ON ladder, a different
+  trade set). 6R is the TRAIN argmax at +0.5548 and collapses to **+0.1094 on
+  TEST**; 5R goes +0.4858 TRAIN → **+0.0139 TEST**. 4R remains the only target
+  strong on both. **8R is worse than 4R on everything.**
+* **Flat 2R is the honest alternative, and it is a risk choice, not a better
+  system.** It is the one variant whose full-window cluster interval clears
+  cleanly (**[+0.0049, +0.4935]**) with max drawdown of **3.57%** and a longest
+  losing streak of **7** — less than half of 4R's. It gets there by having far
+  lower variance, not more edge: expectancy is **lower** (+0.2523R vs +0.3255R)
+  and it clears its own break-even line by 13.6 points against 4R's 14.9. Its
+  walk-forward cluster interval **also spans zero**. Anyone who wants a
+  smoother ride rather than a bigger number should run 2R and should understand
+  they are buying variance reduction, not a stronger edge.
+
+### The 2% risk verdict — plainly
+
+**2% is not safe on this system's streak profile, and the reason is on record
+rather than hypothetical.** The backtest contains a **13-trade losing streak at
+2% and a 14-trade streak in the v5 configuration**. Compounded at −1.05R (what
+this engine's average loser really costs), that recorded streak alone is:
+
+| | 1% risk | 2% risk |
+|---|---|---|
+| Drawdown from the streak alone | **12.8%** | **24.1%** |
+| $100,000 becomes | $87,178 | **$75,888** |
+| Gain needed to recover | 14.7% | **31.8%** |
+
+Measured peak-to-trough drawdown over the full run is **17.76% at 1% and 32.73%
+at 2%** — the streak is not even the worst of it, because streaks overlap with
+ordinary chop. **At 2% a run only three trades longer than the one already on
+record takes the account down roughly a third**, and at a 35% win rate a
+17-trade losing run is not a freak event. 2% is also **outside the system's own
+stated risk band** (`risk_per_trade_max_pct: 1.0`); producing it required
+raising the cap explicitly. **The recommendation is 1%, and 2% is published
+because it was asked for, not because it is advisable.**
+
+**Forward results: still PENDING DEMO RUN.** Nothing in this repo has ever
+placed an order.
+
+---
+
+## STATUS — v5 (superseded by v6, kept for continuity)
 
 **Do not trade any of this live.**
 
@@ -119,6 +255,427 @@ where the spread is under 10% of R makes the out-of-sample result *worse*
 
 **Forward results: still PENDING DEMO RUN.** Nothing in this repo has ever
 placed an order.
+
+---
+
+## v6 — the full-window dollar result, and the cooldown lead closed
+
+The owner's request was two things: *"use the TradeLocker data for backtest, use
+100,000 trading account balance, then give real feedback, keep improving for
+better results."* The first half had been botched twice — both previous
+deliverables were 90-day runs containing five and seven trades. **v6's main job
+was to stop measuring the system on a sample that cannot measure anything.**
+
+### The framing fix, and why it matters more than any parameter
+
+A configuration that takes **0.17 trades a day** produces **seven trades in 90
+days**. At a 35% win rate, the single most likely thing to see in seven trades
+is two winners and five losers — which is exactly what the 90-day window
+contains, and exactly what it contained the last two times. Reporting that as
+"the bot lost 4.69%" is not a result; it is a coin landing tails five times.
+
+The same configuration over the **full 1,200-day broker window** produces
+**193 trades across 142 independent clusters**. That is still not a large
+sample — it is the reason the confidence intervals in this document are as wide
+as they are — but it is a sample. **Every headline number in v6 is quoted on
+the full window, and the 90-day block is retained only so the owner can see
+that it did not change and understand why.**
+
+### The full-window deliverable, both configurations, both risk levels
+
+$100,000, compounding trade by trade, 1,200 days, 29 pairs.
+
+| | v5 @ 1% | v5 @ 2% | **v6 @ 1%** | **v6 @ 2%** |
+|---|---|---|---|---|
+| Ending balance | $174,663.87 | $280,144.10 | **$182,651.16** | **$293,606.99** |
+| Total profit | +$74,663.87 | +$180,144.10 | **+$82,651.16** | **+$193,606.99** |
+| Total ROI | +74.66% | +180.14% | **+82.65%** | **+193.61%** |
+| CAGR | 18.50% | 36.83% | **20.12%** | **38.80%** |
+| Max drawdown | 17.76% | 32.73% | **17.76%** | **32.73%** |
+| Longest losing streak | 14 | 13 | **11** | **13** |
+| Trades | 195 | 194 | 193 | 193 |
+| Trades/day | 0.163 | 0.162 | 0.161 | 0.161 |
+| Win rate | 34.87% | 35.05% | 36.27% | 35.75% |
+| Profit factor | 1.409 | 1.363 | **1.520** | 1.386 |
+| Expectancy | +0.3255R | +0.3326R | **+0.3521R** | +0.3468R |
+| Naive 95% CI | [+0.045, +0.609] | [+0.046, +0.624] | [+0.076, +0.642] | [+0.071, +0.639] |
+| Independent clusters | 144 | 143 | 142 | 142 |
+| **Cluster 95% CI** | [−0.013, +0.668] | [−0.011, +0.674] | **[+0.009, +0.695]** | **[+0.002, +0.691]** |
+| **Clears zero?** | no | no | **YES** | **YES** |
+| Total pips | +5,715.3 | +5,734.2 | +5,853.6 | +5,831.7 |
+| Avg winner / loser | +2.863R / −1.033R | — | +2.781R / −1.030R | — |
+
+*(Max drawdown is identical between v5 and v6 to two decimals because the
+deepest trough in the equity curve does not contain a trade the break-even stop
+fires on. That is a coincidence of this dataset, not a property.)*
+
+**Note the drawdown scale.** The 7.65% figure quoted throughout v5 is measured
+at the config's own 0.5% baseline risk. At the 1% this deliverable runs it is
+**17.76%**, and at 2% it is **32.73%**. Doubling the risk doubles the drawdown
+exactly as it should; the point is that the number the owner will actually
+experience is not the one in the tuning tables.
+
+### Year by year — the only view that shows what a thin edge feels like
+
+At 1% risk, `profiles.v6`:
+
+| Year | Trades | Profit | ROI | Cumulative ROI |
+|---|---|---|---|---|
+| 2023 (from 2 May) | 39 | +$19,167.69 | **+19.17%** | +19.17% |
+| 2024 | 56 | +$21,348.22 | **+17.91%** | +40.52% |
+| 2025 | 66 | +$5,713.26 | **+4.07%** | +46.23% |
+| 2026 (to 14 Aug) | 32 | +$36,422.00 | **+24.91%** | **+82.65%** |
+
+**All four years positive, and one of them barely.** 2025 is the honest year in
+that table: 66 trades — the busiest year in the sample — returning 4.07%. A
+system with a real but thin edge spends whole years doing approximately nothing,
+and anyone reading the +82.65% total needs to see that 2025 is in it. Of the 40
+months in the window, **19 are positive, 18 negative and 3 completely flat**;
+the worst is −6.55% (Aug 2025) and the best +15.53% (Aug 2024).
+
+### Round 1 — partial deduplication: the lead is closed, and the reason is clean
+
+v5's single best open finding was that removing the duplicate-setup cooldown
+improved TRAIN, VALIDATION and TEST, added 60% more trades and lowered
+drawdown — but 87 of 231 trades became same-pair, same-direction re-entries
+inside 24 hours, which is what pushed the cluster interval back across zero.
+The v6 hypothesis, written down before it was run: *a middle ground that keeps
+the re-entries representing a genuine new opportunity and drops the ones that
+are the same bet again should keep the trade-count gain without the correlation
+penalty.*
+
+Two new gates were built for it, both defaulting to OFF so every published
+number stays reproducible:
+
+* **`dedupe.max_signals_per_sweep`** — re-enter only once a **new liquidity
+  sweep** has formed. The sweep's bar index is its identity, so this is a
+  structural rule rather than a clock. This is the version with a mechanism
+  behind it: a second entry off the *same* sweep is the same bet; a second entry
+  off a *new* sweep is a new one.
+* **`dedupe.cooldown_hours`** — a wall-clock cooldown per direction, the blunt
+  version, for contrast.
+
+All twelve variants scored on TRAIN and TEST independently and priced with the
+**cluster bootstrap, concurrency caps enforced** — the honest bar.
+
+| Variant | Trades | TRAIN E | TEST E | Max DD | Streak | **Clusters** | Cluster CI |
+|---|---|---|---|---|---|---|---|
+| **v5 shipped (dedupe OFF)** | **195** | **+0.3617** | +0.3553 | 7.65% | 14 | **144** | **[−0.0128, +0.6683]** |
+| cooldown 8 bars (v2 default) | 142 | +0.1318 | +0.4169 | 6.69% | 15 | 140 | [−0.0650, +0.5904] |
+| cooldown 2 bars | 172 | +0.2184 | +0.3721 | 6.41% | 12 | 142 | [−0.0592, +0.6078] |
+| **1 signal per sweep** | 145 | +0.1875 | +0.3297 | 6.58% | 15 | **139** | [−0.0768, +0.5885] |
+| **2 signals per sweep** | 192 | +0.2851 | +0.3798 | 7.90% | 14 | **142** | [−0.0384, +0.6364] |
+| 3 signals per sweep | 195 | +0.3617 | +0.3553 | 7.65% | 14 | 144 | [−0.0128, +0.6683] |
+| cooldown 12h | 142 | +0.1318 | +0.4169 | 6.69% | 15 | 140 | [−0.0650, +0.5904] |
+| cooldown 24h | 140 | +0.1504 | +0.4169 | 6.66% | 15 | 140 | [−0.0665, +0.5676] |
+| cooldown 48h | 139 | +0.1504 | +0.4169 | 6.66% | 15 | 139 | [−0.0956, +0.5412] |
+| 1/sweep + 12h | 142 | +0.1318 | +0.4169 | 6.69% | 15 | 140 | [−0.0650, +0.5904] |
+
+**Not one variant improves on the shipped configuration, and every one makes
+the cluster interval worse.** The structural version — the one with the actual
+mechanism — is among the worst: it costs 50 trades and a third of TRAIN
+expectancy to remove 89 of 101 clustered trades.
+
+**The decisive column is `clusters`, and it is the finding.** It sits at
+**139–144 in every single row**, from the most aggressive deduplication to none
+at all. *How many independent things this system does is invariant to
+deduplication policy.* All the policy controls is how many bets sit inside each
+cluster — and taking more bets inside a cluster turns out to **raise**
+expectancy per trade, not dilute it. So deduplication cannot buy statistical
+power: it removes trades that were contributing edge while leaving the
+denominator of the honest interval untouched, which widens the interval
+relative to its mean. **The correlation is not a defect to be engineered away.
+It is what this system is: ~140 independent opportunities in 3.3 years, several
+of which are worth betting more than once.** LEAD CLOSED.
+
+### Round 2 — target geometry on the adopted population
+
+v5's reward-to-risk frontier was measured on the dedupe-ON ladder baseline. The
+adopted configuration has the cooldown off and the concurrency caps on, which
+is a **different trade population**, so the frontier was re-measured on it
+rather than carried over. `min_rr_on_liquidity` is TRUE in every row (audit
+defect 7) — which is what makes the rows genuinely entry-matched: 191–198
+trades across an 8×-wide target range.
+
+| Target | Trades | WR | Break-even WR | **Clears by** | PF | Full E | **TRAIN E** | **TEST E** | Max DD | Streak | Cluster CI |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| flat 2.0R | 198 | 46.97% | 33.33% | +13.64 | 1.448 | +0.2523 | +0.2646 | +0.1688 | **3.57%** | **7** | **[+0.0049, +0.4935] CLEARS** |
+| flat 3.0R | 192 | 38.54% | 25.00% | +13.54 | 1.387 | +0.2557 | +0.3684 | +0.1237 | 7.26% | 9 | [−0.0441, +0.5649] |
+| flat 3.5R | 194 | 36.08% | 22.22% | +13.86 | 1.402 | +0.2754 | +0.3572 | +0.2439 | 8.13% | 14 | [−0.0466, +0.6042] |
+| **flat 4.0R — RETAINED** | 195 | 34.87% | 20.00% | **+14.87** | 1.468 | **+0.3255** | +0.3617 | **+0.3553** | 7.65% | 14 | [−0.0128, +0.6683] |
+| flat 4.5R | 194 | 33.51% | 18.18% | +15.33 | 1.433 | +0.3077 | +0.3840 | +0.1875 | 7.12% | 14 | [−0.0545, +0.6759] |
+| flat 5.0R | 193 | 32.64% | 16.67% | +15.97 | 1.419 | +0.3021 | **+0.4858** | **+0.0139** | 6.54% | 14 | [−0.0590, +0.6789] |
+| flat 6.0R | 192 | 32.29% | 14.29% | +18.00 | 1.518 | +0.3730 | **+0.5548** | **+0.1094** | 7.38% | 20 | [−0.0331, +0.8117] |
+| flat 8.0R | 191 | 31.41% | 11.11% | +20.30 | 1.362 | +0.2674 | +0.3109 | +0.2295 | 8.06% | 20 | [−0.1293, +0.6897] |
+
+**5R and 6R are rejected, and the reason is the same one that has killed four
+leads in this repo: they are TRAIN spikes that invert.** 6R is the TRAIN argmax
+by a wide margin (+0.5548) and returns **+0.1094 on TEST**; 5R goes +0.4858 →
+**+0.0139**, which is essentially zero. 4R is the only target in the table that
+is strong on both splits, and it was pre-registered in v2 and confirmed in v3
+and v5 — so it is retained on the same reasoning as before. **8R answers the
+"does it just keep getting better" question directly: no, it is worse than 4R
+on every column.** Note also that the longest losing streak jumps to **20** at
+6R and beyond, which at 2% risk is a 34% drawdown from the streak alone.
+
+**Flat 2R deserves its own paragraph, because it is the one row whose cluster
+interval clears zero cleanly.** [+0.0049, +0.4935], on a max drawdown of
+**3.57%** and a losing streak of **7** — less than half of 4R's. It is tempting
+and it must not be misread:
+
+1. **It is not selected on TRAIN.** +0.2646 is the *worst* TRAIN number in the
+   plateau. Adopting it because its full-window interval clears would be
+   selecting on the full window — the one selection this repo forbids, and the
+   exact error that produced v1's retracted 68.57% claim.
+2. **It clears on lower variance, not more edge.** Its expectancy is *lower*
+   (+0.2523R against 4R's +0.3255R). The interval is narrower because a 2R
+   system's outcomes are less dispersed, not because the edge is better founded.
+3. **Its margin over break-even is smaller**: +13.64 points against 4R's
+   +14.87. On the measure this repo uses to catch a win rate bought by target
+   shrinking, 2R is behind — which is the check working correctly.
+4. **Its walk-forward cluster interval spans zero too**: 170 OOS trades across
+   123 clusters, +0.2149R, **[−0.0372, +0.4787]**.
+
+So 2R is **offered as a documented risk alternative, not adopted as an
+improvement**: half the drawdown, half the losing streak, roughly two-thirds of
+the expectancy per trade. Anyone who prefers a smoother ride should run it and
+should know what they are buying.
+
+### Round 3 — the loss-side audit: there is no loss cluster
+
+With the eight v5 defects fixed, the question was whether losses now concentrate
+on any diagnosable property. v2's session-extreme filter — the only filter in
+this repo's history to hold on both splits — came from exactly this kind of cut,
+so it was worth redoing properly. Nine cuts, TRAIN and TEST scored separately,
+and **a cut counted as actionable only if both splits agree on its sign.**
+
+| Cut | Best / worst | TRAIN E | TEST E | Both splits agree? |
+|---|---|---|---|---|
+| session: london (n=109) | +0.2278 | +0.2365 | +0.4813 | both **positive** |
+| session: ny (n=86) | +0.4494 | +0.5579 | +0.2817 | both **positive** |
+| direction: bullish (n=104) | +0.3350 | +0.2961 | +0.5560 | both **positive** |
+| direction: bearish (n=91) | +0.3147 | +0.4183 | +0.1193 | both **positive** |
+| zone: FVG (n=141) | +0.2467 | +0.2823 | +0.4510 | both **positive** |
+| zone: OB+FVG overlap (n=54) | +0.5313 | +0.5041 | +0.1127 | both **positive** |
+| liquidity: equal_lows (n=83) | +0.3440 | +0.3516 | +0.3528 | both **positive** |
+| liquidity: equal_highs (n=67) | +0.2452 | +0.2687 | +0.3499 | both **positive** |
+| setup: sweep+MSS+OB+FVG (n=132) | +0.3364 | +0.6233 | +0.1774 | both **positive** |
+| hour 11 (n=18) — worst hour | −0.3495 | −0.2332 | +0.3244 | inverts |
+| Wednesday (n=27) — worst day | −0.0777 | −0.4059 | +0.4429 | inverts |
+| **EURUSD (n=12)** | **−0.6655** | −0.3946 | −1.0486 | **BOTH NEGATIVE** |
+
+**Exactly one cut in the entire ledger is negative on both splits, and it is
+EURUSD at n=12 — seven TRAIN trades and three TEST trades.** Three trades is
+not a finding, it is a coin. Excluding a pair on that basis is precisely the
+mistake v1 made with pair selection and that this repo has documented as a
+cautionary result twice since. **It is not acted on.**
+
+**Everything else that agrees across splits agrees positive.** That is a real
+and slightly deflating result: with the lookahead and accounting defects gone,
+the losses are **homogeneous**. There is no bad session, no bad hour, no bad
+setup type, no bad direction. The residual is variance, not a subgroup. **There
+is no filter left to find, and v2's session-extreme filter has no successor.**
+
+The continuous properties say the same thing. Winners and losers score
+identically (**80.44 vs 80.55** on a 95-point card — the scorecard carries no
+marginal information at the margin it is used at), and the only clean separation
+is mechanical: winners have an average maximum adverse excursion of **−0.464R**
+against losers' **−1.491R**, and are held **54.9 bars** against **14.6**.
+
+The one genuinely actionable fact: **29.1% of losers never got beyond +0.5R**
+(clean, fast, correct losses — nothing to recover there), but **11.0% of losers
+(14 of 127) got past +2R and still lost the full stop.** That is roughly 0.18R
+per trade lying on the floor *if* it could be picked up for free.
+
+### Round 4 — the runner exit, entry-matched
+
+It cannot be picked up for free: any stop that protects a runner also clips the
+45 trades that reach the full +4R at an average of **+3.68R**. So the arithmetic
+was measured. Nine variants, all entry-matched by construction — because
+`min_rr_on_liquidity` gates on the liquidity that is actually there rather than
+on the target, every row selects the identical entries and **only the exit
+changes**.
+
+| Variant | Trades | WR | PF | Full E | **TRAIN E** | **TEST E** | Max DD | **Streak** | Avg win | Scratches | Cluster CI |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| **adopted v5 (no management)** | 195 | 34.87% | 1.468 | +0.3255 | +0.3617 | +0.3553 | 7.65% | **14** | +2.863R | 0 | [−0.0128, +0.6683] |
+| trail from +1R | 203 | 54.68% | 1.457 | +0.1975 | +0.2161 | +0.0784 | 3.46% | 7 | +1.147R | 6 | [−0.0083, +0.4145] |
+| trail from +2R | 197 | 43.65% | 1.424 | +0.2584 | +0.2361 | +0.3771 | 4.69% | 7 | +1.932R | 0 | [−0.0187, +0.5329] |
+| trail from +3R | 193 | 37.31% | 1.462 | +0.3115 | +0.3940 | +0.3553 | 7.75% | 11 | +2.580R | 0 | [−0.0200, +0.6439] |
+| trail ATR from +2R | 197 | 43.65% | 1.424 | +0.2584 | +0.2361 | +0.3771 | 4.69% | 7 | +1.932R | 0 | [−0.0187, +0.5329] |
+| BE at +2R | 192 | 40.62% | 1.495 | +0.3025 | +0.4171 | **+0.1586** | 5.11% | 10 | +2.196R | **26** | [−0.0152, +0.6319] |
+| **BE at +3R — ADOPTED** | 193 | 36.27% | **1.520** | **+0.3521** | **+0.4022** | **+0.3553** | 7.51% | **11** | +2.781R | **3** | **[+0.0092, +0.6948] CLEARS** |
+| BE +2R & trail +3R | 192 | 41.15% | 1.411 | +0.2508 | +0.3868 | +0.1586 | 5.74% | 10 | +2.029R | 24 | [−0.0473, +0.5658] |
+| partial 50% at +2R | 195 | 34.87% | 1.436 | +0.3039 | +0.3373 | +0.3225 | 7.72% | 14 | +2.801R | 0 | [−0.0310, +0.6409] |
+
+**Read the scratches column against the TEST column.** BE at +2R buys the best
+TRAIN number in the table (+0.4171) by manufacturing **26 scratches** — trades
+converted from runners into round-trips booked marginally positive, which is
+audit defect 6 in action — and gives back **more than half of TEST** doing it.
+BE at +3R makes **three** scratches and leaves TEST untouched. That contrast is
+the whole reason the trigger is at 3R and not lower, and it replicates v5's
+finding that the stock +1R break-even is actively harmful (here it costs 40% of
+expectancy and drops the average winner from +2.86R to +1.15R).
+
+**Trailing is rejected on both splits.** Every trailing variant cuts the average
+winner materially, and the two that keep TEST intact (trail from +3R) do not
+beat plain BE at +3R on any column. Partial take-profit is a small loss
+everywhere. **v5's "no trade management at all" conclusion survives, with one
+narrow exception.**
+
+#### Why BE at +3R is adopted, stated so it cannot be misread
+
+It is **not** claimed as a performance improvement, and by this repo's own
+adoption rule (*helps TRAIN and improves TEST*) it would not qualify as one:
+
+> **TEST is a literal no-op.** +0.3553R with the mechanic, +0.3553R without it,
+> to four decimal places — because no trade in the TEST window both reached +3R
+> and then reversed through its stop. TEST is therefore evidence that the change
+> **does no harm**, and it is nothing more than that.
+
+It is adopted **on risk grounds**, on exactly the footing `enforce_concurrency`
+was adopted on in v5 — a spec/risk consideration that costs nothing measurable:
+
+* it shortens the **longest losing streak from 14 to 11**, which is the single
+  most dangerous property this system has at the risk levels the owner is asking
+  about (that streak is worth 24% of the account at 2%);
+* it improves TRAIN (+0.3617 → +0.4022) and profit factor (1.468 → 1.520);
+* it costs **three scratches** out of 193 trades, so the win rate it reports is
+  still essentially honest (70 winners, of which 3 are scratches);
+* it does not shrink the target — the 4R take-profit is untouched, and the
+  break-even line stays at 20%.
+
+Its full-window cluster interval **[+0.0092, +0.6948] clears zero**, the first
+configuration here to do so while also obeying TRAIN/TEST selection and the
+spec's concurrency caps. **Its walk-forward cluster interval, [−0.0431,
++0.7079], does not.** Both are printed so nobody has to take it on trust.
+
+#### Walk-forward on the frozen v6 config
+
+166 out-of-sample trades across **121 clusters**, 35.54% win rate, PF 1.467,
+**+0.3220R**, naive CI [+0.0315, +0.6352], **cluster CI [−0.0431, +0.7079] —
+spans zero.** Splits: TRAIN +0.4022 (n=94), VALIDATION +0.1738 (n=43), TEST
++0.3553 (n=58). The validation dip is real and is not smoothed over: this is a
+thin edge with wide dispersion across any three-way cut of 193 trades.
+
+### Risk of ruin at 2% — the arithmetic, on the recorded streak
+
+Not a simulated worst case. This is the losing streak the backtest **actually
+produced**, applied to $100,000, with losses taken at **−1.05R** (what this
+engine's average loser really costs once the spread and gap-through are paid)
+and compounded fixed-fractionally so each successive loss risks fewer dollars —
+the *kind* version of the arithmetic.
+
+| | 1% risk | 2% risk |
+|---|---|---|
+| Recorded streak (v6) | 13 losses | 13 losses |
+| Drawdown from that streak alone | 12.82% | **24.11%** |
+| $100,000 becomes | $87,177.69 | **$75,888.33** |
+| Gain needed to recover | 14.71% | **31.77%** |
+| *(v5's 14-loss streak)* | *13.74% → $86,262* | ***25.71% → $74,295*** |
+| **Measured full-run max drawdown** | **17.76%** | **32.73%** |
+
+**The verdict: 2% is unsafe on this streak profile.** Three things make it so,
+and none of them is speculative:
+
+1. **The measured peak-to-trough drawdown at 2% is 32.73%.** A third of the
+   account, on the backtest, with no bad luck added.
+2. **A 13–14 trade losing run is already on record**, and at a 35% win rate a
+   run three trades longer is not a freak event — it is the kind of thing a
+   200-trade sequence produces. At 2%, 17 consecutive losses is a 30% drawdown
+   from the streak alone, on top of whatever the account has already given back.
+3. **The edge is not established.** The honest (cluster, walk-forward) interval
+   still contains zero. **2% risk on an unestablished edge compounds the
+   uncertainty, not the edge** — the doubling applies to the negative tail
+   exactly as it applies to the positive one.
+
+2% is also **outside the system's own stated band** (`risk_per_trade_max_pct:
+1.0`); producing these numbers required raising that cap explicitly, and the
+raise is logged in `run_v6_100k.py` rather than silently absorbed. **1% is the
+recommendation. 2% is published because it was asked for.**
+
+### Perturbation — the frozen v6 config
+
+| Change | Trades | TRAIN E | TEST E | Reading |
+|---|---|---|---|---|
+| **baseline** | 193 | **+0.4022** | **+0.3553** | reference |
+| score gate 78 | 193 | +0.4022 | +0.3553 | no-op — the score card is discrete here |
+| **score gate 82** | **26** | +0.9847 | **−0.2511** | a cliff, not a slope — see below |
+| stop buffer 0.20 | 192 | +0.3859 | +0.2803 | holds |
+| stop buffer 0.30 | 205 | +0.4042 | +0.2650 | holds |
+| fill depth 0.45 | 205 | +0.3780 | +0.2603 | holds |
+| fill depth 0.55 | 194 | +0.3577 | +0.3954 | holds |
+| valid bars 7 | 187 | +0.3673 | +0.3553 | holds |
+| valid bars 9 | 198 | +0.4058 | +0.4123 | holds |
+| max hold 84 | 193 | +0.3907 | +0.3652 | holds |
+| max hold 108 | 193 | +0.3598 | +0.3128 | holds |
+| sweep recency 5 | 181 | +0.3487 | +0.2688 | holds |
+| sweep recency 7 | 204 | +0.3450 | +0.3192 | holds |
+
+**Positive on both splits under every perturbation except one, and that one is
+a known discontinuity rather than fragility.** The scorecard is built from a
+small number of discrete weights, so between 80 and 82 there is a cliff — the
+population collapses from 193 trades to 26 — and 26 trades split 7/13 across
+TRAIN and TEST measures nothing. That is the same n-too-small failure that
+rejected the gate-85 variant in v5, and it is why the gate stays at 80.
+
+### What v6 tried and rejected, in one list
+
+| Change | Verdict | Evidence |
+|---|---|---|
+| `max_signals_per_sweep` 1 / 2 / 3 | **REJECTED** | worse than shipped on TRAIN and on the cluster CI; cluster count unchanged |
+| `cooldown_hours` 6 / 12 / 24 / 48 | **REJECTED** | costs 25% of trades and half of TRAIN expectancy |
+| combined sweep + hours gates | **REJECTED** | identical to the bar cooldown they subsume |
+| flat 5R / 6R | **REJECTED** | TRAIN argmax, TEST collapses to +0.014 / +0.109 |
+| flat 8R | **REJECTED** | worse than 4R on every column |
+| flat 2R | **NOT ADOPTED**, documented | clears the full-window cluster CI, but on lower variance not more edge; not the TRAIN pick; WF still spans zero |
+| trailing (structure or ATR, from +1R/+2R/+3R) | **REJECTED** | cuts the average winner; none beats BE at +3R |
+| break-even at +1R (v5) / +2R | **REJECTED** | +2R manufactures 26 scratches and halves TEST |
+| partial 50% at +2R | **REJECTED** | −0.02R on both splits |
+| excluding EURUSD | **REJECTED** | only both-splits-negative cut, at n=12 (3 TEST trades) |
+| session / hour / weekday filters | **REJECTED** | every candidate inverts across splits |
+| **break-even at +3R** | **ADOPTED** — risk grounds | streak 14→11, TRAIN +0.3617→+0.4022, TEST unchanged |
+
+### How to run v6
+
+```bash
+# The headline: $100k over the FULL window, 1% and 2%, compounding
+python3 run_v6_100k.py --full --profile v6 --tag full_v6
+python3 run_v6_100k.py --full --profile v5 --tag full      # the v5 comparison
+python3 run_v6_100k.py --days 90 --profile v6 --tag 90d_v6 # continuity only
+
+python3 build_v6_workbook.py        # -> Bot_Performance_Full.xlsx
+
+# The improvement loop (TRAIN/TEST scored, cluster-priced, nothing on the full window)
+python3 tune_v6.py --round dedupe    # the middle ground -- closed, negative
+python3 tune_v6.py --round rr        # target geometry on the adopted population
+python3 tune_v6.py --round loss      # where the losses actually are -- nowhere
+python3 tune_v6.py --round runner    # the runner exit, entry-matched
+python3 tune_v6.py --round final --extra '{"targets.breakeven.trigger_r": 3.0}'
+python3 tune_v6.py --round perturb --extra '{"targets.breakeven.trigger_r": 3.0}'
+
+# v2 must STILL reproduce bit-for-bit: 153 / 54.90% / PF 1.260 / +0.114R
+python3 tune_v5.py --round regress
+```
+
+### v6 caveats
+
+* **The sample is 193 trades and ~142 independent clusters over 3.3 years.**
+  Everything in this section is measured on that, and no amount of statistical
+  care makes it a large sample. The cluster interval clearing zero by 0.0092R is
+  a whisker, and the walk-forward version does not clear at all.
+* **The break-even-at-+3R adoption rests on a mechanic that fires rarely.** It
+  changes the outcome of a single-digit number of trades. It is adopted because
+  it shortens a dangerous streak at no measured cost, not because 193 trades can
+  establish that a rarely-firing exit rule works.
+* **`max_drawdown_pct` in the tuning tables is quoted at the config's 0.5%
+  baseline risk.** The deliverable's 17.76% / 32.73% are the numbers that would
+  be experienced at 1% / 2%. Do not quote the tuning-table figure to anyone
+  sizing a real account.
+* **Total pips is a requested column, not a meaningful aggregate.** It sums
+  XAUUSD pips (0.1 price units, $10 a pip a lot) with USDJPY pips (0.01) and
+  EURUSD pips (0.0001). The dollar column is the one that means something.
+* **Nothing here has been forward-tested.** No order has ever been placed.
 
 ---
 

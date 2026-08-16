@@ -119,6 +119,24 @@ def run_one(cfg, engine, contexts, start, end, balance, risk_pct):
     variant.set("risk.starting_balance", balance)
     variant.set("risk.compounding", True)
     variant.set("risk.risk_per_trade_pct", risk_pct)
+    # `Config.risk_per_trade_pct` CLAMPS to `risk.risk_per_trade_max_pct`, which
+    # the spec sets to 1.0. Asking for 2% without raising the cap silently
+    # returns a 1% run -- the 1% and 2% tables come back bit-for-bit identical
+    # and look like a copy-paste error rather than a clamp. The owner asked for
+    # 2%, so the cap is raised explicitly and the fact that 2% is outside the
+    # system's own stated risk band is reported rather than quietly absorbed.
+    variant.set("risk.risk_per_trade_max_pct", max(risk_pct, 1.0))
+    # The daily and weekly loss gates are expressed as a percentage of the
+    # account, so at 2% risk an untouched `max_daily_loss_pct: 2.0` is tripped
+    # by ONE losing trade and the run measures the circuit breaker instead of
+    # the strategy. Both are scaled by the same factor as the risk step-up, so
+    # they keep binding at the same number of losing trades at every risk level
+    # and the 1% and 2% runs stay comparable.
+    scale = risk_pct / 0.5      # the config's own baseline risk
+    variant.set("risk.max_daily_loss_pct",
+                round(float(variant.get("risk.max_daily_loss_pct", 2.0)) * scale, 3))
+    variant.set("risk.max_weekly_loss_pct",
+                round(float(variant.get("risk.max_weekly_loss_pct", 5.0)) * scale, 3))
     # Gold carries its own risk override; scale it by the same factor so the
     # "1% vs 2%" comparison is a clean doubling everywhere.
     gold = variant.get("instrument_overrides.XAUUSD.risk.risk_per_trade_pct", None)
@@ -146,9 +164,13 @@ def run_one(cfg, engine, contexts, start, end, balance, risk_pct):
         "win_rate_ci": f"[{wlo:.2f}, {whi:.2f}]" if m["trades"] else "",
         "profit_factor": round(m["profit_factor"], 3),
         "expectancy_r": round(m["expectancy_r"], 4),
-        "expectancy_ci": f"[{elo:+.4f}, {ehi:+.4f}]" if m["trades"] else "",
-        "ci_clears_zero": ("no -- spans zero" if (m["trades"] and elo < 0 < ehi)
-                           else ("yes" if m["trades"] else "")),
+        "expectancy_ci": (f"[{elo:+.4f}, {ehi:+.4f}]" if m["trades"] >= 30
+                          else f"n={m['trades']} -- not computable"),
+        # A bootstrap interval on a handful of trades is not evidence of
+        # anything, in either direction. Below 30 trades the question is
+        # refused rather than answered.
+        "ci_clears_zero": ("sample too small to say" if m["trades"] < 30 else
+                           ("no -- spans zero" if elo < 0 < ehi else "yes")),
         "max_drawdown_pct": round(per["max_dd_pct"], 2),
         "max_consecutive_losses": m.get("max_consecutive_losses", 0),
         "trades_per_day_calendar": round(m["trades"] / max((end - start).days, 1), 3),

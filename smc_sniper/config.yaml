@@ -738,8 +738,23 @@ profiles:
     execution.tp_trade_through: true
     entry.exact_expiry: true
     targets.mode: "fixed_rr"
+    # 4.0R. Chosen on TRAIN only, and it is a CONFIRMATION rather than a pick:
+    # v3 pre-registered flat 4R from v2's matched-R table and gave it a
+    # TRAIN/TEST cycle; v5 re-ran it on the audited engine with an ENTRY-MATCHED
+    # control (defect 7) and it replicated. TRAIN expectancy is a plateau from
+    # 3.0R to 4.5R (+0.188 / +0.187 / +0.185 / +0.177), not a spike, which is
+    # what a real effect looks like -- and 4.0R sits inside it.
+    #
+    # WHAT IT COSTS, stated so it cannot be selected blind:
+    #   win rate falls to ~33%. It wins bigger, not more often.
+    #   max drawdown roughly triples against the ladder.
+    # The break-even win rate at 4R is 20%, so 33% clears its line by 13 points.
+    # Do not compare it to the ladder's 56% without comparing the two lines.
     targets.fixed_rr: 4.0
     targets.min_rr: 2.0
+    # Without this the flat target makes `min_rr` inert and the configuration
+    # stops filtering on reward-to-risk altogether. See audit defect 7.
+    targets.min_rr_on_liquidity: true
     targets.partial_tp.enabled: false
     targets.breakeven.enabled: false
     targets.trailing.enabled: false

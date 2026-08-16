@@ -7,9 +7,61 @@ honestly.
 
 ---
 
-## STATUS — read this first  ·  **v3**
+## STATUS — read this first  ·  **v5**
 
 **Do not trade any of this live.**
+
+v5 was asked to hunt for defects, reach three trades a day at 1:2–1:5, and
+deliver a 90-day workbook at 1% and 2% risk. The bug hunt is where the value
+was: **eight real defects, two of them lookahead**. The frequency target is
+measured to a definite answer and the answer is **no**.
+
+| | **v2** | **v3 scalper** | **v5 (adopted)** |
+|---|---|---|---|
+| Setup timeframe | 1H | 15m (5m fills) | **1H** |
+| Target | liquidity ladder | ladder | **flat 4R, no management** |
+| Full window (~1200d) | 153 tr, 54.90%, PF 1.260, +0.114R | 1888 tr, 43.64%, PF 0.749, −0.131R | **144 tr, 32.64%, PF 1.341, +0.2438R** |
+| Break-even win rate | — | — | **20.0% — cleared by 12.6 points** |
+| Walk-forward OOS | 132 tr, 55.30%, +0.107R | 362 tr, 39.78%, −0.204R | **125 tr, 32.80%, PF 1.345, +0.2466R** |
+| Expectancy 95% CI | −0.061 to +0.286 | entirely below zero | **−0.071 to +0.560** |
+| CI clear of zero? | NO | yes — WRONG side | **NO** |
+| Max drawdown | 3.98% | 124% | **7.06%** |
+| Longest losing streak | 5 | 12 | **15** |
+| Trades/day | 0.17 | 3.78 | **0.12** |
+| **3 trades/day reached?** | NO | YES (losing) | **NO** |
+
+**The audit is the headline.** Two lookaheads (an order-block quality rank
+reading two bars into the future on 11.16% of 88,299 blocks; the risk engine
+booking P/L at signal time), a commission ~190× too small on every JPY cross
+(36% of v2's trades were effectively commission-free), a fill-window off-by-one,
+a take-profit that filled on a touch while the entry required trade-through,
+break-even exits scored as wins, a matched-R control that was never
+entry-matched, and a risk cap that silently turned a requested 2% into 1%. All
+eight are fixed, each behind a flag defaulting to the old behaviour, so
+`run_backtest.py --stack swing` still returns **exactly** v2's 153 / 54.90% /
+1.260 / +0.114R.
+
+**Fixing them moved the honest v2 number from +0.114R to +0.126R and its
+out-of-sample half from +0.083R to +0.032R — the lookahead was flattering the
+part that matters most.**
+
+**Three trades a day is not reachable with a positive expectancy, and the whole
+frontier is now measured.** 1H tops out at 0.62 trades/day and is negative
+there; a new 30m rung tops out at 1.25/day and is negative at every score gate
+on TRAIN and TEST independently; only 15m reaches 3.78/day, and that is the one
+configuration in this repo whose confidence interval is clear of zero — below
+it. **The achievable frequency on a working engine is about 0.12 trades a day.**
+
+**The 90-day $100k deliverable is five trades**, −3.83% at 1% risk and −7.56% at
+2%. Five trades cannot evaluate anything; the ~1200-day number is the one that
+means something, and its interval still contains zero.
+
+**Forward results: still PENDING DEMO RUN.** Nothing in this repo has ever
+placed an order.
+
+---
+
+## STATUS — v3 (superseded, kept for continuity)
 
 v3 was asked for a scalping system with a 70%+ win rate at 3+ trades a day. It
 built one, measured it properly, and the answer is negative: **the SMC entry
@@ -49,6 +101,477 @@ where the spread is under 10% of R makes the out-of-sample result *worse*
 
 **Forward results: still PENDING DEMO RUN.** Nothing in this repo has ever
 placed an order.
+
+---
+
+## v5 — the audit, and the frequency frontier measured to its end
+
+The owner asked for four things: find and fix whatever is suppressing
+performance, reach at least three trades a day at 1:2–1:5 reward-to-risk, run
+the result at 1% and 2% risk, and deliver a clean 90-day workbook. The first
+one is where the value was, and it produced **seven real defects**. The second
+one is measured to a definite answer and the answer is **no**.
+
+### The seven defects, with what each one cost
+
+Each fix ships behind a flag that defaults to the OLD behaviour, so
+`python3 run_backtest.py --stack swing` still returns exactly 153 trades /
+54.90% WR / PF 1.260 / +0.114R. The `v5` profile turns them all on.
+
+| # | Defect | Where | Measured impact |
+|---|---|---|---|
+| 1 | **Lookahead in the order-block quality rank.** The structure-event association window ran two bars PAST the bar the zone becomes knowable on, and it feeds `_rank_ob`, whose output gates admission through `order_blocks.min_quality`. | `zones.py::find_order_blocks` | **11.16% of 88,299 order blocks** had their quality decided by an event the market had not printed yet. Removing it: 153→149 trades, full expectancy +0.114R→+0.139R, **but TEST +0.083R→+0.045R** — the lookahead was flattering the out-of-sample half. |
+| 2 | **Commission ~190× too small on every JPY cross.** `contract_value` returned a flat 100,000 for all non-metal pairs, which is only right when the QUOTE currency is USD. A 1.0-unit move on 1 lot of USDJPY is 100,000 *JPY*, ≈$666. | `risk.py::contract_value` | Commission drag by quote currency: USD **0.0359R**, CHF 0.0320R, CAD 0.0259R, NZD 0.0130R, AUD 0.0150R, **JPY 0.00019R**. 36% of v2's trades were effectively commission-free. Fixing it costs **−0.0123R** (+0.114 → +0.102). |
+| 3 | **Lookahead in the risk layer.** `register` booked realised P/L, the consecutive-loss counter and the running balance at *signal* time, so the daily/weekly loss gates and the loss cooldown were evaluated against the outcome of positions that were still open. | `risk.py::register` | +1 trade, +0.0033R. Small on a stack that trades 0.13 times a day; structural on anything faster. |
+| 4 | **Asymmetric fill rule.** The entry limit required trade-through; the take profit — also a resting limit — filled on a touch. | `backtest.py` | **Zero measurable change** on 1H float prices. Fixed anyway: the rule should be symmetric, and it will bite on a tick-quantised feed or around round numbers. |
+| 5 | **Off-by-one in the fill window.** `end` is the first entry bar the limit is *already cancelled* for, and the scan ran `range(start, end + 1)`. `entry.valid_bars: 8` was really a 9-bar window, in the strategy's favour. | `backtest.py::simulate_trade` | (see round M) |
+| 6 | **Break-even exits are scored as wins.** A stop moved to entry + 0.05R exits a hair above zero, so `r > 0` books it as a win. 7 of 153 v2 trades exit at **+0.010R to +0.045R having banked no partial at all** — price tagged +1R intrabar, which triggers the break-even move but does not reach a TP1 sitting further out. | `metrics.py` | With a ±0.10R scratch band: 10 scratches, win rate **54.90% → 53.85%**. About one point, not the ~15 the same defect class was worth in the uploaded bot, because here the partial P/L is genuinely realised rather than assumed. `win_rate` is left alone; `win_rate_ex_scratch` is reported beside it. |
+| 7 | **The matched-R control is not entry-matched.** `min_rr` is applied to `rr_tp2`, which in `fixed_rr` mode is the flat multiple the config just asserted — so the reward-to-risk gate is inert for any flat target ≥ `min_rr` and lethal for any below it. `matched_r_control` papers over the second half by setting `min_rr = min(rr, 2.0)`, which means **every row of the matched-R table runs with the reward-to-risk filter switched off while the ladder baseline it is compared against runs with it on.** | `signal_engine.py`, `walkforward.py` | This is the check this repo leans on hardest — it is how `swing_4r` was adopted. (see round R) |
+
+### What audited CLEAN — this is the valuable half
+
+* **No wrong-side stops.** The defect that broke the uploaded bot — nothing
+  verifying the stop is on the *losing* side of the entry — is structurally
+  impossible here: the long stop anchor is
+  `min(sweep.extreme, zone.bottom, recent lows) − buffer×ATR`, and `zone.bottom`
+  is in that `min`, so the stop is always below the entry, which lies inside the
+  zone. **Verified on all 153 v2 trades: zero wrong-side stops.**
+* **No lookahead anywhere else.** Swings confirm at `index + lookback`;
+  structure events read `closes[i]` with `active_high.index < i`; the bias array
+  advances on `events[ev].index <= i`; `MTFView` maps every higher timeframe by
+  `close_time <= setup_bar.close_time`; liquidity pools are indexed by the bar
+  they become knowable (PDH from the first bar of the next day, session levels
+  from the bar after the session's last); `detect_sweeps` breaks on
+  `pool.index >= i`; zone invalidation is compared against the current bar; the
+  volatility-regime rank is `.rolling(...).shift(1)`. The only remaining
+  backfill is `atr()`'s `.bfill()` over the first ~6 bars of a frame, and signal
+  generation starts at bar 30.
+* **No double-counting of a liquidity event.** Across 153 trades: **one** pair of
+  same-symbol/same-direction entries within 24 hours, **zero** overlapping
+  positions on the same pair, maximum **3** simultaneous positions portfolio-wide.
+* **Contract specs and pip sizes are right.** XAUUSD `pip: 0.1` with a 100 oz
+  contract quoted in USD; JPY crosses `pip: 0.01`; everything else `0.0001`.
+  The gold spread of 25 pips is $2.50. R-multiples and dollar P/L were never
+  affected by defect 2 — `pnl` is `R × risk_amount` — only `size_lots` and the
+  per-lot commission were.
+* **The entry mechanics are already at their optimum.** Twenty variants, selected
+  on TRAIN, scored on an untouched TEST. **Not one beats the baseline on both.**
+
+### Round E — entry mechanics, stop calibration, sequencing
+
+| Change | TRAIN E | TEST E | Verdict |
+|---|---|---|---|
+| baseline (all fixes on) | **+0.106R** | **+0.032R** | reference |
+| fill depth 0.0 (zone edge) | −0.003 | +0.171 | REJECTED — TRAIN collapses |
+| fill depth 0.25 | +0.036 | +0.061 | REJECTED |
+| **fill depth 0.5 (default)** | **+0.106** | **+0.032** | the TRAIN peak |
+| fill depth 0.75 | −0.028 | +0.047 | REJECTED |
+| fill depth 1.0 (far edge) | −0.035 | +0.120 | REJECTED |
+| fill window 4 bars | +0.062 | +0.058 | REJECTED |
+| fill window 6 | +0.081 | +0.032 | REJECTED |
+| **fill window 8 (default)** | **+0.106** | **+0.032** | the TRAIN peak |
+| fill window 12 | +0.068 | +0.087 | REJECTED |
+| fill window 16 | −0.014 | +0.133 | REJECTED |
+| **zone-must-form-after-sweep OFF** | +0.088 | **−0.012** | REJECTED — the sequencing rule earns its place on BOTH splits |
+| sweep recency 3 bars | **+0.136** | −0.041 | REJECTED — inverts |
+| sweep recency 4 | −0.010 | +0.026 | REJECTED |
+| sweep recency 8 | +0.060 | +0.074 | REJECTED |
+| sweep recency 10 | +0.080 | −0.075 | REJECTED |
+| stop buffer 0.15×ATR | +0.091 | −0.043 | REJECTED |
+| **stop buffer 0.35×ATR** | **+0.191** | **−0.051** | REJECTED — the loudest TRAIN result in the round, and it inverts |
+| stop buffer 0.50×ATR | +0.135 | −0.044 | REJECTED |
+| min stop 0.50×ATR | +0.112 | −0.005 | REJECTED |
+| min stop 1.00×ATR | +0.086 | +0.032 | REJECTED |
+| min stop 1.30×ATR | +0.088 | −0.025 | REJECTED |
+| PD hard veto 0.65 | +0.073 | +0.076 | REJECTED — hurts TRAIN |
+| PD hard veto 0.75 | +0.085 | +0.032 | REJECTED |
+| PD hard veto 0.95 | −0.002 | +0.052 | REJECTED |
+
+**The answer to "is the zone midpoint the best fill reference" is yes, and it is
+not close.** Both edges cost TRAIN expectancy, and the far edge costs 10% of the
+trades as well. The answer to "is the fill window sensible" is also yes: 8 setup
+bars is the TRAIN peak in both directions. The answer to "must the zone form
+after the sweep" is yes and it is the only rule in the round that is better on
+*both* splits.
+
+### Round F — is there a rung between the 1H model that works and the 15m one that does not?
+
+v3 established that the SMC entry model loses money on a 15m setup. v5 built the
+missing rung: a **30m setup timeframe**, resampled from the native 15m cache,
+under the swing stack's own higher-timeframe context (1D bias / 4H structure,
+15m fills), ~700 days, 29 pairs, all audit fixes on, concurrency caps raised so
+the risk engine is not the binding constraint.
+
+| Score gate | Trades | Trades/day | Win rate | PF | Full E | TRAIN E | TEST E |
+|---|---|---|---|---|---|---|---|
+| 80 | 138 | 0.20 | 39.86% | 0.676 | −0.184R | −0.158 | −0.086 |
+| 75 | 292 | 0.42 | 41.44% | 0.679 | −0.183R | −0.182 | −0.021 |
+| 70 | 387 | 0.56 | 42.89% | 0.673 | −0.186R | −0.138 | −0.045 |
+| 65 | 609 | 0.88 | 43.35% | 0.739 | −0.143R | −0.076 | −0.111 |
+| 60 | 808 | **1.16** | 45.17% | 0.784 | −0.114R | −0.074 | −0.066 |
+| 55 | 872 | **1.25** | 43.23% | 0.734 | −0.146R | −0.100 | −0.108 |
+
+**Negative at every gate, on TRAIN and TEST independently — and it tops out at
+1.25 trades a day.** The 30m rung fails twice: it does not work, and even
+wide open it cannot deliver the frequency. The break is between 1H and 30m, not
+between 30m and 15m.
+
+### The win rate / reward-to-risk trade-off, stated plainly
+
+This is the single most important thing in the report, so it is stated in
+words before the table.
+
+**A win rate on its own is not information.** A trade that risks 1 to make 0.5
+needs to win 67% of the time just to break even. A trade that risks 1 to make 4
+needs to win 20%. So a 70% win rate at a 0.5R target and a 35% win rate at a 4R
+target are not "70 versus 35" — they are "70 against a 67 break-even line" and
+"35 against a 20 break-even line". The first clears its bar by 3 points. The
+second clears its bar by 15.
+
+That is why **35% at 4R beats 70% at 0.5R**, and it is not a close call. This
+repo has already measured the 0.5R case directly: the v3 scalper hit **70.18%**
+win rate at a flat 0.5R target and still lost **0.086R per trade**, because the
+round-trip cost is a double-digit percentage of R at that target width. The win
+rate was real. The money was not.
+
+Every configuration below is reported with its break-even line beside it, so
+the comparison is never win rate against win rate.
+
+### Is three trades a day reachable? No.
+
+Plainly: **no.** Here is the whole frontier this repo has now measured, on one
+axis, so the answer is checkable rather than asserted.
+
+| Stack | Setup TF | Best honest expectancy | Trades/day at that setting | Trades/day wide open | Expectancy wide open |
+|---|---|---|---|---|---|
+| swing (v5) | **1H** | **positive** | ~0.13 | (see round R gates) | |
+| mid30_swing (v5) | 30m | −0.114R | 1.16 | 1.25 | −0.146R |
+| scalp15 (v3) | 15m | −0.131R | 3.78 | 3.78 | −0.131R |
+| scalp5 (v3) | 5m | rejected on cost arithmetic before any backtest | 0.02 | — | — |
+
+**The only stack in this repo that reaches three trades a day is the 15m one,
+and it is the one configuration here whose confidence interval is clear of zero
+— on the wrong side.** It loses 0.131R per trade over 1,888 trades, with TRAIN
+and TEST agreeing. The 30m rung built specifically to bridge the gap tops out at
+1.25 trades a day and is negative at every score gate. The 1H stack that works
+trades roughly once a week.
+
+Every lever the brief named was tried:
+
+* **Wider pair universe** — already 29 pairs, and the 16 added in v2 are
+  frequency rather than edge (negative on TRAIN on their own).
+* **A lower score gate** — measured on both the 1H and 30m stacks. On 30m the
+  win rate barely moves across a 25-point gate range, which says the score card
+  carries no marginal information below 1H.
+* **Concurrent positions** — `max_open_positions` and `max_exposure_per_currency`
+  were inert until v3 fixed them, and v5 measured what they actually bind at:
+  the natural maximum on the 1H stack is **exactly 3 simultaneous positions**,
+  the configured cap. Raising it buys nothing because the constraint is setup
+  supply.
+* **`risk.max_trades_per_day: 3`** — this one WOULD bind at the target
+  frequency and never binds today, so it was raised to 30 in every frequency
+  experiment to make sure the risk engine was not the thing being measured.
+* **An intermediate timeframe** — built, measured, negative.
+
+**The achievable frequency on a working engine is about 0.13 trades a day**
+(roughly one a week across 29 pairs), rising to the values in the gate table
+below at a cost in expectancy that is stated there. Manufacturing 3/day means
+moving to a timeframe this repo has now measured as loss-making twice, at two
+different resolutions. That is not a trade worth making, and the brief said so:
+*if 3/day is not honestly reachable without destroying expectancy, say so.*
+
+### Round R — the reward-to-risk frontier, on an entry-matched control
+
+Management stripped off, one flat target at each R, and — for the first time in
+this repo — the reward-to-risk gate evaluated against the liquidity that is
+actually there, so **every row selects the same entries** (144–146 trades
+against the ladder's 149; audit defect 7). ~1200 days, 29 pairs, all fixes on.
+
+| Target | Trades | Win rate | Break-even WR | Clears by | PF | Full E | TRAIN E | TEST E | Max DD |
+|---|---|---|---|---|---|---|---|---|---|
+| ladder (liquidity TP1/TP2/TP3 + BE + trail) | 149 | **55.70%** | — | — | 1.289 | +0.126R | +0.106 | +0.032 | 2.31% |
+| flat 1.0R | 150 | **59.33%** | 50.0% | +9.3 | 1.198 | +0.085R | +0.022 | −0.034 | 2.62% |
+| flat 1.5R | 146 | 47.95% | 40.0% | +8.0 | 1.133 | +0.075R | +0.069 | +0.023 | 3.65% |
+| **flat 2.0R** | 146 | 43.15% | 33.3% | +9.8 | 1.233 | +0.141R | +0.104 | +0.157 | 3.62% |
+| flat 2.5R | 146 | 37.67% | 28.6% | +9.1 | 1.177 | +0.119R | +0.080 | +0.134 | 4.32% |
+| **flat 3.0R** | 144 | 36.11% | 25.0% | +11.1 | 1.271 | +0.186R | +0.188 | +0.142 | 4.56% |
+| **flat 3.5R** | 144 | 34.03% | 22.2% | +11.8 | 1.307 | +0.215R | +0.187 | +0.267 | 4.85% |
+| **flat 4.0R — ADOPTED** | 145 | **33.10%** | 20.0% | **+13.1** | **1.378** | **+0.267R** | **+0.185** | **+0.381** | 6.94% |
+| flat 4.5R | 145 | 31.72% | 18.2% | +13.5 | 1.342 | +0.248R | +0.177 | +0.221 | 6.75% |
+| **flat 5.0R** | 145 | 31.03% | 16.7% | +14.3 | 1.318 | +0.233R | **+0.234** | +0.087 | 6.49% |
+| flat 6.0R (outside the brief) | 145 | 31.03% | 14.3% | +16.7 | 1.457 | +0.332R | +0.377 | +0.200 | 6.23% |
+
+**Read the "clears by" column, not the win rate column.** Win rate falls
+monotonically from 59% to 31% as the target widens — the correct mechanical
+relationship — but the *margin over break-even* rises the whole way, from +9.3
+points at 1R to +13.1 at 4R. A win rate bought by shrinking the target shows
+the exact opposite shape. This system is not doing that.
+
+**Why 4.0R and not 5.0R, which is the TRAIN argmax.** Three reasons, none of
+them TEST:
+
+1. **4R is pre-registered.** v2's matched-R sweep flagged it, v3 gave it a
+   TRAIN/TEST cycle and it replicated, and v5 re-ran it on an audited engine
+   with a control that is genuinely entry-matched. Confirming a stated
+   hypothesis is a stronger position than picking an argmax.
+2. **4R sits inside a plateau; 5R is a spike.** TRAIN runs +0.188 / +0.187 /
+   +0.185 / +0.177 across 3.0–4.5R and then jumps to +0.234 at 5.0R with 4.5R
+   *lower* on either side of it. A parameter with one convenient best value is
+   the exact shape of v2's rejected lead (a).
+3. **5R is at the edge of the owner's 1:2–1:5 band**, and 5R and 6R return the
+   *identical* 31.03% win rate — the same 45 winners — which means everything
+   past 5R rides on how far a handful of trends run rather than on the entry.
+
+For the record and not as a justification: had the strict TRAIN argmax been
+taken, TEST would have come back +0.087R instead of +0.381R.
+
+### What the management ladder is actually doing
+
+The brief asked whether partial-close and break-even mechanics interact badly
+with anything. They do, and the direction is worth stating:
+
+| Ladder variant | Trades | Win rate | Full E | TRAIN E | TEST E |
+|---|---|---|---|---|---|
+| ladder (all management on) | 149 | 55.70% | +0.126R | +0.106 | +0.032 |
+| ladder, **break-even off** | 148 | **44.59%** | **+0.154R** | +0.095 | +0.145 |
+| ladder, trailing off | 149 | 55.70% | +0.149R | +0.162 | −0.046 |
+| ladder, partials off | 149 | 57.05% | +0.105R | +0.096 | −0.081 |
+
+**Switching the break-even stop off costs 11 points of win rate and makes
+money.** That is the whole win-rate/expectancy tension in one row: the
+break-even mechanic converts trades that would have run into scratches booked
+as wins (audit defect 6) and clips the runners that pay for the losers. It is
+not adopted as a ladder change — TRAIN goes +0.106 → +0.095, and selection is
+made on TRAIN — but it is the same force that makes the flat-4R configuration,
+which has break-even off by construction, the better one.
+
+None of the three management variants improves TRAIN, so the ladder is left
+exactly as it was. The adopted configuration simply does not use it.
+
+### The frequency frontier on the 1H stack, for completeness
+
+| Score gate | Trades | Trades/day | Win rate | PF | Full E | TRAIN E | TEST E | Max DD |
+|---|---|---|---|---|---|---|---|---|
+| **80 (default)** | 149 | **0.13** | 55.70% | 1.289 | **+0.126R** | +0.106 | +0.032 | 2.31% |
+| 75 | 332 | 0.28 | 53.01% | 1.042 | +0.022R | −0.008 | +0.020 | 6.74% |
+| 70 | 425 | 0.36 | 54.35% | 1.082 | +0.037R | +0.022 | −0.032 | 6.06% |
+| 65 | 728 | 0.62 | 50.14% | 0.890 | −0.053R | −0.108 | −0.067 | 23.69% |
+
+**Even wide open, the 1H stack does not reach one trade a day** — and it stops
+making money long before it gets there. Doubling the frequency to 0.28/day costs
+82% of the expectancy; quintupling it to 0.62/day turns the system negative and
+takes max drawdown from 2.3% to 23.7%.
+
+Stack the three timeframes side by side and the frontier is complete:
+
+| Achievable trades/day | 1H | 30m | 15m |
+|---|---|---|---|
+| 0.13 | **+0.126R** | — | — |
+| 0.28–0.62 | +0.022 to −0.053R | — | — |
+| 1.16–1.25 | — | −0.114 to −0.146R | — |
+| 3.78 | — | — | −0.131R (CI clear of zero, below it) |
+
+**There is no point on this surface with three trades a day and a positive
+expectancy.** The owner's frequency target and the owner's profitability target
+are on opposite sides of it.
+
+### One more thing the flat target buys: an honest win rate
+
+Every flat-R row above has **zero scratches**. The ladder has 10, and the ladder
+with break-even removed has 20. A configuration with break-even and trailing
+switched off cannot book a scratch as a win, because every trade ends at exactly
++4R or exactly −1R. When the number being quoted is a win rate, that matters
+more than a tenth of an R.
+
+### The adopted v5 configuration, fully validated
+
+`profiles.v5` — 1D bias / 4H structure / 1H setup / 1H entry, 29 pairs, score
+gate 80/95, session-extreme sweeps excluded, **flat 4R target with all
+management stripped off**, all seven audit fixes on, ~1200 days of TradeLocker
+1H bars.
+
+| Split | Window | Trades | Win rate | PF | Expectancy |
+|---|---|---|---|---|---|
+| **IN-SAMPLE (train)** | 2023-05 → 2024-12 | 65 | 29.23% | 1.182 | +0.1318R |
+| **VALIDATION** | 2024-12 → 2025-08 | 38 | 31.58% | 1.405 | +0.2871R |
+| **OUT-OF-SAMPLE (test)** | 2025-08 → 2026-08 | 41 | 39.02% | 1.562 | +0.3814R |
+| **FULL WINDOW** | 2023-05 → 2026-08 | **144** | **32.64%** | **1.341** | **+0.2438R** |
+| **WALK-FORWARD (OOS only)** | 5 rolling folds | **125** | **32.80%** | **1.345** | **+0.2466R** |
+
+* Win-rate 95% CI **25.00 – 40.28%**, against a **20.0%** break-even line at 4R.
+* **Expectancy 95% CI [−0.0710R, +0.5597R] — IT STILL SPANS ZERO.**
+* Walk-forward OOS CI [−0.0851R, +0.6010R] — also spans zero.
+* Max drawdown **7.06%**. **Longest losing streak: 15.**
+* **0.123 trades a day.** Average winner +2.874R, average loser −1.031R.
+
+Walk-forward folds:
+
+| Fold | Fit → OOS | Fit trades | Fit E | OOS trades | OOS WR | OOS E |
+|---|---|---|---|---|---|---|
+| 1 | 2023-05 → 2024-06 | 19 | +0.226R | 23 | 34.78% | **+0.270R** |
+| 2 | 2023-11 → 2024-12 | 23 | +0.270R | 23 | 21.74% | −0.084R |
+| 3 | 2024-06 → 2025-07 | 23 | −0.084R | 33 | 36.36% | **+0.489R** |
+| 4 | 2024-12 → 2026-01 | 33 | +0.489R | 28 | 32.14% | −0.007R |
+| 5 | 2025-07 → 2026-08 | 28 | −0.007R | 18 | 38.89% | **+0.589R** |
+
+The walk-forward number (+0.2466R over 125 unseen trades) landing on top of the
+full-window number (+0.2438R over 144) is the most reassuring line in this
+document. Three of five folds are clearly positive, one is flat and one is
+negative, on 18–33 trade folds — the spread the confidence interval is
+describing.
+
+Pair selection still refuses to select: no pair reaches 12 fit-window trades
+(max 5 across 29 pairs), so every fold keeps everything and says so.
+
+**This is a better configuration than v2 by every measure that matters — nearly
+double the expectancy, a profit factor of 1.34, and a walk-forward that agrees
+with the full window. It is still not an established edge.** The interval
+contains zero. 144 trades cannot pin down a 33% win rate against a 20%
+break-even line, and the difference between the two is the whole result.
+
+### An eighth defect, found while building the deliverable
+
+`Config.risk_per_trade_pct` **clamps** to `risk.risk_per_trade_max_pct`, which
+the spec sets to 1.0. Asking the engine for 2% therefore returns a 1% run,
+silently: the first draft of the 1% and 2% tables came back **bit-for-bit
+identical** — same end balance to the cent — which reads as a copy-paste error
+rather than as a clamp. `run_scalp_100k.py` raises the cap explicitly (so v3's
+2% deliverable really was at 2%), but nothing warns a caller that does not.
+`run_v5_100k.py` now raises it deliberately and says so.
+
+The same block hides a second trap. The daily and weekly loss gates are
+percentages of the account, so at 2% risk an untouched `max_daily_loss_pct: 2.0`
+is tripped by **one** losing trade and `max_weekly_loss_pct: 5.0` by two and a
+half. A 2% run against unscaled gates measures the circuit breaker, not the
+strategy. Both are scaled with the risk step-up so that they bind at the same
+*number of losing trades* at every risk level and the two runs stay comparable.
+
+**2% is outside this system's own stated risk band** (`risk_per_trade_max_pct:
+1.0`). It is produced because the owner asked for it, with the loss-streak
+arithmetic printed beside it.
+
+### Round H — the time stop against a wide target, matched-R
+
+The adopted 4R configuration has an average winner of **+2.874R**, not the ~3.5R
+a clean 4R fill nets after cost. That says trades are being closed by
+`targets.max_hold_bars` before the target arrives, so the time budget was swept
+with the target held fixed — and repeated at 2R so a time-stop effect could not
+be mistaken for a target-width effect.
+
+| Budget | 4R: % time-stopped | avg winner | Win rate | TRAIN E | TEST E | | 2R: TRAIN E |
+|---|---|---|---|---|---|---|---|
+| 48h | 24.8% | +2.381R | 34.04% | +0.101 | +0.250 | | +0.029 |
+| **96h (default)** | 11.8% | **+2.874R** | 32.64% | **+0.132** | +0.381 | | **+0.079** |
+| 192h | 2.1% | +3.497R | 27.97% | +0.039 | +0.355 | | +0.011 |
+| 384h | 1.4% | +3.520R | 27.27% | −0.002 | +0.330 | | +0.011 |
+| 720h | 0.7% | +3.583R | 26.57% | −0.002 | +0.276 | | +0.011 |
+
+**The truncation is not a defect — it is doing real work.** Extending the budget
+lets more trades reach the full 4R (average winner climbs to +3.58R) and the
+win rate *falls* from 32.6% to 26.6%, because the positions the time stop used
+to harvest in profit go on to hit their stop instead. 96 bars is the TRAIN
+optimum in both directions, and the 2R control shows the identical shape, so it
+is a property of the time stop rather than of the target. **Audited clean.**
+
+### The $100,000 / 90-day deliverable, at 1% AND 2%
+
+`profiles.v5`, most recent 90 days of broker data (2026-05-16 → 2026-08-14),
+$100,000, compounding trade by trade, two independent runs.
+
+| | **1% risk** | **2% risk** |
+|---|---|---|
+| Start balance | $100,000.00 | $100,000.00 |
+| **End balance** | **$96,166.57** | **$92,436.37** |
+| **Total profit** | **−$3,833.43** | **−$7,563.63** |
+| **Total ROI** | **−3.83%** | **−7.56%** |
+| Trades | **5** | **5** |
+| Win rate | 20.00% (1 of 5) | 20.00% |
+| Profit factor | 0.082 | 0.080 |
+| Max drawdown | 4.18% | 8.22% |
+| Longest losing streak | 4 | 4 |
+| Trades per weekday | 0.078 | 0.078 |
+| Active days | 5 of 91 | 5 of 91 |
+| Expectancy CI | n=5 — refused | n=5 — refused |
+
+Monthly: May 0.00%, June 0.00%, July −2.11% / −4.19%, August −1.76% / −3.52%.
+
+**Five trades is not a result and this document will not pretend otherwise.** A
+four-loss run is completely ordinary at a 33% win rate — it is the modal outcome
+of five trades — and it is most of what this window contains. The same
+configuration returns **+0.2438R over 144 trades** and **+0.2466R over 125
+walk-forward trades**. Ninety days at 0.12 trades a day cannot distinguish a
+working system from a broken one, and the bootstrap interval is **refused**
+rather than reported below 30 trades, because an interval on five trades is not
+evidence in either direction.
+
+This is the third time this repo has produced a thin 90-day deliverable, and the
+reason is structural rather than unlucky: the configurations with an edge do not
+trade often enough for a quarter to detect it, and the configuration that trades
+often enough has no edge. That sentence is the whole session.
+
+### What 2% actually implies here
+
+2% is **outside this system's own stated risk band** (`risk_per_trade_max_pct:
+1.0`). It is produced because it was asked for, with the arithmetic beside it.
+
+| | |
+|---|---|
+| Longest losing streak in the 90-day window | 4 |
+| **Longest losing streak over the full ~1200 days** | **15** |
+| Drawdown from that 15-loss streak at **1%** | **14.0%** |
+| Drawdown from that 15-loss streak at **2%** | **26.1%** |
+| Consecutive losses needed to lose 20% at 2% | 11 |
+| Probability of a single loss | **0.67** |
+
+A 15-loss streak sounds extreme and is not: at a 67% loss rate over 144 trades
+the *expected* longest run is about 12, so 15 is ordinary. **At 2% that ordinary
+run is a 26% drawdown, and the expectancy interval still contains zero** — which
+means the system is not yet known to make the money back. On a configuration
+with a demonstrated edge 2% would be aggressive. On this one it is a bet that
+the edge is real, sized as though it already were.
+
+At 1% the same streak costs 14%. That is not an argument that 1% is safe; it is
+the same bet at half the stake.
+
+### v5 caveats
+
+1. **The expectancy CI still spans zero.** [−0.0710R, +0.5597R] on the full
+   window, [−0.0851R, +0.6010R] walk-forward. This is the best configuration
+   this repo has measured and it is still not an established edge. Getting this
+   interval clear of zero remains the most valuable available outcome and **v5
+   did not achieve it either.**
+2. **Two of the eight defects were flattering the out-of-sample half.** Honest
+   v2 TEST expectancy is +0.032R, not +0.083R. Every historical number in this
+   document that predates v5 carries that correction.
+3. **The 15-trade losing streak is a property of a 33% win rate, not a warning
+   sign.** It is also the number that decides what risk setting is survivable.
+4. **144 trades cannot pin a 33% win rate against a 20% break-even line.** The
+   win-rate CI is 25.00–40.28%; the bottom of it is *above* break-even, which is
+   the most encouraging single fact here, and it is still a 15-point interval.
+5. **Pair selection still refuses to select** — no pair reaches 12 fit-window
+   trades (max 5 across 29 pairs) in any walk-forward fold.
+6. **A window-median FX rate is used for the quote-currency conversion.** It
+   touches only the commission, which is 2–4% of R, so a ±20% rate error moves
+   the result by well under a hundredth of an R. Documented rather than hidden.
+7. **No news filter, BID bars with modelled spread, XAUUSD is the broker's own
+   contract, and nothing has ever traded live or on demo.** Unchanged from v2.
+
+### How to run v5
+
+```bash
+# The audited configuration (all eight fixes on, flat 4R)
+python3 run_backtest.py --stack swing --profile v5
+
+# The 30m rung, to reproduce the frequency answer
+python3 run_backtest.py --stack mid30_swing
+
+# The deliverable: $100k, 90 days, 1% AND 2%, + the clean workbook
+python3 run_v5_100k.py --days 90 --profile v5
+python3 build_v5_workbook.py            # -> Bot_Performance_90d.xlsx
+
+# v2 is untouched and still reproduces EXACTLY 153 / 54.90% / 1.260 / +0.114R
+python3 run_backtest.py --stack swing
+```
 
 ---
 
@@ -798,7 +1321,24 @@ tune_scalp.py        The scalping improvement loop (same TRAIN/TEST protocol
 tune_v2_leads.py     v2's two flagged leads, on a real TRAIN/TEST cycle.
 run_scalp_100k.py    The $100k / 2% / 90-day deliverable + risk-of-ruin.
 build_scalper_workbook.py   SMC_Scalper_Results.xlsx (5 clean sheets).
+
+  --- v5 additions -------------------------------------------------------
+run_v5_100k.py       The $100k / 90-day deliverable at 1% AND 2% risk. Raises
+                     `risk_per_trade_max_pct` explicitly (asking for 2% without
+                     it silently returns a 1% run) and scales the daily/weekly
+                     loss gates with the risk step-up so a 2% run is not
+                     measuring its own circuit breaker.
+build_v5_workbook.py Bot_Performance_90d.xlsx -- Date/Pair/Trades/Profit/ROI,
+                     five sheets, both risk levels behind a Risk % column.
 ```
+
+**v5 flags.** Eight defects, eight config flags, every one defaulting to the OLD
+behaviour so v2 stays bit-for-bit reproducible:
+`order_blocks.causal_structure_association`, `risk.quote_ccy_conversion`,
+`risk.book_on_exit`, `execution.tp_trade_through`, `entry.exact_expiry`,
+`targets.min_rr_on_liquidity`, plus the reporting-only `scratches` /
+`win_rate_ex_scratch` in `metrics.py` and the explicit risk-cap raise in
+`run_v5_100k.py`. `profiles.v5` turns them all on.
 
 **Config profiles.** `Config.apply_profile(name)` overlays a flat map of dotted
 paths from `profiles.<name>` in `config.yaml`. This is how v3 variants are
@@ -1142,6 +1682,12 @@ python3 tune_v2_leads.py
 # The $100k / 2% / 90-day scalping deliverable + the clean workbook
 python3 run_scalp_100k.py
 python3 build_scalper_workbook.py         # -> SMC_Scalper_Results.xlsx
+
+# --- v5 ------------------------------------------------------------------
+python3 run_backtest.py --stack swing --profile v5   # the audited config
+python3 run_backtest.py --stack mid30_swing          # the 30m rung
+python3 run_v5_100k.py --days 90 --profile v5        # 1% AND 2%
+python3 build_v5_workbook.py                         # -> Bot_Performance_90d.xlsx
 
 # Any stack with any profile overlaid
 python3 run_backtest.py --stack swing --profile swing_4r

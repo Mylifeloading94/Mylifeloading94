@@ -192,6 +192,37 @@ stacks:
     entry_tf: "5m"
     history_note: "~700 days of TradeLocker 5m bars."
 
+  # ------------------------------------------------------------------
+  # v5 STACKS. The open question v3 left is whether anything sits between the
+  # 1H setup model that works and the 15m one that does not. These are the
+  # rungs of that ladder. 30m is resampled from the native 15m cache (~700d).
+  # ------------------------------------------------------------------
+
+  # 30m setup, 15m fills. One notch below the swing stack.
+  mid30:
+    bias_tf: "4H"
+    structure_tf: "1H"
+    setup_tf: "30m"
+    entry_tf: "15m"
+    history_note: "~700 days of TradeLocker 15m bars resampled to 30m."
+
+  # 30m setup on the SWING higher-timeframe frame (1D bias / 4H structure).
+  mid30_swing:
+    bias_tf: "1D"
+    structure_tf: "4H"
+    setup_tf: "30m"
+    entry_tf: "15m"
+    history_note: "~700 days; the swing stack's HTF context on a 30m setup."
+
+  # The working 1H setup model with a genuinely finer fill/management
+  # resolution underneath it (~700d, bounded by the 15m cache).
+  swing15:
+    bias_tf: "1D"
+    structure_tf: "4H"
+    setup_tf: "1H"
+    entry_tf: "15m"
+    history_note: "~700 days; v2's setup model with 15m fills."
+
 active_stack: "sniper"
 
 # ---------------------------------------------------------------------
@@ -239,6 +270,12 @@ order_blocks:
   min_quality: 2                   # 0-4 quality rank; below this the OB is ignored
   use_breaker_blocks: true
   use_mitigation_blocks: true
+  # v5 AUDIT FIX. Tie an OB to a structure event using only bars up to and
+  # including the bar the zone becomes knowable on. The original window ran two
+  # bars PAST it and fed the result into the quality rank that `min_quality`
+  # gates on -- measured lookahead on 11.16% of 88,299 order blocks. Defaults
+  # to the old behaviour so `--stack swing` still reproduces v2's 153 trades.
+  causal_structure_association: false
 
 # ---------------------------------------------------------------------
 # Fair value gaps
@@ -328,6 +365,18 @@ risk:
   # profile turns it ON, because at 2% risk six concurrent positions is 12% of
   # the account live at once.
   enforce_concurrency: false
+  # v5 AUDIT FIX. Express a contract's value in USD using the QUOTE currency
+  # instead of assuming every non-metal pair is quoted in USD. Only `size_lots`
+  # and therefore the per-lot commission depend on it (R and pnl do not), but
+  # the effect on cost is large: JPY crosses were paying 0.0002R of commission
+  # against 0.036R on USD-quoted pairs -- 36% of v2's trades were effectively
+  # commission-free. Default off so v2 stays reproducible.
+  quote_ccy_conversion: false
+  # v5 AUDIT FIX. Book realised P/L, the consecutive-loss counter and the
+  # running balance on the EXIT clock instead of the signal clock. The old
+  # order let the daily/weekly loss gates and the loss cooldown see the result
+  # of positions that were still open. Default off so v2 stays reproducible.
+  book_on_exit: false
   max_consecutive_losses: 4      # trips a cooldown, never a size-up
   consecutive_loss_cooldown_hours: 24
   max_exposure_per_currency: 2    # max simultaneous positions sharing a currency
@@ -438,6 +487,11 @@ execution:
   slippage_pips: 0.2
   commission_per_lot_rt: 7.0
   require_trade_through: true  # a touch is NOT a fill. Non-negotiable.
+  # v5 AUDIT FIX. Apply the same rule to the TAKE PROFIT, which is also a
+  # resting limit. The engine demanded trade-through on the entry and accepted
+  # a touch on the target -- an asymmetry that always resolved in the
+  # strategy's favour. Default off so v2 stays reproducible.
+  tp_trade_through: false
   same_bar_tp_and_sl: "loss"   # ambiguous bar resolves against us. Non-negotiable.
   # Typical retail spreads used by the backtester (pips)
   spreads:

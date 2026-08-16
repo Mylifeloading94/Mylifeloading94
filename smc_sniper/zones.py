@@ -168,8 +168,22 @@ def find_order_blocks(frame: pd.DataFrame, state: StructureState,
             continue
 
         # Structure association: an event on/near the displacement bar.
+        #
+        # v5 AUDIT FIX. The original window ran to `i + 3`, i.e. it read
+        # structure events up to TWO BARS AFTER the bar at which the zone
+        # becomes knowable, and fed them into `_rank_ob`, whose output gates
+        # admission through `order_blocks.min_quality`. Measured across 88,299
+        # order blocks on the 1H swing stack, 11.16% of them have their quality
+        # rank decided by an event the market had not yet printed. That is a
+        # genuine lookahead: a zone created at bar i can only be scored on
+        # information available at bar i's close.
+        #
+        # Kept behind a flag that defaults to the OLD behaviour purely so
+        # `run_backtest.py --stack swing` keeps reproducing v2's published
+        # 153 / 54.90% / 1.260. The v5 profile turns it on.
+        hi_k = i + 1 if cfg.get("causal_structure_association", False) else i + 3
         struct_kind = ""
-        for k in range(origin, min(n, i + 3)):
+        for k in range(origin, min(n, hi_k)):
             if k in event_at and event_dir.get(k) == disp_dir:
                 struct_kind = event_at[k]
                 break

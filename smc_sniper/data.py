@@ -32,12 +32,16 @@ NATIVE = {"5m": "5m", "15m": "15m", "1H": "1H", "1D": "1D"}
 DERIVED = {
     "5m": ("5m", None),
     "15m": ("15m", None),
+    # v5: 30m is resampled from the native 15m cache. It exists to test the rung
+    # BETWEEN the working 1H setup model and the 15m one v3 measured as broken.
+    "30m": ("15m", "30min"),
     "1H": ("1H", None),
     "4H": ("1H", "4h"),
     "1D": ("1H", "1D"),
 }
 
-_TF_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "60m": 60, "1H": 60, "4H": 240, "1D": 1440}
+_TF_MINUTES = {"1m": 1, "5m": 5, "15m": 15, "30m": 30, "60m": 60, "1H": 60,
+               "4H": 240, "1D": 1440}
 
 
 def tf_minutes(tf: str) -> int:

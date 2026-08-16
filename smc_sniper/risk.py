@@ -21,19 +21,54 @@ from dataclasses import dataclass, field
 import pandas as pd
 
 
-def contract_value(symbol: str, icfg) -> float:
-    """Approximate value of a 1.00 lot move of 1.0 price unit, in USD.
+# Quote-currency -> USD conversion, used to express a contract's value in the
+# account currency. Window medians of the broker's own 1H closes over the
+# ~1200-day backtest window (USDJPY 150.256, USDCHF 0.86251, USDCAD 1.3724,
+# AUDUSD 0.65828, NZDUSD 0.59461, GBPUSD 1.29417). A static median is used
+# rather than a time-varying rate because the only quantity it touches is the
+# commission drag, which is 2-4% of R; a +/-20% rate error moves that by well
+# under a hundredth of an R. Documented rather than hidden.
+_QUOTE_USD = {
+    "USD": 1.0,
+    "JPY": 1.0 / 150.256,
+    "CHF": 1.0 / 0.86251,
+    "CAD": 1.0 / 1.3724,
+    "AUD": 0.65828,
+    "NZD": 0.59461,
+    "GBP": 1.29417,
+    "EUR": 1.09751,
+}
 
-    FX standard lot = 100,000 units of base. For USD-quoted pairs one pip on
-    1 lot is $10. JPY-quoted and cross pairs are approximated; gold is 100 oz.
-    This is deliberately simple -- position sizing feeds R-multiples, and R is
-    normalised by the stop distance, so modest contract-value error does not
-    distort the R-based statistics that the report leads with.
+
+def contract_value(symbol: str, icfg, quote_conversion: bool = False) -> float:
+    """Value in USD of a 1.00-lot position moving 1.0 price unit.
+
+    FX standard lot = 100,000 units of base; gold is 100 oz.
+
+    v5 AUDIT FIX (``risk.quote_ccy_conversion``). The original returned a flat
+    100,000 for every non-metal pair, which is only correct when the QUOTE
+    currency is USD. A 1.0-price-unit move on 1 lot of USDJPY is 100,000 *JPY*,
+    about $666 -- not $100,000. The consequence was not in the R statistics
+    (``pnl`` is ``R x risk_amount`` and R is normalised by the stop) but in
+    ``size_lots``, and therefore in the commission, which is charged per lot:
+
+        measured commission drag, v2 swing ledger, by quote currency
+          USD-quoted  0.0359 R      JPY-quoted  0.00019 R  (~190x too small)
+          CHF-quoted  0.0320 R      CAD-quoted  0.0259 R
+          NZD-quoted  0.0130 R      AUD-quoted  0.0150 R
+
+    36% of v2's trades are on JPY crosses and were effectively trading
+    commission-free, and every lot figure the system would have placed on a
+    non-USD-quoted pair was wrong by the quote rate.
+
+    Defaults to the old behaviour so v2 stays reproducible; on in the v5
+    profile.
     """
-    kind = icfg.instrument_type
-    if kind == "metal":
-        return 100.0
-    return 100_000.0
+    if icfg.instrument_type == "metal":
+        return 100.0                      # 100 oz, quoted in USD -- already right
+    if not quote_conversion:
+        return 100_000.0
+    return 100_000.0 * _QUOTE_USD.get(symbol[3:6].upper(), 1.0)
 
 
 @dataclass
@@ -60,6 +95,10 @@ class RiskEngine:
         self.balance = self.start_balance
         self.state = RiskState(balance=self.start_balance)
         self.blocked: dict[str, int] = {}
+        self.quote_conversion = bool(self.rcfg.get("quote_ccy_conversion", False))
+        # v5: book realised P/L at EXIT time rather than at signal time.
+        self.book_on_exit = bool(self.rcfg.get("book_on_exit", False))
+        self._clock = None
 
     # -- sizing -----------------------------------------------------------
     def size(self, symbol: str, risk_price: float) -> tuple[float, float]:
@@ -73,7 +112,7 @@ class RiskEngine:
         pct = icfg.risk_per_trade_pct / 100.0
         base = self.balance if self.rcfg.get("compounding", False) else self.start_balance
         risk_amount = base * pct
-        value = contract_value(symbol, icfg)
+        value = contract_value(symbol, icfg, self.quote_conversion)
         if risk_price <= 0 or value <= 0:
             return 0.0, risk_amount
         lots = risk_amount / (risk_price * value)
@@ -81,6 +120,12 @@ class RiskEngine:
 
     # -- gates -------------------------------------------------------------
     def _roll_periods(self, ts: pd.Timestamp) -> None:
+        # Monotonic clock. With book-on-exit the engine sees two interleaved
+        # time streams (signal times and exit times); a timestamp that runs
+        # backwards must not reset the day counters.
+        if self._clock is not None and ts < self._clock:
+            ts = self._clock
+        self._clock = ts
         day = ts.date()
         week = ts.isocalendar()[:2]
         if self.state.current_day != day:
@@ -140,11 +185,29 @@ class RiskEngine:
         self.state.currency_exposure = exposure
 
     # -- bookkeeping --------------------------------------------------------
-    def register(self, trade) -> None:
+    def note_entry(self, ts: pd.Timestamp) -> None:
+        """Count an order placed at ``ts`` against the per-day activity cap.
+
+        v5 AUDIT FIX. ``register`` used to do everything at ``signal_time``,
+        including adding the trade's realised P/L to ``day_pnl`` / ``week_pnl``
+        and stepping the consecutive-loss counter. For a stack whose trades are
+        held for days that books an OUTCOME before it is knowable: the
+        ``max_daily_loss`` / ``max_weekly_loss`` gates and the consecutive-loss
+        cooldown were being evaluated against results from positions that were
+        still open. It is a lookahead in the risk layer, and it decides which
+        later setups get taken. With ``risk.book_on_exit`` the entry counter
+        stays on the signal clock (an order placed is an order placed) and the
+        money lands on the exit clock.
+        """
+        self._roll_periods(ts)
+        self.state.trades_today += 1
+
+    def register(self, trade, count_entry: bool = True) -> None:
         """Record a completed trade. Losses tighten, never loosen."""
         st = self.state
-        self._roll_periods(trade.signal_time)
-        st.trades_today += 1
+        self._roll_periods(trade.exit_time if self.book_on_exit else trade.signal_time)
+        if count_entry:
+            st.trades_today += 1
         st.day_pnl += trade.pnl
         st.week_pnl += trade.pnl
         self.balance += trade.pnl

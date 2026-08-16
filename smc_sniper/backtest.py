@@ -229,6 +229,7 @@ class Backtester:
         spread_price = sig.spread_pips * pip * _spread_multiplier(sig.time, cfg)
         slip = float(cfg.get("execution.slippage_pips", 0.2)) * pip
         long = sig.direction == "bullish"
+        tp_through = bool(cfg.get("execution.tp_trade_through", False))
 
         highs, lows = eframe["high"].values, eframe["low"].values
         opens = eframe["open"].values
@@ -339,7 +340,16 @@ class Backtester:
             nxt = tps[tp_stage] if tp_stage < 3 else None
             tp_hit = False
             if nxt is not None:
-                tp_hit = (hi >= nxt) if long else (lo <= nxt)
+                # v5 AUDIT FIX (`execution.tp_trade_through`). A take-profit is
+                # a resting limit exactly like the entry, so the same rule has
+                # to apply to it: a touch is not a fill. The engine required
+                # trade-through on the ENTRY limit (rule 1) but accepted a
+                # touch on the TARGET -- an asymmetry that always resolved in
+                # the strategy's favour. Default off so v2 stays reproducible.
+                if tp_through:
+                    tp_hit = (hi > nxt) if long else (lo < nxt)
+                else:
+                    tp_hit = (hi >= nxt) if long else (lo <= nxt)
 
             # Rule 4/5: ambiguity resolves against us.
             if stop_hit:
@@ -460,6 +470,8 @@ class Backtester:
             rejections = [r for r in rejections if r.time < end]
 
         self.risk_engine = RiskEngine(self.cfg)
+        book_on_exit = self.risk_engine.book_on_exit
+        pending: list[Trade] = []      # filled but not yet closed, by exit_time
         trades: list[Trade] = []
         # A position occupies a slot from the moment its order is placed until
         # it closes -- a resting limit ties up risk budget just as a filled one
@@ -467,6 +479,12 @@ class Backtester:
         enforce = bool(self.cfg.get("risk.enforce_concurrency", False))
         open_trades: list[Trade] = []
         for symbol, sig in signals:
+            if book_on_exit:
+                # Everything that has genuinely CLOSED by the time this setup
+                # appears is booked first; nothing still open contributes to
+                # the daily/weekly loss gates or the consecutive-loss counter.
+                while pending and pending[0].exit_time <= sig.time:
+                    self.risk_engine.register(pending.pop(0), count_entry=False)
             if enforce:
                 open_trades = [t for t in open_trades if t.exit_time > sig.time]
                 self.risk_engine.set_open_positions(open_trades)
@@ -485,13 +503,26 @@ class Backtester:
                                                 "limit_never_traded_through",
                                                 sig.score, sig.session))
                 continue
-            self.risk_engine.register(trade)
+            if book_on_exit:
+                self.risk_engine.note_entry(sig.time)
+                pending.append(trade)
+                pending.sort(key=lambda t: t.exit_time)
+            else:
+                self.risk_engine.register(trade)
             trade.balance_after = self.risk_engine.balance
             trades.append(trade)
             if enforce:
                 open_trades.append(trade)
 
+        for trade in pending:
+            self.risk_engine.register(trade, count_entry=False)
         trades.sort(key=lambda t: t.exit_time)
+        if book_on_exit:
+            # The running-balance column follows the exit clock too.
+            bal = self.risk_engine.start_balance
+            for trade in trades:
+                bal += trade.pnl
+                trade.balance_after = bal
         return trades, rejections, contexts
 
 

@@ -65,7 +65,8 @@ def period_tables(ledger: pd.DataFrame, start_balance: float,
 
     def finish(tab: pd.DataFrame, label: str) -> pd.DataFrame:
         out = tab.copy()
-        out["roi_pct"] = (out["end_balance"] / out["start_balance"] - 1.0) * 100.0
+        out["roi_pct"] = ((out["end_balance"] / out["start_balance"] - 1.0) * 100.0).round(4)
+        out["profit"] = out["profit"].round(2)
         out.insert(0, label, out.index)
         return out[[label, "pairs", "trades", "profit", "roi_pct"]].reset_index(drop=True)
 

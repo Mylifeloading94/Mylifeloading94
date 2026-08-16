@@ -59,6 +59,20 @@ def _headers(ws, columns, row: int = 1) -> None:
         cell.border = BORDER
 
 
+def _clean(frame: pd.DataFrame) -> pd.DataFrame:
+    """Empty text cells must be empty, not the string "nan".
+
+    A flat day has no pair, and the round-trip through CSV turns "" into NaN.
+    Under pandas 3 a str-dtype column keeps that NaN as a float, which both
+    breaks the column sizer and writes the literal text "nan" into the sheet.
+    """
+    out = frame.copy()
+    for col in ("pairs", "pair"):
+        if col in out.columns:
+            out[col] = out[col].fillna("").astype(str).replace("nan", "")
+    return out
+
+
 def _write(ws, frame: pd.DataFrame, title: str, note: str = "") -> None:
     ws.cell(row=1, column=1, value=title).font = TITLE_FONT
     row = 2
@@ -69,6 +83,7 @@ def _write(ws, frame: pd.DataFrame, title: str, note: str = "") -> None:
     if frame is None or frame.empty:
         ws.cell(row=row, column=1, value="(no trades in this window)")
         return
+    frame = _clean(frame)
     _headers(ws, frame.columns, row)
     for i, (_, data) in enumerate(frame.iterrows(), start=row + 1):
         flat = "trades" in frame.columns and int(data["trades"]) == 0
@@ -89,7 +104,7 @@ def _write(ws, frame: pd.DataFrame, title: str, note: str = "") -> None:
             elif col in ("profit", "roi_pct") and isinstance(val, (int, float)):
                 cell.fill = WIN_FILL if val > 0 else (LOSS_FILL if val < 0 else FLAT_FILL)
     for j, col in enumerate(frame.columns, start=1):
-        sample = frame[col].astype(str).head(400)
+        sample = [str(v) for v in frame[col].head(400)]
         width = max([len(DISPLAY.get(str(col), str(col)))] + [len(v) for v in sample]) + 3
         ws.column_dimensions[get_column_letter(j)].width = min(max(width, 11), 40)
     ws.freeze_panes = ws.cell(row=row + 1, column=1)
@@ -185,15 +200,32 @@ def main() -> int:
            "ROI is the month's change against its opening balance.")
 
     notes = [
-        "90 days is a shape check, not a performance claim. Read the multi-year",
-        "validation and the confidence intervals in the skill doc before quoting",
-        "any of this. A configuration whose expectancy CI still spans zero has not",
-        "been shown to make money, and 2% risk on such a configuration compounds",
-        "the uncertainty rather than the edge.",
+        "READ THIS BEFORE READING THE NUMBERS ABOVE.",
+        "",
+        "This configuration trades about 0.12 times a day across 29 pairs. Ninety",
+        "days of it is FIVE TRADES. Five trades cannot distinguish a working system",
+        "from a broken one -- a 4-loss run is completely ordinary at a 33% win rate",
+        "and it is most of what this window contains. The numbers above are what a",
+        "90-day $100,000 run actually produced; they are not evidence either way.",
+        "",
+        "THE SAMPLE THAT MEANS SOMETHING is the same configuration over ~1200 days:",
+        "  144 trades, 32.64% win rate (95% CI 25.00-40.28%) against a 20% break-even",
+        "  line at a 4R target, profit factor 1.341, expectancy +0.2438R per trade.",
+        "  Walk-forward out-of-sample: 125 trades, 32.80%, PF 1.345, +0.2466R.",
+        "  Max drawdown 7.06%. Longest losing streak 15.",
+        "",
+        "  Expectancy 95% CI [-0.0710R, +0.5597R] -- IT STILL SPANS ZERO. The edge is",
+        "  the best this repo has measured and it is still not statistically",
+        "  established. 2% risk on a configuration whose interval contains zero",
+        "  compounds the uncertainty, not the edge -- and the measured 15-trade",
+        "  losing streak is a 26% drawdown at 2% risk against 14% at 1%.",
+        "",
+        "2% is also outside the system's own stated risk band (max 1.0%). It is",
+        "produced because it was asked for.",
         "",
         "Data: TradeLocker broker bars (BID), read-only. Honest fills throughout --",
         "trade-through only, spread and slippage paid, same-bar TP+SL scores as a",
-        "loss. No order was ever placed.",
+        "loss. No order has ever been placed by this repo.",
     ]
     _summary_sheet(wb.create_sheet("Summary"), summary, notes)
     wb.move_sheet("Summary", offset=-4)

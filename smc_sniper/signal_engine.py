@@ -374,6 +374,25 @@ def generate_signals(ctx: PairContext, cfg,
     rejections: list[Rejection] = []
     last_setup_bar: dict[str, int] = {}
     seen_setups: dict[str, int] = {}
+    # v6 PARTIAL DEDUPLICATION. v5 found that removing the duplicate-setup
+    # cooldown entirely improves TRAIN, VALIDATION and TEST and adds 60% more
+    # trades -- but 87 of the resulting 231 trades are same-pair, same-direction
+    # re-entries inside 24 hours, several bets on ONE liquidity event, which is
+    # what pushes the CLUSTER bootstrap interval back across zero. These two
+    # gates are the middle ground: they keep re-entries that represent a genuine
+    # new opportunity and drop the ones that are the same bet again.
+    #
+    #   max_signals_per_sweep  re-enter only once a NEW sweep has formed. The
+    #                          sweep's bar index is its identity, so this is a
+    #                          structural rule rather than a clock.
+    #   cooldown_hours         a wall-clock cooldown per direction, independent
+    #                          of bar count.
+    #
+    # Both default to 0 (= off) so every published number stays reproducible.
+    seen_sweeps: dict[tuple, int] = {}
+    last_signal_ts: dict[str, object] = {}
+    max_per_sweep = int(dedupe_cfg.get("max_signals_per_sweep", 0) or 0)
+    cooldown_hours = float(dedupe_cfg.get("cooldown_hours", 0) or 0)
 
     def reject(i, direction, step, reason, score=0.0, state=None):
         if log_rejections:
@@ -584,6 +603,20 @@ def generate_signals(ctx: PairContext, cfg,
                 reject(i, direction, "dedupe", "duplicate_setup_id", score)
                 continue
 
+        # --- v6 partial deduplication (independent of the bar cooldown) ---
+        sweep_key = (direction, int(sweep.index))
+        if max_per_sweep and seen_sweeps.get(sweep_key, 0) >= max_per_sweep:
+            reject(i, direction, "dedupe", f"sweep_{sweep.index}_used", score)
+            continue
+        if cooldown_hours:
+            prev_ts = last_signal_ts.get(direction)
+            if prev_ts is not None:
+                gap_h = (ts - prev_ts).total_seconds() / 3600.0
+                if gap_h < cooldown_hours:
+                    reject(i, direction, "dedupe",
+                           f"cooldown_{gap_h:.1f}h<{cooldown_hours}h", score)
+                    continue
+
         setup_type = "+".join(
             p for p in ["sweep", struct_kind, "OB" if ob else "", "FVG" if fvg else ""] if p)
         signal = Signal(
@@ -602,6 +635,8 @@ def generate_signals(ctx: PairContext, cfg,
         signals.append(signal)
         last_setup_bar[direction] = i
         seen_setups[setup_id] = seen_setups.get(setup_id, 0) + 1
+        seen_sweeps[sweep_key] = seen_sweeps.get(sweep_key, 0) + 1
+        last_signal_ts[direction] = ts
 
     return signals, rejections
 

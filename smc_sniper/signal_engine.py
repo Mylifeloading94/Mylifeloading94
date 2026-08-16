@@ -276,6 +276,20 @@ def _build_targets(ctx: PairContext, i: int, direction: str, entry: float,
         tp2 = min(tp2, tp1 - 0.25 * risk)
         tp3 = min(tp3, tp2 - 0.25 * risk)
 
+    # The reward-to-risk actually available from LIQUIDITY, before any flat
+    # target overrides it.
+    #
+    # v5 AUDIT NOTE. `targets.min_rr` is applied to `rr_tp2`, which in
+    # `fixed_rr` mode is the flat multiple itself -- so a flat 4R target makes
+    # `min_rr: 2.0` structurally inert and the flat-R configurations do no
+    # reward-to-risk filtering at all. That is a real interaction between the
+    # ladder/flat choice and another rule, and it means the flat-R and ladder
+    # rows of a matched-R table are not selecting the same setups. Reporting
+    # this value lets the gate be applied to the liquidity that is genuinely
+    # there (`targets.min_rr_on_liquidity`) instead of to a number the config
+    # just asserted.
+    liq_rr2 = (1.0 if direction == "bullish" else -1.0) * (tp2 - entry) / risk if risk > 0 else 0.0
+
     if tcfg.get("mode") == "fixed_rr":
         # Matched-R control mode: one flat target at a fixed multiple.
         rr = float(tcfg.get("fixed_rr", 3.0))
@@ -283,7 +297,7 @@ def _build_targets(ctx: PairContext, i: int, direction: str, entry: float,
             tp1 = tp2 = tp3 = entry + rr * risk
         else:
             tp1 = tp2 = tp3 = entry - rr * risk
-    return float(tp1), float(tp2), float(tp3)
+    return float(tp1), float(tp2), float(tp3), float(liq_rr2)
 
 
 def _setup_hash(symbol: str, direction: str, zone_price: float,
@@ -501,7 +515,7 @@ def generate_signals(ctx: PairContext, cfg,
             continue
 
         # --- targets ----------------------------------------------------
-        tp1, tp2, tp3 = _build_targets(ctx, i, direction, entry, stop, bar_atr)
+        tp1, tp2, tp3, liq_rr2 = _build_targets(ctx, i, direction, entry, stop, bar_atr)
         sign = 1.0 if direction == "bullish" else -1.0
         rr1 = sign * (tp1 - entry) / risk_price
         rr2 = sign * (tp2 - entry) / risk_price
@@ -535,9 +549,20 @@ def generate_signals(ctx: PairContext, cfg,
         score = card.total
 
         # --- step 10: R:R ------------------------------------------------
+        # v5 AUDIT FIX (`targets.min_rr_on_liquidity`). The gate is applied to
+        # `rr_tp2`, which in `fixed_rr` mode is the flat multiple the config
+        # just asserted -- so `min_rr` is inert for any flat target at or above
+        # it and lethal for any below it. `walkforward.matched_r_control`
+        # papers over the second half by setting `min_rr = min(rr, 2.0)`, which
+        # means EVERY row of the matched-R table runs with the reward-to-risk
+        # gate switched off while the ladder baseline it is compared against
+        # runs with it on. The control is therefore not entry-matched to the
+        # thing it controls -- and it is the check this repo leans on hardest.
+        # Gating on the liquidity that is actually there fixes that.
         min_rr = float(tcfg.get("min_rr", 2.0))
-        if rr2 < min_rr:
-            reject(i, direction, "risk_reward", f"rr2_{rr2:.2f}<{min_rr}", score)
+        gate_rr = liq_rr2 if bool(tcfg.get("min_rr_on_liquidity", False)) else rr2
+        if gate_rr < min_rr:
+            reject(i, direction, "risk_reward", f"rr2_{gate_rr:.2f}<{min_rr}", score)
             continue
 
         # --- step 12: score gate ----------------------------------------

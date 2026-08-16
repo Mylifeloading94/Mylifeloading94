@@ -415,6 +415,13 @@ targets:
   mode: "liquidity"           # liquidity | fixed_rr
   fixed_rr: 3.0
   min_rr: 2.0                 # below 1:2 -> skip the trade entirely
+  # v5 AUDIT FIX. Apply `min_rr` to the reward-to-risk that LIQUIDITY actually
+  # offers, not to the flat multiple `fixed_rr` asserts. Without this the gate
+  # is inert in every flat-target configuration, so the matched-R control runs
+  # with the reward-to-risk filter OFF while the ladder it is compared against
+  # runs with it ON -- the control is not entry-matched to the thing it
+  # controls. Default off so v2 stays reproducible.
+  min_rr_on_liquidity: false
   preferred_rr_max: 4.0
   tp1_internal_liquidity: true
   tp2_previous_swing: true

@@ -33,3 +33,6 @@ ALL_STRATEGIES_PAUSED
 smc_data/
 reports/
 !SMC_Sniper_Backtest.xlsx
+
+# Uploaded-bot backtest artifacts (regenerate with uploaded_bot/build_data.py)
+uploaded_bot/data_90d.json

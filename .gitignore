@@ -36,3 +36,7 @@ reports/
 
 # Uploaded-bot backtest artifacts (regenerate with uploaded_bot/build_data.py)
 uploaded_bot/data_90d.json
+
+# Live execution journal (append-only runtime state, never source)
+execute_live_log.json
+execute_live_log.json.tmp

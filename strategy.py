@@ -131,6 +131,15 @@ class Params:
     trail_atr: float = 0.0
     trail_start_r: float = 0.0
 
+    # Fixed-pip stepped trail ("trail into profit every N pips").
+    # trail_pips = 0 disables it. Resolved on M1 bars when M1 data is loaded,
+    # so an intrabar spike that would take out the trailed stop is caught
+    # rather than smoothed away by the H4 bar.
+    trail_pips: float = 0.0
+    trail_gap_pips: float = 20.0
+    trail_r: float = 0.0        # proportional trail: step size as a fraction of R
+    trail_gap_r: float = 0.5    # how far behind the best price, in R
+
     # --- score ---
     min_score: int = 70
 

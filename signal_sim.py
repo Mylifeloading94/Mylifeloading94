@@ -16,7 +16,37 @@ import strategy as st
 from strategy import PIP, SPREAD_PIPS, SLIPPAGE_PIPS, STOP_SLIPPAGE_PIPS
 
 
-def simulate_symbol(symbol, frame, params, start, end, ctx=None):
+def _pip_trail(cur_stop, entry, best, direction, pip, params, risk=None):
+    """Stepped trail, in pips or in R.
+
+    Fixed-pip stepping (`trail_pips`) is what a trader usually means by "trail
+    every 20 pips", but it is NOT instrument-neutral: on this book the median
+    stop runs from 21 pips (EURGBP) to 219 pips (XAUUSD), so 20 pips is ~1R on
+    one and 0.09R on the other. `trail_r` steps by a fraction of the trade's
+    own risk instead, so the rule means the same thing everywhere.
+    """
+    step_r = getattr(params, "trail_r", 0.0)
+    if step_r > 0 and risk:
+        prog = ((best - entry) if direction > 0 else (entry - best)) / risk
+        steps = int(prog // step_r)
+        if steps < 1:
+            return cur_stop
+        locked = (steps * step_r - getattr(params, "trail_gap_r", step_r)) * risk
+        cand = entry + direction * locked
+        return max(cur_stop, cand) if direction > 0 else min(cur_stop, cand)
+
+    if params.trail_pips <= 0:
+        return cur_stop
+    prog = ((best - entry) if direction > 0 else (entry - best)) / pip
+    steps = int(prog // params.trail_pips)
+    if steps < 1:
+        return cur_stop
+    locked = steps * params.trail_pips - params.trail_gap_pips
+    cand = entry + direction * locked * pip
+    return max(cur_stop, cand) if direction > 0 else min(cur_stop, cand)
+
+
+def simulate_symbol(symbol, frame, params, start, end, ctx=None, m1=None):
     """Return a list of dicts, one per signal, with R-multiple outcomes."""
     ctx = ctx or st.Context(symbol, frame, params)
     # Context may have resampled the raw M15 feed up to the signal timeframe;
@@ -73,6 +103,12 @@ def simulate_symbol(symbol, frame, params, start, end, ctx=None):
         tp1_done = False
         reason, bars = "open", 0
         mfe = mae = 0.0
+        best = entry
+        m1_h = m1_l = m1_ts = None
+        if m1 is not None and (params.trail_pips > 0 or getattr(params, 'trail_r', 0) > 0):
+            m1_h = m1["high"].values.astype(float)
+            m1_l = m1["low"].values.astype(float)
+            m1_ts = m1.index.values.astype("datetime64[ns]")
 
         for k in range(j, min(n, j + params.time_stop_bars + 1)):
             bars = k - j + 1
@@ -108,12 +144,42 @@ def simulate_symbol(symbol, frame, params, start, end, ctx=None):
                     if params.breakeven_after_tp1:
                         cur_stop = entry
 
+            # ---- fixed-pip trail, resolved on M1 where available --------
+            if params.trail_pips > 0 or getattr(params, 'trail_r', 0) > 0:
+                if m1_ts is not None:
+                    t0 = np.datetime64(idx[k].tz_localize(None) if idx[k].tzinfo else idx[k])
+                    t1 = t0 + np.timedelta64(params.tf_minutes, "m")
+                    a1 = int(np.searchsorted(m1_ts, t0, "left"))
+                    b1 = int(np.searchsorted(m1_ts, t1, "right"))
+                    stopped = False
+                    for mm in range(a1, min(b1, len(m1_h))):
+                        if (sig.direction > 0 and m1_l[mm] <= cur_stop) or \
+                           (sig.direction < 0 and m1_h[mm] >= cur_stop):
+                            px = cur_stop - sig.direction * STOP_SLIPPAGE_PIPS * pip
+                            r_realized += frac_open * ((px - entry) * sig.direction) / risk
+                            reason = "trail_stop" if (
+                                (cur_stop > stop) if sig.direction > 0 else (cur_stop < stop)
+                            ) else "stop"
+                            frac_open = 0.0; stopped = True; break
+                        if (sig.direction > 0 and m1_h[mm] >= target) or \
+                           (sig.direction < 0 and m1_l[mm] <= target):
+                            r_realized += frac_open * params.tp_r
+                            reason = "target"; frac_open = 0.0; stopped = True; break
+                        best = max(best, m1_h[mm]) if sig.direction > 0 else min(best, m1_l[mm])
+                        cur_stop = _pip_trail(cur_stop, entry, best, sig.direction, pip, params, risk)
+                    if stopped:
+                        break
+                    continue
+                best = max(best, bh) if sig.direction > 0 else min(best, bl)
+                cur_stop = _pip_trail(cur_stop, entry, best, sig.direction, pip, params, risk)
+
             hitsl = (sig.direction > 0 and bl <= cur_stop) or (sig.direction < 0 and bh >= cur_stop)
             hittp = (sig.direction > 0 and bh >= target) or (sig.direction < 0 and bl <= target)
             if hitsl:                                  # ambiguity resolves against us
                 px = cur_stop - sig.direction * STOP_SLIPPAGE_PIPS * pip
                 r_realized += frac_open * ((px - entry) * sig.direction) / risk
-                reason = "breakeven" if cur_stop == entry else "stop"
+                trailed = (cur_stop > stop) if sig.direction > 0 else (cur_stop < stop)
+                reason = "trail_stop" if trailed else ("breakeven" if cur_stop == entry else "stop")
                 frac_open = 0.0; break
             if hittp:
                 r_realized += frac_open * params.tp_r

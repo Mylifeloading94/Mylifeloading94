@@ -150,6 +150,44 @@ def csv_path(symbol):
     return os.path.join(DATA_DIR, f"{symbol}_M15.csv")
 
 
+def m1_path(symbol):
+    return os.path.join(DATA_DIR, f"{symbol}_M1.parquet")
+
+
+def load_m1(symbol):
+    """Load cached M1 bars (parquet - ~900k rows/symbol), or None.
+
+    M1 is only needed for the sniper-entry drill-down, so it is stored
+    separately and float32-compressed to keep the cache manageable.
+    """
+    p = m1_path(symbol)
+    if not os.path.exists(p):
+        return None
+    df = pd.read_parquet(p)
+    if not isinstance(df.index, pd.DatetimeIndex):
+        df["time"] = pd.to_datetime(df["time"], utc=True)
+        df = df.set_index("time")
+    return df.sort_index()
+
+
+def fetch_m1(client, symbol, start, end, chunk_days=20):
+    """M1 returns ~1440 bars/day and the API rejects any request for more than
+    30,000 bars, so 20 days (~20,600 bars) is the largest safe stride."""
+    frames = []
+    cur = start
+    while cur < end:
+        stop = min(cur + dt.timedelta(days=chunk_days), end)
+        bars = client.bars(symbol, "1m", cur, stop)
+        if bars:
+            frames.append(bars_to_frame(bars))
+        cur = stop
+        time.sleep(0.15)
+    if not frames:
+        return bars_to_frame([])
+    df = pd.concat(frames)
+    return df[~df.index.duplicated(keep="first")].sort_index()
+
+
 def load(symbol):
     """Load cached M15 for a symbol, or None."""
     p = csv_path(symbol)
@@ -169,6 +207,30 @@ def resample(df, rule):
          "close": "last", "volume": "sum"}
     )
     return out.dropna(subset=["open", "high", "low", "close"])
+
+
+def main_m1():
+    """python3 tl_data.py --m1  -> fetch M1 for the backtest window."""
+    args = [a for a in sys.argv[1:] if not a.startswith("-")]
+    symbols = args or SYMBOLS
+    start = dt.datetime(2024, 1, 1)
+    end = dt.datetime(2026, 8, 22, 23, 59)
+    os.makedirs(DATA_DIR, exist_ok=True)
+    client = TLClient()
+    print(f"M1 fetch: {len(symbols)} symbols {start.date()} -> {end.date()}", flush=True)
+    for sym in symbols:
+        if os.path.exists(m1_path(sym)):
+            print(f"{sym:8s} cached, skipping", flush=True); continue
+        try:
+            df = fetch_m1(client, sym, start, end)
+        except Exception as exc:                       # noqa: BLE001
+            print(f"{sym:8s} FAILED: {exc}", flush=True); continue
+        if df.empty:
+            print(f"{sym:8s} no data", flush=True); continue
+        df = df.astype("float32")
+        df.to_parquet(m1_path(sym), compression="zstd")
+        mb = os.path.getsize(m1_path(sym)) / 1e6
+        print(f"{sym:8s} {len(df):8d} bars  {df.index[0]} .. {df.index[-1]}  ({mb:.1f} MB)", flush=True)
 
 
 def main():
@@ -198,4 +260,7 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    if "--m1" in sys.argv:
+        main_m1()
+    else:
+        main()

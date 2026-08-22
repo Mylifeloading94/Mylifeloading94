@@ -40,3 +40,6 @@ trades_oos_2026.csv
 # v2 backtest outputs (regenerated)
 final_results.json
 trades_walkforward.csv
+
+# SMC study outputs (regenerated)
+smc_insample.csv

@@ -102,6 +102,22 @@ class Broker:
             json=body, timeout=30)
         return r.status_code, r.text
 
+    def modify_position(self, position_id, stop_loss=None, take_profit=None):
+        body = {}
+        if stop_loss is not None:
+            body["stopLoss"] = round(stop_loss, 5)
+            body["stopLossType"] = "absolute"
+        if take_profit is not None:
+            body["takeProfit"] = round(take_profit, 5)
+            body["takeProfitType"] = "absolute"
+        if not body:
+            return None, "nothing to change"
+        r = self.c.session.patch(
+            f"{self.c.base}/trade/accounts/{self.c.account_id}/positions/{position_id}",
+            headers={**self.c.headers, "Content-Type": "application/json"},
+            json=body, timeout=30)
+        return r.status_code, r.text
+
     def cancel(self, order_id):
         return self.c.session.delete(
             f"{self.c.base}/trade/accounts/{self.c.account_id}/orders/{order_id}",
@@ -121,6 +137,90 @@ def usd_per_unit(symbol, price, rates):
     if inv in rates and rates[inv]:
         return CONTRACT[symbol] * rates[inv]
     return CONTRACT[symbol] / price          # last-resort approximation
+
+
+def trail_level(entry, best, direction, risk, p):
+    """Stepped proportional trail — the same rule the backtest validated.
+
+    Every `trail_r` of progress the stop moves to `trail_gap_r` behind the
+    best price reached, and never backwards. On the median H4 stop this is
+    roughly "every 20 pips, keeping 10 behind", but expressed in R so it
+    scales correctly from EURGBP to XAUUSD.
+    """
+    step = getattr(p, "trail_r", 0.0)
+    if step <= 0 or risk <= 0:
+        return None
+    prog = ((best - entry) if direction > 0 else (entry - best)) / risk
+    steps = int(prog // step)
+    if steps < 1:
+        return None
+    locked = (steps * step - getattr(p, "trail_gap_r", step)) * risk
+    return entry + direction * locked
+
+
+def manage_trailing(broker, p, state, log_fn=log):
+    """Walk open positions and push the trailed stop to the broker."""
+    try:
+        positions = broker.positions()
+    except Exception as exc:                       # noqa: BLE001
+        log_fn(f"trail: could not read positions ({exc})")
+        return
+    tracked = state.setdefault("trail", {})
+    for pos in positions:
+        try:
+            pid = str(pos[0])
+            iid = str(pos[1])
+            side = str(pos[3]).lower() if len(pos) > 3 else ""
+            qty = float(pos[4]) if len(pos) > 4 else 0.0
+            entry = float(pos[5]) if len(pos) > 5 else 0.0
+            cur_px = float(pos[8]) if len(pos) > 8 else 0.0
+        except (IndexError, TypeError, ValueError):
+            continue
+        if not entry or not cur_px:
+            continue
+        sym = next((s for s, v in tl_data.INSTRUMENTS.items() if str(v) == iid), None)
+        if sym is None:
+            continue
+        direction = 1 if side.startswith("b") else -1
+
+        rec = tracked.get(pid)
+        if rec is None:
+            # first sighting: remember the original risk so R can be measured
+            rec = {"entry": entry, "best": cur_px, "risk": None, "stop": None}
+            tracked[pid] = rec
+        if rec.get("risk") is None:
+            sl = None
+            try:
+                sl = float(pos[9]) if len(pos) > 9 and pos[9] not in (None, "") else None
+            except (TypeError, ValueError):
+                sl = None
+            if sl:
+                rec["risk"] = abs(entry - sl)
+                rec["stop"] = sl
+            else:
+                continue                      # cannot measure R without a stop
+        rec["best"] = max(rec["best"], cur_px) if direction > 0 else min(rec["best"], cur_px)
+
+        new_stop = trail_level(entry, rec["best"], direction, rec["risk"], p)
+        if new_stop is None:
+            continue
+        cur_stop = rec.get("stop")
+        better = (cur_stop is None or
+                  (new_stop > cur_stop if direction > 0 else new_stop < cur_stop))
+        if not better:
+            continue
+        code, txt = broker.modify_position(pid, stop_loss=new_stop)
+        if code in (200, 201):
+            rec["stop"] = new_stop
+            log_fn(f"TRAIL {sym} {pid}: stop -> {new_stop:.5f} "
+                   f"(best {rec['best']:.5f}, {(abs(rec['best']-entry)/rec['risk']):.2f}R)")
+        else:
+            log_fn(f"TRAIL {sym} {pid}: modify failed {code} {str(txt)[:120]}")
+    # forget positions that are gone
+    live_ids = {str(x[0]) for x in positions if len(x)}
+    for pid in list(tracked):
+        if pid not in live_ids:
+            tracked.pop(pid, None)
 
 
 def load_state():
@@ -146,6 +246,9 @@ def run(mode, dry_run, strat_mode="balanced"):
     watchlist = [s for s in tl_data.SYMBOLS if s in tl_data.INSTRUMENTS]
     log(f"env={mode} strategy={strat_mode} target={p.tp_r}R "
         f"tf=H{p.tf_minutes//60} dry_run={dry_run} instruments={len(watchlist)}")
+    if getattr(p, "trail_r", 0) > 0:
+        log(f"trailing: every {p.trail_r}R, holding {p.trail_gap_r}R behind "
+            f"(~{p.trail_r*43:.0f} pips on the median H4 stop)")
 
     client = tl_data.TLClient()
     broker = Broker(client)
@@ -166,6 +269,12 @@ def run(mode, dry_run, strat_mode="balanced"):
 
             acct = broker.account()
             equity = acct["equity"] or acct["balance"]
+
+            # trail first: managing open risk matters more than finding new risk
+            if not dry_run:
+                manage_trailing(broker, p, state)
+                save_state(state)
+
             open_pos = broker.positions()
             open_syms = set()
             for pos in open_pos:

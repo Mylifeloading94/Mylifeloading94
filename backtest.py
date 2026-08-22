@@ -102,7 +102,30 @@ def round_lots(x, cfg):
     return float(np.clip(round(lots, 2), 0.0, cfg.max_lot))
 
 
-def run(frames, params: st.Params, cfg: RiskConfig, start, end, symbols=None):
+def _trail(cur_stop, entry, best, direction, risk, pip, params):
+    """Stepped trail into profit. Proportional (`trail_r`) by preference,
+    fixed-pip (`trail_pips`) if that is what is configured."""
+    step_r = getattr(params, "trail_r", 0.0)
+    if step_r > 0 and risk > 0:
+        prog = ((best - entry) if direction > 0 else (entry - best)) / risk
+        steps = int(prog // step_r)
+        if steps < 1:
+            return cur_stop
+        locked = (steps * step_r - getattr(params, "trail_gap_r", step_r)) * risk
+        cand = entry + direction * locked
+        return max(cur_stop, cand) if direction > 0 else min(cur_stop, cand)
+    if getattr(params, "trail_pips", 0.0) <= 0:
+        return cur_stop
+    prog = ((best - entry) if direction > 0 else (entry - best)) / pip
+    steps = int(prog // params.trail_pips)
+    if steps < 1:
+        return cur_stop
+    locked = steps * params.trail_pips - params.trail_gap_pips
+    cand = entry + direction * locked * pip
+    return max(cur_stop, cand) if direction > 0 else min(cur_stop, cand)
+
+
+def run(frames, params: st.Params, cfg: RiskConfig, start, end, symbols=None, m1=None):
     """Run the portfolio backtest.
 
     frames : {symbol: M15 OHLCV DataFrame} covering warm-up + test window
@@ -172,14 +195,28 @@ def run(frames, params: st.Params, cfg: RiskConfig, start, end, symbols=None):
             unit_usd = CONTRACT[s] * q2usd[s][i]     # USD per 1.0 price unit per lot
             tr.bars_held += 1
 
-            # running excursions in R
-            risk_px = abs(tr.entry - tr.stop_initial)
-            if tr.direction > 0:
-                tr.mfe_r = max(tr.mfe_r, (hi - tr.entry) / risk_px)
-                tr.mae_r = min(tr.mae_r, (lo - tr.entry) / risk_px)
-            else:
-                tr.mfe_r = max(tr.mfe_r, (tr.entry - lo) / risk_px)
-                tr.mae_r = min(tr.mae_r, (tr.entry - hi) / risk_px)
+            # ---- trail the stop into profit -------------------------------
+            # Resolved bar-by-bar on M1 when available. Stop and target are
+            # tested INSIDE that walk, in sequence, before the trail is
+            # advanced -- otherwise a bar that dips and then rallies would be
+            # measured against a stop that had not yet moved when the dip
+            # happened, which manufactures losses that never occurred.
+            trailing = (getattr(params, "trail_r", 0.0) > 0
+                        or getattr(params, "trail_pips", 0.0) > 0)
+            m1_walk = None
+            if trailing:
+                mm = (m1 or {}).get(s)
+                if mm is not None:
+                    if getattr(tr, "_m1_ts", None) is None:
+                        tr._m1_ts = mm.index.values.astype("datetime64[ns]")
+                        tr._m1_h = mm["high"].values.astype(float)
+                        tr._m1_l = mm["low"].values.astype(float)
+                    t0 = np.datetime64(t.tz_localize(None) if t.tzinfo else t)
+                    t1 = t0 + np.timedelta64(params.tf_minutes, "m")
+                    a1 = int(np.searchsorted(tr._m1_ts, t0, "left"))
+                    b1 = int(np.searchsorted(tr._m1_ts, t1, "right"))
+                    if b1 > a1:
+                        m1_walk = (a1, min(b1, len(tr._m1_h)))
 
             def close_slice(px, frac, reason):
                 lots = tr.lots * frac
@@ -189,6 +226,52 @@ def run(frames, params: st.Params, cfg: RiskConfig, start, end, symbols=None):
 
             realized = 0.0
             done = False
+            risk_px0 = abs(tr.entry - tr.stop_initial)
+
+            if m1_walk is not None:
+                a1, b1 = m1_walk
+                for k1 in range(a1, b1):
+                    mh, ml = tr._m1_h[k1], tr._m1_l[k1]
+                    hit_stop = (ml <= tr.stop) if tr.direction > 0 else (mh >= tr.stop)
+                    if hit_stop:
+                        px = tr.stop - tr.direction * STOP_SLIPPAGE_PIPS * pip
+                        trailed = ((tr.stop > tr.stop_initial) if tr.direction > 0
+                                   else (tr.stop < tr.stop_initial))
+                        lbl = "trail_stop" if trailed else "stop"
+                        pnl, _, _ = close_slice(px, 1.0, lbl)
+                        realized += pnl
+                        tr.exit, tr.reason, done = px, lbl, True
+                        break
+                    hit_tp = (mh >= tr.target) if tr.direction > 0 else (ml <= tr.target)
+                    if hit_tp:
+                        pnl, _, _ = close_slice(tr.target, 1.0, "target")
+                        realized += pnl
+                        tr.exit, tr.reason, done = tr.target, "target", True
+                        break
+                    tr.best = max(tr.best, mh) if tr.direction > 0 else min(tr.best, ml)
+                    tr.stop = _trail(tr.stop, tr.entry, tr.best, tr.direction,
+                                     risk_px0, pip, params)
+                if not done and tr.bars_held >= params.time_stop_bars:
+                    px = f["close"][i] - tr.direction * SLIPPAGE_PIPS * pip
+                    pnl, _, _ = close_slice(px, 1.0, "time")
+                    realized += pnl
+                    tr.exit, tr.reason, done = px, "time", True
+                if realized:
+                    balance += realized; equity = balance
+                    tr.pnl += realized; day_pnl += realized
+                if done:
+                    tr.exit_time = t
+                    tr.r_multiple = tr.pnl / tr.risk_usd if tr.risk_usd else 0.0
+                    closed.append(tr)
+                    if tr.pnl < 0:
+                        consec_losses += 1
+                    elif tr.pnl > 0:
+                        consec_losses = 0
+                    if consec_losses >= cfg.max_consecutive_losses:
+                        day_locked = True
+                else:
+                    still_open.append(tr)
+                continue
 
             # --- gap handling: an open beyond the stop fills at the open ---
             gapped = (tr.direction > 0 and o <= tr.stop) or (tr.direction < 0 and o >= tr.stop)
@@ -222,11 +305,14 @@ def run(frames, params: st.Params, cfg: RiskConfig, start, end, symbols=None):
                 if hit_sl:
                     # adverse slippage on the stop; conservative when both hit
                     px = tr.stop - tr.direction * STOP_SLIPPAGE_PIPS * pip
-                    pnl, _, _ = close_slice(px, remaining,
-                                            "breakeven" if tr.stop == tr.entry else "stop")
+                    trailed = ((tr.stop > tr.stop_initial) if tr.direction > 0
+                               else (tr.stop < tr.stop_initial))
+                    lbl = "trail_stop" if trailed else (
+                        "breakeven" if tr.stop == tr.entry else "stop")
+                    pnl, _, _ = close_slice(px, remaining, lbl)
                     realized += pnl
                     tr.exit = px
-                    tr.reason = "breakeven" if tr.stop == tr.entry else "stop"
+                    tr.reason = lbl
                     done = True
                 elif hit_tp:
                     pnl, _, _ = close_slice(tr.target, remaining, "target")
@@ -354,6 +440,8 @@ def run(frames, params: st.Params, cfg: RiskConfig, start, end, symbols=None):
             tr.stop_initial = stop
             tr.tp1_done = False
             tr.lots_closed = 0.0
+            tr.best = entry
+            tr._m1_ts = None
             # entry-side commission
             entry_comm = COMMISSION_PER_LOT * lots * 0.5
             balance -= entry_comm

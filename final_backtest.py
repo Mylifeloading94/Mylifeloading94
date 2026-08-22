@@ -19,6 +19,8 @@ pd.set_option("display.width", 240)
 START_BAL = 10_000.0
 TRAIN_START = pd.Timestamp("2024-04-01", tz="UTC")
 FRAMES = {s: tl_data.load(s) for s in tl_data.SYMBOLS}
+# M1 is loaded so the trailing stop is resolved intrabar rather than on H4 bars
+M1 = {s: tl_data.load_m1(s) for s in tl_data.SYMBOLS}
 CTX = {}
 
 
@@ -45,7 +47,8 @@ def select(tr_s, tr_e):
     per = {}
     allr = []
     for s in tl_data.SYMBOLS:
-        r = ss.simulate_symbol(s, FRAMES[s], p, tr_s, tr_e, ctx=ctx_for(s, p))
+        r = ss.simulate_symbol(s, FRAMES[s], p, tr_s, tr_e, ctx=ctx_for(s, p),
+                               m1=M1[s])
         per[s] = r
         allr += r
     best_thr, best_pf = 60, -1
@@ -87,7 +90,7 @@ def run(variant, tp_r=None):
             p.tp_r = tp_r
             p.min_rr_after_costs = min(0.30, tp_r * 0.5)
         cfg = config.locked_risk(balance)
-        tr, eq = bt.run(FRAMES, p, cfg, te_s, te_e, syms)
+        tr, eq = bt.run(FRAMES, p, cfg, te_s, te_e, syms, m1=M1)
         pnl = sum(t.pnl for t in tr)
         blocks.append(dict(block=f"{te_s:%Y-%m}..{te_e:%Y-%m}", thr=thr,
                            watchlist=len(wl), train_n=tn, train_pf=round(tpf, 3),

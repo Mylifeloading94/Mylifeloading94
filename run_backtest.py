@@ -31,8 +31,24 @@ print("OUT-OF-SAMPLE BACKTEST  2026-01-01 -> 2026-08-22   $10,000")
 print("=" * 78)
 print(f"watchlist (chosen on 2025): {watchlist}\n")
 
-trades, eq = bt.run({s: frames[s] for s in watchlist}, p, cfg, S, E, watchlist)
-summ = metrics.summarize(trades, START_BAL, S, E, eq)
+# Run BOTH: the mechanically-filtered watchlist the brief asks for, and the
+# full 24-pair universe. Per-pair selection was shown to be noise in v1, so
+# reporting only the filtered version would overstate what selection buys.
+variants = {"filtered": watchlist, "all_pairs": tl_data.SYMBOLS}
+results = {}
+for name, syms in variants.items():
+    tr_v, eq_v = bt.run(frames, p, cfg, S, E, syms)
+    results[name] = (tr_v, eq_v, metrics.summarize(tr_v, START_BAL, S, E, eq_v))
+    m = results[name][2]
+    print(f"  {name:10s} trades={m.get('total_trades',0):4d} "
+          f"WR={m.get('win_rate',0):5.1f}%  PF={m.get('profit_factor',0):5.2f}  "
+          f"net={m.get('net_profit',0):+9.2f} ({m.get('net_profit_pct',0):+6.2f}%)  "
+          f"maxDD={m.get('max_dd_pct',0):5.2f}%")
+print()
+
+PRIMARY = "all_pairs"
+trades, eq, summ = results[PRIMARY]
+print(f"[primary reported variant: {PRIMARY}]\n")
 
 print("--- OVERALL ---")
 order = ["start_balance","end_balance","net_profit","net_profit_pct","total_trades",

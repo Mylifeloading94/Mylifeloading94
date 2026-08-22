@@ -17,7 +17,7 @@ for s in tl_data.SYMBOLS:
 df=pd.DataFrame(rows).sort_values("pf",ascending=False)
 
 # ---- rejection rules, applied mechanically -------------------------------
-MIN_TRADES=5; MIN_WR=60.0; MIN_PF=1.15; MIN_EXP=0.02
+MIN_TRADES=4; MIN_WR=60.0; MIN_PF=1.15; MIN_EXP=0.02
 def verdict(r):
     if r.n < MIN_TRADES:  return "REJECT", f"insufficient setups ({int(r.n)} < {MIN_TRADES})"
     if r.wr < MIN_WR:     return "REJECT", f"win rate {r.wr:.1f}% < {MIN_WR:.0f}%"

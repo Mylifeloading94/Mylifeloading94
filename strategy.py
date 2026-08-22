@@ -65,8 +65,24 @@ STOP_SLIPPAGE_PIPS = 0.6        # extra adverse slippage when a stop triggers
 # ---------------------------------------------------------------------------
 # Config
 # ---------------------------------------------------------------------------
+# Signal timeframe -> (resample rule, context rules, minutes).
+# Higher signal timeframes carry much lower cost drag: the round-trip cost is
+# ~14% of the stop at M15, ~4% at H1, ~2% at H4.
+TF_PRESETS = {
+    15:  dict(rule="15min", mid="1h",  high="4h", bias="1D",
+              mid_m=60,   high_m=240,  bias_m=1440),
+    60:  dict(rule="1h",    mid="4h",  high="1D", bias="1W",
+              mid_m=240,  high_m=1440, bias_m=10080),
+    240: dict(rule="4h",    mid="1D",  high="1W", bias="1W",
+              mid_m=1440, high_m=10080, bias_m=10080),
+}
+
+
 @dataclass
 class Params:
+    # --- signal timeframe ---
+    tf_minutes: int = 15
+
     # --- structure / trigger ---
     sweep_lookback: int = 20        # bars defining the liquidity pool
     confirm_bars: int = 6           # bars allowed for the reclaim + MSS
@@ -99,6 +115,21 @@ class Params:
     max_atr_pct: float = 0.0125     # blow-off ceiling
     min_rr_after_costs: float = 1.5
     max_spread_atr: float = 0.45    # skip when the spread eats the stop
+
+    # A liquidity sweep is a counter-trend event at the local scale, so
+    # forcing agreement with the daily trend may be filtering out the very
+    # reversals the logic exists to catch. Made optional so it can be tested.
+    require_bias: bool = True
+
+    # Cost-efficiency gate: the score component most correlated with outcome
+    # was "spread small relative to ATR". Tightening it is a real lever.
+    max_spread_atr_hard: float = 0.45
+
+    # --- exits ---
+    # After `trail_start_r` of profit, trail the stop by `trail_atr` * ATR.
+    # 0 disables trailing (fixed target only).
+    trail_atr: float = 0.0
+    trail_start_r: float = 0.0
 
     # --- score ---
     min_score: int = 70
@@ -160,14 +191,14 @@ def resample(df, rule):
     return out.dropna()
 
 
-def htf_index(m15_index, htf_frame, rule_minutes):
+def htf_index(m15_index, htf_frame, rule_minutes, sig_minutes=15):
     """For every M15 bar, the positional index of the last HTF bar that had
     already closed by the time that M15 bar closed. -1 where none exists.
 
     This is the single mechanism preventing higher-timeframe look-ahead: an
     H4 bar stamped 08:00 does not become visible until 12:00.
     """
-    m15_close = m15_index + pd.Timedelta(minutes=15)
+    m15_close = m15_index + pd.Timedelta(minutes=sig_minutes)
     htf_close = htf_frame.index + pd.Timedelta(minutes=rule_minutes)
     # searchsorted 'right' => count of HTF bars whose close <= this M15 close
     pos = np.searchsorted(htf_close.values, m15_close.values, side="right") - 1
@@ -180,8 +211,14 @@ class Context:
     def __init__(self, symbol, m15, p: Params):
         self.symbol = symbol
         self.p = p
+        preset = TF_PRESETS[p.tf_minutes]
+        self.preset = preset
+        # `m15` is always the raw M15 feed; the signal frame is derived from it
+        # so that every timeframe shares one source of truth.
+        m15 = m15 if p.tf_minutes == 15 else resample(m15, preset["rule"])
         self.m15 = m15
         self.idx = m15.index
+        self.tf_minutes = p.tf_minutes
 
         self.o = m15["open"].values
         self.h = m15["high"].values
@@ -198,18 +235,18 @@ class Context:
         self.rng_hi = m15["high"].rolling(p.range_lookback).max().shift(1).values
         self.rng_lo = m15["low"].rolling(p.range_lookback).min().shift(1).values
 
-        # ---- higher timeframes ----
-        h1 = resample(m15, "1h")
-        h4 = resample(m15, "4h")
-        d1 = resample(m15, "1D")
+        # ---- context timeframes (relative to the signal timeframe) ----
+        h1 = resample(m15, preset["mid"])
+        h4 = resample(m15, preset["high"])
+        d1 = resample(m15, preset["bias"])
 
         self.h1 = h1
         self.h4 = h4
         self.d1 = d1
 
-        self.h1_pos = htf_index(self.idx, h1, 60)
-        self.h4_pos = htf_index(self.idx, h4, 240)
-        self.d1_pos = htf_index(self.idx, d1, 1440)
+        self.h1_pos = htf_index(self.idx, h1, preset["mid_m"], p.tf_minutes)
+        self.h4_pos = htf_index(self.idx, h4, preset["high_m"], p.tf_minutes)
+        self.d1_pos = htf_index(self.idx, d1, preset["bias_m"], p.tf_minutes)
 
         self.d1_ema50 = ema(d1["close"], 50).values
         self.d1_ema200 = ema(d1["close"], 200).values
@@ -227,13 +264,17 @@ class Context:
         self.h1_close = h1["close"].values
         self.h1_ema50 = ema(h1["close"], 50).values
 
+        # A weekly bias frame will never accumulate 200 bars, so the warmup
+        # requirement is capped at what the frame can actually supply.
+        self.bias_warmup = min(200, max(50, len(d1) // 3))
+
         self.pip = PIP[symbol]
         self.spread = SPREAD_PIPS[symbol] * self.pip
 
     # -- higher-timeframe reads (all guarded by the *_pos mapping) ----------
     def d1_bias(self, i):
         k = self.d1_pos[i]
-        if k < 200:
+        if k < self.bias_warmup:
             return 0
         c, e50, e200 = self.d1_close[k], self.d1_ema50[k], self.d1_ema200[k]
         if c > e50 > e200:
@@ -325,10 +366,10 @@ def _find_sweep(ctx, i, direction):
     """Was there a liquidity sweep in the last `confirm_bars` bars that price
     has since reclaimed? Returns (sweep_bar, sweep_extreme) or None."""
     p = ctx.p
-    for back in range(0, p.confirm_bars + 1):
+    for back in range(p.confirm_bars, -1, -1):
         j = i - back
         if j < p.sweep_lookback + p.mss_ref:
-            return None
+            continue
         if direction > 0:
             pool = ctx.pool_lo[j]
             if np.isnan(pool):
@@ -366,24 +407,34 @@ def evaluate(ctx: Context, i: int):
         return None
 
     # --- spread sanity: never trade when the stop is small vs the spread ---
-    if ctx.spread > p.max_spread_atr * a:
+    if ctx.spread > min(p.max_spread_atr, p.max_spread_atr_hard) * a:
         return None
 
     d1b = ctx.d1_bias(i)
-    if d1b == 0:
-        return None
     h4b = ctx.h4_bias(i)
     h4s = ctx.h4_structure(i)
 
-    # Directional candidates must agree with the daily bias.
-    direction = d1b
-    if h4b != 0 and h4b != direction:
-        return None
-
-    found = _find_sweep(ctx, i, direction)
-    if not found:
-        return None
-    sweep_bar, sweep_ext = found
+    if p.require_bias:
+        if d1b == 0:
+            return None
+        direction = d1b
+        if h4b != 0 and h4b != direction:
+            return None
+        found = _find_sweep(ctx, i, direction)
+        if not found:
+            return None
+        sweep_bar, sweep_ext = found
+    else:
+        # No trend filter: take whichever side actually swept and reclaimed.
+        found = None
+        for cand in (1, -1):
+            found = _find_sweep(ctx, i, cand)
+            if found:
+                direction = cand
+                break
+        if not found:
+            return None
+        sweep_bar, sweep_ext = found
 
     # --- market-structure shift: bar i closes past the pre-sweep extreme ---
     ref_a = max(0, sweep_bar - p.mss_ref)
@@ -466,8 +517,8 @@ def evaluate(ctx: Context, i: int):
     # ---------------------------------------------------------------------
     parts = {}
 
-    # 1. daily trend (15)
-    parts["d1_trend"] = 15
+    # 1. higher-timeframe trend (15)
+    parts["d1_trend"] = 15 if d1b == direction else (7 if d1b == 0 else 0)
 
     # 2. H4 momentum + structure agreement (12)
     s = 0

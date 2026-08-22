@@ -176,7 +176,7 @@ def main():
     symbols = args or SYMBOLS
     # warm-up reach-back: the D1 200-EMA bias needs ~200 daily bars before
     # 2026-01-01, so start the pull in early 2025.
-    start = dt.datetime(2025, 2, 1)
+    start = dt.datetime(2023, 6, 1)
     end = dt.datetime(2026, 8, 22, 23, 59)
 
     os.makedirs(DATA_DIR, exist_ok=True)

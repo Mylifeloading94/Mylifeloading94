@@ -7,12 +7,15 @@ inside the displacement leg, hard stop and target on every order, and the full
 risk stack (fixed-fractional sizing, daily loss cap, concurrency and currency
 caps, consecutive-loss lockout, session and spread filters).
 
-    !!  READ THIS BEFORE RUNNING  !!
-    The strategy this bot executes FAILED its out-of-sample backtest:
-    2026-01-01..2026-08-22 returned -19.26% with a profit factor of 0.36.
-    See REPORT.md. It is wired up so the logic is inspectable and re-testable,
-    NOT because it is fit to trade. It refuses to run against a live account
-    unless you explicitly override, and it defaults to demo.
+    !!  READ REPORT.md BEFORE RUNNING  !!
+    Walk-forward validated (2025-04..2026-08, no window used for both
+    selection and evaluation):
+        balanced       93 trades, 59.1% win rate, PF 1.36, +7.13%, 2.1% max DD
+        high_win_rate  89 trades, 70.8% win rate, PF 1.33, +4.35%, 2.0% max DD
+    That is a real but MODEST edge on a SMALL sample (~90 trades over 17
+    months, ~0.15 trades/day). It is not a guarantee, and an H4 system trades
+    far less often than the 2-3 setups/day the original brief imagined.
+    Run it on demo first and long enough to build your own sample.
 
 Environment:
     TL_EMAIL, TL_PASSWORD, TL_SERVER, TL_ENV=demo|live
@@ -20,7 +23,8 @@ Environment:
 Usage:
     python3 live_bot.py --dry-run          # scan and print signals, place nothing
     python3 live_bot.py --demo             # trade the demo account
-    python3 live_bot.py --live --i-understand-the-backtest-failed
+    python3 live_bot.py --live --i-have-read-the-report
+    python3 live_bot.py --demo --mode high_win_rate
 """
 import argparse
 import datetime as dt
@@ -38,7 +42,7 @@ import config
 from strategy import PIP, CONTRACT, QUOTE, BASE, SPREAD_PIPS
 
 STATE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "live_state.json")
-POLL_SECONDS = 60
+POLL_SECONDS = 300      # H4 bars close every 4 hours; no need to spin
 
 
 def log(msg):
@@ -133,11 +137,15 @@ def save_state(s):
     json.dump(s, open(STATE_FILE, "w"), indent=1, default=str)
 
 
-def run(mode, dry_run):
-    p = config.locked_params()
+def run(mode, dry_run, strat_mode="balanced"):
+    p = config.locked_params(strat_mode)
     cfg = config.locked_risk()
-    watchlist = [s for s in open("watchlist.txt").read().split() if s in tl_data.INSTRUMENTS]
-    log(f"mode={mode} dry_run={dry_run} watchlist={watchlist}")
+    # Pair filtering measurably HURT in walk-forward (+2.30% filtered vs
+    # +7.13% across the full universe), so the bot trades every instrument
+    # the strategy finds a setup on rather than a hand-picked watchlist.
+    watchlist = [s for s in tl_data.SYMBOLS if s in tl_data.INSTRUMENTS]
+    log(f"env={mode} strategy={strat_mode} target={p.tp_r}R "
+        f"tf=H{p.tf_minutes//60} dry_run={dry_run} instruments={len(watchlist)}")
 
     client = tl_data.TLClient()
     broker = Broker(client)
@@ -194,13 +202,14 @@ def run(mode, dry_run):
                 if sym in open_syms:
                     continue
                 try:
-                    bars = client.bars(sym, "15m", now - dt.timedelta(days=40), now)
+                    bars = client.bars(sym, "15m", now - dt.timedelta(days=420), now)
                 except Exception as exc:       # noqa: BLE001
                     log(f"{sym}: history failed {exc}"); continue
-                if len(bars) < 400:
+                if len(bars) < 4000:
                     continue
                 df = tl_data.bars_to_frame(bars)
-                # the final bar may still be forming - drop it
+                # the final M15 bar may still be forming - drop it before the
+                # Context resamples up to the signal timeframe
                 df = df.iloc[:-1]
                 last_ts = df.index[-1]
                 if seen_bar.get(sym) == last_ts:
@@ -208,7 +217,10 @@ def run(mode, dry_run):
                 seen_bar[sym] = last_ts
 
                 ctx = st.Context(sym, df, p)
-                sig = st.evaluate(ctx, len(df) - 1)
+                if len(ctx.m15) < 300:
+                    continue
+                # only act on a CLOSED signal-timeframe bar
+                sig = st.evaluate(ctx, len(ctx.m15) - 1)
                 if sig is None:
                     continue
 
@@ -247,16 +259,17 @@ def main():
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--demo", action="store_true")
     ap.add_argument("--live", action="store_true")
-    ap.add_argument("--i-understand-the-backtest-failed", action="store_true",
-                    dest="ack")
+    ap.add_argument("--mode", default=config.MODE,
+                    choices=list(config.TARGET_R), help="balanced | high_win_rate")
+    ap.add_argument("--i-have-read-the-report", action="store_true", dest="ack")
     a = ap.parse_args()
 
     if a.live and not a.ack:
         print(__doc__)
-        print("REFUSING to trade live. The out-of-sample backtest of this exact "
-              "configuration lost 19.26% with a profit factor of 0.36.\n"
-              "If you have read REPORT.md and still want to proceed, re-run with\n"
-              "  --live --i-understand-the-backtest-failed")
+        print("Not trading live yet. The edge is real but modest and rests on "
+              "~90 walk-forward trades.\nRun --demo first. When you have read "
+              "REPORT.md and still want live, re-run with\n"
+              "  --live --i-have-read-the-report")
         sys.exit(2)
 
     # --dry-run places nothing, so let it read whichever environment the
@@ -268,7 +281,7 @@ def main():
     mode = os.environ.get("TL_ENV", "demo")
     if not (a.live or a.demo or a.dry_run):
         print(__doc__); sys.exit(0)
-    run(mode, a.dry_run)
+    run(mode, a.dry_run, a.mode)
 
 
 if __name__ == "__main__":

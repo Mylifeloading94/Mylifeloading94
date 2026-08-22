@@ -74,7 +74,10 @@ class UsdConverter:
         self._cache = {}
 
     def _series(self, sym, index):
-        key = (sym, id(index))
+        # Keyed on the index's identity-by-value, not id(): a freed Index can
+        # be reallocated at the same address, which would silently hand back
+        # another symbol's conversion rates.
+        key = (sym, len(index), index[0], index[-1])
         if key not in self._cache:
             self._cache[key] = self.close[sym].reindex(index).ffill().bfill()
         return self._cache[key]
@@ -111,6 +114,10 @@ def run(frames, params: st.Params, cfg: RiskConfig, start, end, symbols=None):
     ctxs, q2usd = {}, {}
     for s in symbols:
         ctxs[s] = st.Context(s, frames[s], params)
+    # Context may resample up to the signal timeframe; the engine must walk
+    # the SAME bars the signals were computed on.
+    frames = {**frames, **{s: ctxs[s].m15 for s in symbols}}
+    for s in symbols:
         q2usd[s] = conv.quote_to_usd(s, frames[s].index).values
 
     # master clock = union of all bar timestamps inside the test window

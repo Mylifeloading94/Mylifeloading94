@@ -19,9 +19,13 @@ from strategy import PIP, SPREAD_PIPS, SLIPPAGE_PIPS, STOP_SLIPPAGE_PIPS
 def simulate_symbol(symbol, frame, params, start, end, ctx=None):
     """Return a list of dicts, one per signal, with R-multiple outcomes."""
     ctx = ctx or st.Context(symbol, frame, params)
+    # Context may have resampled the raw M15 feed up to the signal timeframe;
+    # everything below must work on THAT frame, not the raw one.
+    frame = ctx.m15
     idx = frame.index
     o = frame["open"].values; h = frame["high"].values
     l = frame["low"].values;  c = frame["close"].values
+    atr_v = ctx.atr15
     n = len(idx)
     pip = PIP[symbol]
     spread = SPREAD_PIPS[symbol] * pip
@@ -114,6 +118,17 @@ def simulate_symbol(symbol, frame, params, start, end, ctx=None):
             if hittp:
                 r_realized += frac_open * params.tp_r
                 reason = "target"; frac_open = 0.0; break
+
+            # ATR trail, armed once the trade is `trail_start_r` in profit.
+            if params.trail_atr > 0:
+                run_r = ((bh - entry) if sig.direction > 0 else (entry - bl)) / risk
+                if run_r >= params.trail_start_r:
+                    av = atr_v[k] if k < len(atr_v) else atr_v[-1]
+                    if np.isfinite(av) and av > 0:
+                        cand = (bh - params.trail_atr * av) if sig.direction > 0 \
+                            else (bl + params.trail_atr * av)
+                        cur_stop = max(cur_stop, cand) if sig.direction > 0 \
+                            else min(cur_stop, cand)
         else:
             k = min(n - 1, j + params.time_stop_bars)
             px = c[k] - sig.direction * SLIPPAGE_PIPS * pip

@@ -1,66 +1,118 @@
 """
-LOCKED strategy configuration.
+LOCKED strategy configuration  (v2 - H4).
 
-Chosen on 2025 in-sample data (2025-03-01 .. 2025-12-31) BEFORE the 2026 test
-window was ever evaluated. Selection rule was the robustness of the parameter
-NEIGHBOURHOOD -- profit factor had to hold up across every quality threshold,
-not peak at one of them -- rather than the single best in-sample cell.
+WHAT CHANGED FROM v1 AND WHY
+----------------------------
+v1 ran the signal on M15 and failed out of sample (-19.26%, PF 0.36). Two real
+faults were found afterwards:
 
-Measured in-sample neighbourhood (tp_r 0.6 / sl_buffer 0.5 / retrace 0.62):
-    profit factor 1.34 - 1.74 across all five score thresholds
-    win rate ~76%, ~80-99 trades
+1. A DATA BUG. The daily EMA200 bias needs 200 daily bars of warm-up. The M15
+   feed only reached back to Feb 2025, so only 32% of the v1 in-sample window
+   had a usable daily bias, against 100% of the test window. In-sample and
+   out-of-sample were effectively running DIFFERENT strategies, which is why
+   selection did not transfer. Data now reaches back to 2023-06; both windows
+   are at 100% coverage.
 
-The high-R:R family (tp_r 1.5-2.5) was REJECTED: its profit factor fell below
-1.0 at some thresholds, i.e. it was not robust.
+2. THE TIMEFRAME WAS WRONG FOR THE COST STRUCTURE. Round-trip cost is ~14% of
+   the stop at M15, ~4% at H1, ~2% at H4. Measured in-sample median profit
+   factor by signal timeframe:
+        M15  0.735
+        H1   0.785
+        H4   1.413      <- and 100% of 240 H4 configurations beat PF 1.0
+   The edge was always being eaten by costs, not absent.
 
-Read `REPORT.md` before trusting any of these numbers.
+The quality score also only starts working at H4. In-sample median PF by score
+threshold is monotonic there (1.202 -> 1.365 -> 1.687 for thresholds 0/60/70),
+where at M15 it was flat and out-of-sample slightly negative.
+
+SELECTION DISCIPLINE
+--------------------
+Everything below was chosen on 2024-04-01 .. 2025-12-31 and frozen BEFORE the
+2026 window was evaluated. Where a parameter could be pushed to flatter the
+in-sample metric, the looser value was taken instead (see min_score and
+min_rr_after_costs).
 """
 import strategy as st
 import backtest as bt
 
-# In-sample (selection) and out-of-sample (reporting) windows.
-IS_START = "2025-03-01"
+# Warm-up starts 2023-06; the daily EMA200 is fully warmed by 2024-04.
+IS_START = "2024-04-01"
 IS_END   = "2025-12-31 23:59"
 OOS_START = "2026-01-01"
 OOS_END   = "2026-08-22 23:59"
 
 
-def locked_params():
+# Two validated modes. Both were confirmed by walk-forward; they trade the
+# same signal and differ only in where the target sits.
+#
+#   "balanced"      target 1.0R -> 59.1% win rate, PF 1.36, +7.13%
+#                   Chosen by the training data itself in 5 of 6 walk-forward
+#                   cycles, so this is the evidence-backed default.
+#   "high_win_rate" target 0.6R -> 70.8% win rate, PF 1.33, +4.35%
+#                   Meets the brief's 70-90% win-rate target, at the cost of a
+#                   0.51 reward-to-risk ratio and slightly lower net profit.
+MODE = "balanced"
+
+TARGET_R = {"balanced": 1.0, "high_win_rate": 0.6}
+
+
+def locked_params(mode=None):
     p = st.default_params()
 
-    # entry
+    # --- signal timeframe -------------------------------------------------
+    p.tf_minutes = 240                # H4. Context = D1 / W1.
+
+    # Intraday session filtering is meaningless on 4-hour bars.
+    p.sessions = ((0, 24),)
+    # In-sample prefers 12 bars (PF 1.568) but 40+ is a FLAT PLATEAU
+    # (1.458 at every value from 40 to 400, because almost nothing exits on
+    # time). A plateau is more trustworthy than a point optimum, so the
+    # plateau is taken and one fitted parameter disappears.
+    #
+    # DISCLOSURE: this parameter was re-examined AFTER the 2026 window had
+    # been run once, because time-exits were visibly carrying the loss there.
+    # That re-examination was done on in-sample data only, but the 2026 split
+    # has now been looked at twice and its status as a clean out-of-sample
+    # test is correspondingly weaker. The walk-forward in walkforward.py --
+    # which never reuses a window for both selection and evaluation -- is the
+    # primary evidence for this build.
+    p.time_stop_bars = 40
+
+    # --- entry ------------------------------------------------------------
     p.entry_mode = "retrace"
     p.retr_frac = 0.62
     p.entry_expiry = 6
 
-    # stop / target
-    p.sl_atr_buffer = 0.5
-    p.tp_r = 0.6
-    p.tp1_frac = 0.0                 # partials measurably hurt expectancy
-    p.breakeven_after_tp1 = False    # so did breakeven stops
-    p.time_stop_bars = 64
+    # --- stop / target ----------------------------------------------------
+    p.sl_atr_buffer = 0.5             # in-sample median PF 1.458 vs 1.321 at 1.0
+    p.tp_r = TARGET_R[mode or MODE]
+    p.tp1_frac = 0.0                  # partials measurably reduced expectancy
+    p.breakeven_after_tp1 = False     # so did breakeven stops
+    p.trail_atr = 0.0                 # trail arms at 1R, so it is inert at tp_r=1.0
 
-    # A 0.6R target cannot clear a 1.5 R:R gate, so the gate is re-based to
-    # mean "round-trip cost may not eat more than half the target".
-    #
-    # This gate is an OVERFITTING TRAP and is deliberately NOT tuned. Measured
-    # in-sample sensitivity:
-    #     0.30 -> n=116  wr 75.9%  pf 1.54
-    #     0.36 -> n= 85  wr 78.8%  pf 1.86
-    #     0.40 -> n= 57  wr 82.5%  pf 2.39
-    #     0.45 -> n= 26  wr 84.6%  pf 2.86
-    #     0.50 -> n=  8  wr 100.0% pf  inf
-    # Tightening it manufactures a spectacular win rate purely by shrinking
-    # the sample. The LOOSEST value is taken on purpose: it keeps the largest
-    # sample and is the one choice that cannot be accused of chasing the
-    # in-sample metric.
+    # --- trend filter -----------------------------------------------------
+    # Keeping it: in-sample median PF 1.450 with vs 1.326 without, and a higher
+    # worst case (1.163 vs 1.001).
+    p.require_bias = True
+
+    # --- gates ------------------------------------------------------------
+    # Deliberately NOT tuned; at H4 the spread is a trivial share of the stop
+    # and tightening this gate changed nothing (median PF 1.413 either way).
+    p.max_spread_atr_hard = 0.45
     p.min_rr_after_costs = 0.30
 
-    # The score's measured discriminating power in-sample is WEAK
-    # (corr +0.065 with R). It is kept as an auditable gate and a light
-    # filter, not as the source of the edge. Threshold set mid-range rather
-    # than at the in-sample peak.
+    # In-sample threshold curve (n / win rate / profit factor):
+    #     55 -> 132 / 61.4% / 1.510
+    #     60 -> 126 / 61.9% / 1.547
+    #     65 -> 108 / 63.0% / 1.624
+    #     70 ->  82 / 63.4% / 1.685
+    #     75 ->  52 / 63.5% / 1.719
+    # PF keeps climbing as the threshold rises, so the tempting choice is 75.
+    # 60 is taken instead: the LOOSEST value that still clears the brief's 60%
+    # win-rate requirement, which keeps the largest sample and is the choice
+    # least able to be accused of chasing the in-sample metric.
     p.min_score = 60
+    p.min_rr_after_costs = min(0.30, p.tp_r * 0.5)
     return p
 
 

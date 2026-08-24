@@ -700,13 +700,15 @@ FINAL DEPLOYMENT GATE
   [PASS] Monte Carlo completed  — 5000 runs
   [PASS] out-of-sample completed  — holdout evaluated once
   [FAIL] walk-forward stability >= 60% profitable windows  — 33.3% of windows profitable
-  [FAIL] mean out-of-sample PF > 1.0  — mean OOS PF 0.78
+  [FAIL] median out-of-sample PF > 1.0  — median OOS PF 0.58 (mean 0.78, informational)
+  [FAIL] out-of-sample sample size >= 100 trades  — 49 out-of-sample trades — below this nothing is statistically distinguishable from noise
   [FAIL] mean out-of-sample expectancy > 0  — -0.172R
   [FAIL] Monte Carlo probability of profit >= 60%  — 0.0%
   [PASS] Monte Carlo probability of 50% ruin < 1%  — 0.00%
 
-VERDICT: DO NOT DEPLOY — 4 critical check(s) failed:
+VERDICT: DO NOT DEPLOY — 5 critical check(s) failed:
   - walk-forward stability >= 60% profitable windows: 33.3% of windows profitable
-  - mean out-of-sample PF > 1.0: mean OOS PF 0.78
+  - median out-of-sample PF > 1.0: median OOS PF 0.58 (mean 0.78, informational)
+  - out-of-sample sample size >= 100 trades: 49 out-of-sample trades — below this nothing is statistically distinguishable from noise
   - mean out-of-sample expectancy > 0: -0.172R
   - Monte Carlo probability of profit >= 60%: 0.0%

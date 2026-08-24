@@ -1,0 +1,7 @@
+window,train,test,params,is_trades,is_pf,is_wr,oos_trades,oos_pf,oos_wr,oos_ret,oos_dd,oos_exp_r
+1,2026-01-01->2026-03-17,2026-03-17->2026-04-11,"{'score.threshold': 80.0, 'toggles.breakout': True, 'sessions.enabled_sessions': ('OVERLAP', 'NEWYORK')}",9,2.63,55.6,1,99.0,100.0,1.77,0.0,1.235
+2,2026-01-26->2026-04-11,2026-04-11->2026-05-06,"{'score.threshold': 75.0, 'toggles.breakout': True, 'sessions.enabled_sessions': ('LONDON', 'OVERLAP', 'NEWYORK')}",13,2.24,61.5,8,1.56,50.0,2.95,5.06,0.215
+3,2026-02-20->2026-05-06,2026-05-06->2026-05-31,"{'score.threshold': 75.0, 'toggles.breakout': True, 'sessions.enabled_sessions': ('OVERLAP', 'NEWYORK')}",12,3.39,66.7,5,8.08,80.0,8.27,1.08,0.864
+4,2026-03-17->2026-05-31,2026-05-31->2026-06-25,"{'score.threshold': 75.0, 'toggles.breakout': False, 'sessions.enabled_sessions': ('LONDON', 'OVERLAP', 'NEWYORK')}",12,3.85,66.7,4,0.94,25.0,-0.18,3.11,-0.021
+5,2026-04-11->2026-06-25,2026-06-25->2026-07-20,"{'score.threshold': 80.0, 'toggles.breakout': False, 'sessions.enabled_sessions': ('LONDON', 'OVERLAP', 'NEWYORK')}",12,2.19,58.3,4,0.0,25.0,-5.06,5.06,-0.77
+6,2026-05-06->2026-07-20,2026-07-20->2026-08-14,"{'score.threshold': 80.0, 'toggles.breakout': False, 'sessions.enabled_sessions': ('OVERLAP', 'NEWYORK')}",9,1.09,44.4,6,0.0,0.0,-7.11,7.11,-0.774

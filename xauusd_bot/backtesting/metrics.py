@@ -27,7 +27,11 @@ def compute(trades: pd.DataFrame, equity: pd.Series, initial_equity: float) -> d
     m["scratches"] = int((pnl == 0).sum())
     m["win_rate"] = 100.0 * m["wins"] / m["trades"]
     m["loss_rate"] = 100.0 * m["losses"] / m["trades"]
-    m["profit_factor"] = _safe(gross_win / gross_loss if gross_loss > 0 else np.inf, 0)
+    # A window with no losing trades has an INFINITE profit factor, not zero.
+    # Collapsing it to 0 silently reclassifies a winning window as a losing one
+    # in the walk-forward stability count.
+    m["profit_factor"] = float(gross_win / gross_loss) if gross_loss > 0 else \
+        (float("inf") if gross_win > 0 else 0.0)
     m["gross_profit"] = float(gross_win)
     m["gross_loss"] = float(gross_loss)
     m["net_profit"] = float(pnl.sum())
@@ -35,7 +39,8 @@ def compute(trades: pd.DataFrame, equity: pd.Series, initial_equity: float) -> d
     # gross PF = before commission (spread/slippage are inside the fill prices)
     gross_pnl = pnl + t["commission"]
     gw2 = gross_pnl[gross_pnl > 0].sum(); gl2 = -gross_pnl[gross_pnl < 0].sum()
-    m["gross_profit_factor"] = _safe(gw2 / gl2 if gl2 > 0 else np.inf, 0)
+    m["gross_profit_factor"] = float(gw2 / gl2) if gl2 > 0 else \
+        (float("inf") if gw2 > 0 else 0.0)
     m["net_profit_factor"] = m["profit_factor"]
 
     m["final_equity"] = float(equity.iloc[-1])

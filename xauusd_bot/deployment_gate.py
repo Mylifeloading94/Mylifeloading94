@@ -70,9 +70,16 @@ def run_checks(validation_path: str = "xauusd_bot/reports/validation.json",
     pct = float(wf.get("pct_profitable", 0) or 0)
     checks.append(Check("walk-forward stability >= 60% profitable windows",
                         pct >= 60.0, True, f"{pct}% of windows profitable"))
+    # The MEDIAN is the critical figure. A mean over six windows is trivially
+    # dominated by one lucky low-trade window, so it is informational only.
+    med_pf = float(wf.get("median_oos_pf", 0) or 0)
     mean_pf = float(wf.get("mean_oos_pf", 0) or 0)
-    checks.append(Check("mean out-of-sample PF > 1.0", mean_pf > 1.0, True,
-                        f"mean OOS PF {mean_pf}"))
+    checks.append(Check("median out-of-sample PF > 1.0", med_pf > 1.0, True,
+                        f"median OOS PF {med_pf} (mean {mean_pf}, informational)"))
+    n_oos = int(wf.get("total_oos_trades", 0) or 0)
+    checks.append(Check("out-of-sample sample size >= 100 trades", n_oos >= 100, True,
+                        f"{n_oos} out-of-sample trades — below this nothing is "
+                        f"statistically distinguishable from noise"))
     exp_r = float(wf.get("mean_oos_expR", 0) or 0)
     checks.append(Check("mean out-of-sample expectancy > 0", exp_r > 0, True,
                         f"{exp_r:+.3f}R"))

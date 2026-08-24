@@ -1,0 +1,800 @@
+XAUUSD SYSTEM — 0.01 STANDARD-LOT BACKTEST
+Real HistData M1, 2026-01-01 -> 2026-08-21, $500 account
+
+At 0.01 lots XAUUSD moves $1 per $1 of gold. Risk per trade is therefore
+set by the stop distance, not by a risk percentage. The 0.50% target is
+unreachable: the sizer's min-lot rejection is overridden and the hard cap
+decides which setups are still refused.
+==============================================================================
+
+
+##############################################################################
+# FULL SAMPLE — 0.01 lot, hard cap 1%
+##############################################################################
+0.01 LOT / cap 1%
+=================
+  Trades                2   (1.00/trading day, 2 active days)
+  Win rate              50.0%   (1W / 1L)
+  Profit factor (net)   124.03      gross 124.03
+  Net P/L               $5.02   (+1.00%)
+  Final equity          $505.02
+  Max drawdown          0.01%    avg DD 0.01%
+  Recovery factor       124.25
+  Expectancy            +0.588R   ($+2.510/trade)
+  Avg winner / loser    $5.06 / $-0.04   payoff 124.03
+  Avg R  win / loss     +1.19R / -0.01R
+  Largest win / loss    $5.06 / $-0.04
+  Max streak  W / L     1 / 1
+  Sharpe / Sortino      1.12 / inf
+  Long / Short          1 (0% win) / 1 (100% win)
+  Avg MFE / MAE         1.57R / 0.26R
+  Avg hold              39 min
+  Profit concentration  top1 100.8%  top5 100.0%  top10 100.0%
+  Positive months       1/6
+  Costs                 commission $0.00, avg spread $0.180
+
+  Monthly P/L:
+    2026-02-28  $+5.06
+    2026-03-31  $+0.00
+    2026-04-30  $+0.00
+    2026-05-31  $+0.00
+    2026-06-30  $+0.00
+    2026-07-31  $-0.04
+
+STRATEGY PERFORMANCE MATRIX
+          strategy  trades  win%     PF  net  avg_R  exp_$
+LIQUIDITY_REVERSAL       2  50.0 124.03 5.02  0.588   2.51
+
+REGIME PERFORMANCE
+            regime  trades  win%     PF  net  avg_R  exp_$
+LIQUIDITY_REVERSAL       2  50.0 124.03 5.02  0.588   2.51
+
+SESSION PERFORMANCE
+session  trades  win%  PF   net  avg_R  exp_$
+ LONDON       1   0.0 0.0 -0.04 -0.009 -0.041
+NEWYORK       1 100.0 inf  5.06  1.186  5.061
+
+HOUR PERFORMANCE (UTC)
+ hour  trades  win%  PF   net  avg_R  exp_$
+   11       1   0.0 0.0 -0.04 -0.009 -0.041
+   19       1 100.0 inf  5.06  1.186  5.061
+
+SETUP-SCORE PERFORMANCE
+score_bin  trades  win%  PF   net  avg_R  exp_$
+ (85, 90]       1   0.0 0.0 -0.04 -0.009 -0.041
+ (90, 95]       1 100.0 inf  5.06  1.186  5.061
+
+EXIT REASON
+exit_reason  trades  win%  PF   net  avg_R  exp_$
+    BE_STOP       1   0.0 0.0 -0.04 -0.009 -0.041
+SESSION_END       1 100.0 inf  5.06  1.186  5.061
+
+DIRECTION
+direction  trades  win%  PF   net  avg_R  exp_$
+     LONG       1   0.0 0.0 -0.04 -0.009 -0.041
+    SHORT       1 100.0 inf  5.06  1.186  5.061
+
+COST IMPACT
+  gross PF 124.03  ->  net PF 124.03
+  commission total   $0.00
+  avg spread paid    $0.180 per trade (cost ≈ $0.36 across all lots)
+  entry slippage     $0.10 in price units
+  exit slippage      $0.17 in price units
+
+PROFIT CONCENTRATION
+  top 1 trade   100.8% of net profit
+  top 5 trades  100.0%
+  top 10 trades 100.0%
+  best month    100.8%
+
+ADDITIONAL
+  signals evaluated: 2080
+  rejections: {'setup_score_below_threshold': 1083, 'position_size_below_min_lot': 663, 'no_stop': 331, 'spread_blocked': 1}
+
+  risk per trade: min 0.85%  median 0.88%  max 0.90%
+  trades risking >1.5% (one loss trips the daily lock): 0/2
+
+
+##############################################################################
+# FULL SAMPLE — 0.01 lot, hard cap 2%
+##############################################################################
+0.01 LOT / cap 2%
+=================
+  Trades                74   (1.17/trading day, 63 active days)
+  Win rate              41.9%   (31W / 43L)
+  Profit factor (net)   1.00      gross 1.00
+  Net P/L               $-0.88   (-0.18%)
+  Final equity          $499.12
+  Max drawdown          21.01%    avg DD 6.01%
+  Recovery factor       -0.01
+  Expectancy            -0.013R   ($-0.012/trade)
+  Avg winner / loser    $11.56 / $-8.36   payoff 1.38
+  Avg R  win / loss     +1.26R / -0.93R
+  Largest win / loss    $23.38 / $-12.58
+  Max streak  W / L     4 / 11
+  Sharpe / Sortino      0.09 / 0.18
+  Long / Short          36 (33% win) / 38 (50% win)
+  Avg MFE / MAE         1.08R / 0.81R
+  Avg hold              64 min
+  Profit concentration  top1 nan%  top5 nan%  top10 nan%
+  Positive months       5/8
+  Costs                 commission $0.00, avg spread $0.226
+
+  Monthly P/L:
+    2026-01-31  $-21.18
+    2026-02-28  $+33.10
+    2026-03-31  $+28.91
+    2026-04-30  $+41.46
+    2026-05-31  $+28.36
+    2026-06-30  $+14.68
+    2026-07-31  $-97.99
+    2026-08-31  $-28.21
+
+STRATEGY PERFORMANCE MATRIX
+          strategy  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL      38  39.5 0.91 -17.61 -0.057 -0.463
+TREND_CONTINUATION      21  52.4 1.77  61.15  0.282  2.912
+          BREAKOUT      15  33.3 0.50 -44.42 -0.315 -2.961
+
+REGIME PERFORMANCE
+            regime  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL      27  33.3 0.63 -57.02 -0.238 -2.112
+            CHOPPY      10  50.0 1.93  34.43  0.359  3.443
+              BEAR      10  40.0 1.25  10.53  0.081  1.053
+       STRONG_BEAR       8  62.5 2.30  35.63  0.460  4.453
+       COMPRESSION       8  50.0 1.21   7.58  0.181  0.947
+       STRONG_BULL       7  28.6 0.24 -33.27 -0.574 -4.753
+              BULL       4  50.0 1.07   1.25 -0.016  0.312
+
+SESSION PERFORMANCE
+session  trades  win%   PF    net  avg_R  exp_$
+ LONDON      33  36.4 0.63 -68.80 -0.235 -2.085
+OVERLAP      21  38.1 1.15  15.40  0.070  0.734
+NEWYORK      20  55.0 1.75  52.52  0.266  2.626
+
+HOUR PERFORMANCE (UTC)
+ hour  trades  win%   PF    net  avg_R   exp_$
+    7       5  60.0 1.74  15.93  0.318   3.186
+    8       4  25.0 0.25 -21.26 -0.561  -5.314
+    9       7  28.6 0.15 -36.74 -0.569  -5.249
+   10       9  55.6 1.24  10.12  0.119   1.124
+   11       8  12.5 0.28 -36.85 -0.524  -4.606
+   12       4  75.0 4.61  35.70  1.047   8.924
+   13      10  40.0 1.63  25.10  0.230   2.510
+   14       6  16.7 0.18 -39.55 -0.663  -6.592
+   15       1   0.0 0.00  -5.84 -1.040  -5.840
+   16       2   0.0 0.00 -20.14 -1.024 -10.071
+   17       3 100.0  inf  40.49  1.570  13.497
+   18       6  33.3 0.80  -6.97 -0.226  -1.162
+   19       6  50.0 1.71  10.37  0.164   1.729
+   20       3 100.0  inf  28.77  1.006   9.589
+
+SETUP-SCORE PERFORMANCE
+score_bin  trades  win%   PF    net  avg_R  exp_$
+ (80, 85]      22  31.8 0.52 -68.43 -0.320 -3.111
+  (0, 75]      20  50.0 1.35  31.69  0.170  1.584
+ (75, 80]      14  42.9 0.83 -12.09 -0.128 -0.863
+ (85, 90]       7  42.9 2.01  21.76  0.328  3.109
+(95, 101]       7  42.9 1.85  23.36  0.238  3.337
+ (90, 95]       4  50.0 1.38   2.84  0.123  0.710
+
+EXIT REASON
+exit_reason  trades  win%     PF     net  avg_R  exp_$
+       STOP      39   0.0   0.00 -359.25 -1.026 -9.211
+    BE_STOP      17  76.5 769.52  106.29  0.734  6.252
+        TP2      11 100.0    inf  212.26  1.988 19.296
+SESSION_END       5 100.0    inf   34.03  0.817  6.807
+       TIME       2 100.0    inf    5.79  0.312  2.897
+
+DIRECTION
+direction  trades  win%   PF    net  avg_R  exp_$
+    SHORT      38  50.0 1.39  60.79  0.138  1.600
+     LONG      36  33.3 0.70 -61.66 -0.173 -1.713
+
+COST IMPACT
+  gross PF 1.00  ->  net PF 1.00
+  commission total   $0.00
+  avg spread paid    $0.226 per trade (cost ≈ $16.69 across all lots)
+  entry slippage     $3.70 in price units
+  exit slippage      $7.07 in price units
+
+PROFIT CONCENTRATION
+  top 1 trade   nan% of net profit
+  top 5 trades  nan%
+  top 10 trades nan%
+  best month    nan%
+
+ADDITIONAL
+  signals evaluated: 1742
+  rejections: {'setup_score_below_threshold': 951, 'no_stop': 305, 'position_size_below_min_lot': 300, 'daily_loss_lock': 76, 'cooldown': 19, 'weekly_loss_lock': 16, 'spread_blocked': 1}
+
+  risk per trade: min 0.86%  median 1.67%  max 1.99%
+  trades risking >1.5% (one loss trips the daily lock): 50/74
+
+
+##############################################################################
+# FULL SAMPLE — 0.01 lot, hard cap 3%
+##############################################################################
+0.01 LOT / cap 3%
+=================
+  Trades                84   (1.20/trading day, 70 active days)
+  Win rate              40.5%   (34W / 50L)
+  Profit factor (net)   0.89      gross 0.89
+  Net P/L               $-58.28   (-11.66%)
+  Final equity          $441.72
+  Max drawdown          21.09%    avg DD 8.66%
+  Recovery factor       -0.55
+  Expectancy            -0.049R   ($-0.694/trade)
+  Avg winner / loser    $13.30 / $-10.21   payoff 1.30
+  Avg R  win / loss     +1.29R / -0.96R
+  Largest win / loss    $27.30 / $-15.19
+  Max streak  W / L     4 / 10
+  Sharpe / Sortino      -0.39 / -0.85
+  Long / Short          41 (32% win) / 43 (49% win)
+  Avg MFE / MAE         1.09R / 0.84R
+  Avg hold              71 min
+  Profit concentration  top1 nan%  top5 nan%  top10 nan%
+  Positive months       4/8
+  Costs                 commission $0.00, avg spread $0.229
+
+  Monthly P/L:
+    2026-01-31  $-18.48
+    2026-02-28  $-8.23
+    2026-03-31  $+12.22
+    2026-04-30  $+20.87
+    2026-05-31  $-24.95
+    2026-06-30  $+14.62
+    2026-07-31  $-75.38
+    2026-08-31  $+21.07
+
+STRATEGY PERFORMANCE MATRIX
+          strategy  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL      44  38.6 0.78 -57.71 -0.111 -1.312
+TREND_CONTINUATION      25  48.0 1.42  58.55  0.208  2.342
+          BREAKOUT      15  33.3 0.47 -59.12 -0.295 -3.942
+
+REGIME PERFORMANCE
+            regime  trades  win%   PF     net  avg_R  exp_$
+LIQUIDITY_REVERSAL      33  30.3 0.56 -101.85 -0.290 -3.086
+       STRONG_BEAR      11  72.7 3.74   97.12  0.804  8.829
+              BEAR      10  30.0 0.41  -46.61 -0.319 -4.661
+            CHOPPY      10  60.0 2.36   39.15  0.403  3.915
+       COMPRESSION       9  44.4 0.92   -4.23  0.073 -0.470
+       STRONG_BULL       6  33.3 0.94   -2.31 -0.133 -0.386
+              BULL       5  20.0 0.01  -39.54 -0.814 -7.909
+
+SESSION PERFORMANCE
+session  trades  win%   PF     net  avg_R  exp_$
+ LONDON      40  35.0 0.58 -117.94 -0.249 -2.948
+OVERLAP      25  40.0 1.08   11.89  0.057  0.476
+NEWYORK      19  52.6 1.55   47.76  0.232  2.514
+
+HOUR PERFORMANCE (UTC)
+ hour  trades  win%   PF    net  avg_R  exp_$
+    7      10  60.0 2.00  48.37  0.440  4.837
+    8       5  20.0 0.15 -41.27 -0.649 -8.254
+    9       7  42.9 0.79  -8.06 -0.138 -1.151
+   10       7  28.6 0.25 -44.41 -0.562 -6.345
+   11      11  18.2 0.17 -72.56 -0.563 -6.597
+   12       7  42.9 1.04   2.11  0.162  0.302
+   13      10  50.0 2.32  43.82  0.408  4.382
+   14       7  28.6 0.48 -28.20 -0.394 -4.028
+   15       1   0.0 0.00  -5.84 -1.040 -5.840
+   16       5  40.0 0.43 -20.54 -0.347 -4.109
+   17       2 100.0  inf  38.58  1.987 19.291
+   18       6  33.3 0.89  -3.89 -0.195 -0.649
+   19       4  50.0 1.61   8.91  0.174  2.228
+   20       2 100.0  inf  24.70  1.322 12.350
+
+SETUP-SCORE PERFORMANCE
+score_bin  trades  win%   PF    net  avg_R  exp_$
+  (0, 75]      24  45.8 1.22  30.39  0.135  1.266
+ (80, 85]      22  31.8 0.44 -94.23 -0.372 -4.283
+ (75, 80]      20  45.0 0.83 -19.24 -0.087 -0.962
+ (85, 90]       7  28.6 1.04   1.37  0.129  0.195
+(95, 101]       6  50.0 1.63  20.02  0.211  3.336
+ (90, 95]       5  40.0 1.17   3.42  0.083  0.683
+
+EXIT REASON
+exit_reason  trades  win%      PF     net  avg_R   exp_$
+       STOP      47   0.0    0.00 -510.50 -1.023 -10.862
+    BE_STOP      20  85.0 1566.01  172.31  0.844   8.615
+        TP2      10 100.0     inf  205.28  1.988  20.528
+SESSION_END       4 100.0     inf   48.64  1.241  12.161
+       TIME       3 100.0     inf   25.99  0.747   8.664
+
+DIRECTION
+direction  trades  win%   PF    net  avg_R  exp_$
+    SHORT      43  48.8 1.15  34.48  0.086  0.802
+     LONG      41  31.7 0.66 -92.76 -0.191 -2.262
+
+COST IMPACT
+  gross PF 0.89  ->  net PF 0.89
+  commission total   $0.00
+  avg spread paid    $0.229 per trade (cost ≈ $19.22 across all lots)
+  entry slippage     $4.20 in price units
+  exit slippage      $8.39 in price units
+
+PROFIT CONCENTRATION
+  top 1 trade   nan% of net profit
+  top 5 trades  nan%
+  top 10 trades nan%
+  best month    nan%
+
+ADDITIONAL
+  signals evaluated: 1653
+  rejections: {'setup_score_below_threshold': 902, 'no_stop': 307, 'position_size_below_min_lot': 153, 'weekly_loss_lock': 93, 'daily_loss_lock': 91, 'cooldown': 22, 'spread_blocked': 1}
+
+  risk per trade: min 1.00%  median 2.20%  max 3.00%
+  trades risking >1.5% (one loss trips the daily lock): 79/84
+
+
+##############################################################################
+# FULL SAMPLE — 0.01 lot, hard cap 100%
+##############################################################################
+0.01 LOT / cap 100%
+===================
+  Trades                79   (1.27/trading day, 62 active days)
+  Win rate              35.4%   (28W / 51L)
+  Profit factor (net)   0.68      gross 0.68
+  Net P/L               $-230.12   (-46.02%)
+  Final equity          $269.88
+  Max drawdown          57.09%    avg DD 38.60%
+  Recovery factor       -0.81
+  Expectancy            -0.159R   ($-2.913/trade)
+  Avg winner / loser    $17.71 / $-14.24   payoff 1.24
+  Avg R  win / loss     +1.28R / -0.95R
+  Largest win / loss    $62.06 / $-55.62
+  Max streak  W / L     3 / 8
+  Sharpe / Sortino      -1.15 / -1.60
+  Long / Short          38 (29% win) / 41 (41% win)
+  Avg MFE / MAE         0.98R / 0.85R
+  Avg hold              77 min
+  Profit concentration  top1 nan%  top5 nan%  top10 nan%
+  Positive months       2/8
+  Costs                 commission $0.00, avg spread $0.237
+
+  Monthly P/L:
+    2026-01-31  $-57.69
+    2026-02-28  $-39.66
+    2026-03-31  $-71.67
+    2026-04-30  $-59.25
+    2026-05-31  $-45.70
+    2026-06-30  $+64.30
+    2026-07-31  $-48.95
+    2026-08-31  $+28.48
+
+STRATEGY PERFORMANCE MATRIX
+          strategy  trades  win%   PF     net  avg_R  exp_$
+LIQUIDITY_REVERSAL      42  31.0 0.67 -122.18 -0.259 -2.909
+TREND_CONTINUATION      25  36.0 0.58 -105.77 -0.127 -4.231
+          BREAKOUT      12  50.0 0.98   -2.17  0.123 -0.181
+
+REGIME PERFORMANCE
+            regime  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL      34  32.4 0.80 -57.46 -0.248 -1.690
+       STRONG_BEAR      11  63.6 1.05   5.72  0.469  0.520
+              BEAR      10  30.0 0.45 -62.44 -0.206 -6.244
+              BULL       7  14.3 0.23 -60.86 -0.708 -8.695
+       COMPRESSION       6  50.0 0.41 -39.21  0.018 -6.535
+       STRONG_BULL       6  33.3 0.97  -1.06 -0.219 -0.177
+            CHOPPY       5  20.0 0.52 -14.81 -0.219 -2.961
+
+SESSION PERFORMANCE
+session  trades  win%   PF     net  avg_R  exp_$
+ LONDON      33  30.3 0.47 -166.07 -0.283 -5.033
+OVERLAP      31  45.2 1.22   47.69  0.076  1.538
+NEWYORK      15  26.7 0.42 -111.73 -0.374 -7.449
+
+HOUR PERFORMANCE (UTC)
+ hour  trades  win%   PF     net  avg_R   exp_$
+    7       6  66.7 2.97   42.34  0.539   7.057
+    8       8  12.5 0.05 -125.87 -0.782 -15.734
+    9       6  50.0 1.92   22.06  0.123   3.677
+   10       3  33.3 0.71   -6.03 -0.294  -2.010
+   11      10  10.0 0.13  -98.58 -0.617  -9.858
+   12       5  40.0 1.06    2.59  0.185   0.519
+   13      10  50.0 2.07   62.60  0.338   6.260
+   14      10  50.0 1.18    9.59 -0.031   0.959
+   15       6  33.3 0.60  -27.10 -0.273  -4.516
+   16       4   0.0 0.00  -76.27 -1.017 -19.067
+   17       2  50.0 0.82  -10.12  0.265  -5.061
+   18       4  25.0 0.57  -14.96 -0.380  -3.739
+   19       4  25.0 0.41  -15.37 -0.302  -3.843
+   20       1 100.0  inf    4.99  0.657   4.987
+
+SETUP-SCORE PERFORMANCE
+score_bin  trades  win%   PF     net  avg_R  exp_$
+  (0, 75]      24  33.3 0.41 -149.99 -0.259 -6.250
+ (80, 85]      22  27.3 0.44 -151.48 -0.457 -6.885
+ (75, 80]      17  47.1 1.52   50.95  0.047  2.997
+ (85, 90]       8  25.0 0.56  -31.04 -0.013 -3.880
+ (90, 95]       5  60.0 4.43   52.18  0.698 10.435
+(95, 101]       3  33.3 0.96   -0.74 -0.168 -0.246
+
+EXIT REASON
+exit_reason  trades  win%      PF     net  avg_R   exp_$
+       STOP      47   0.0    0.00 -714.62 -1.019 -15.205
+    BE_STOP      16  81.2 2072.41  228.06  0.815  14.254
+        TP2       8 100.0     inf  182.76  1.989  22.844
+SESSION_END       5  80.0    3.75   31.24  0.702   6.248
+       TIME       3 100.0     inf   42.44  0.947  14.147
+
+DIRECTION
+direction  trades  win%   PF     net  avg_R  exp_$
+    SHORT      41  41.5 0.79  -76.31 -0.052 -1.861
+     LONG      38  28.9 0.57 -153.80 -0.275 -4.047
+
+COST IMPACT
+  gross PF 0.68  ->  net PF 0.68
+  commission total   $0.00
+  avg spread paid    $0.237 per trade (cost ≈ $18.71 across all lots)
+  entry slippage     $3.95 in price units
+  exit slippage      $7.96 in price units
+
+PROFIT CONCENTRATION
+  top 1 trade   nan% of net profit
+  top 5 trades  nan%
+  top 10 trades nan%
+  best month    nan%
+
+ADDITIONAL
+  signals evaluated: 1673
+  rejections: {'setup_score_below_threshold': 917, 'weekly_loss_lock': 314, 'no_stop': 291, 'daily_loss_lock': 54, 'cooldown': 17, 'spread_blocked': 1}
+
+  risk per trade: min 1.03%  median 4.15%  max 13.75%
+  trades risking >1.5% (one loss trips the daily lock): 77/79
+
+
+##############################################################################
+# SPLITS — 0.01 lot / 2% cap
+##############################################################################
+
+IN-SAMPLE JAN-MAY
+=================
+  Trades                37   (1.16/trading day, 32 active days)
+  Win rate              56.8%   (21W / 16L)
+  Profit factor (net)   1.81      gross 1.81
+  Net P/L               $110.65   (+22.13%)
+  Final equity          $610.65
+  Max drawdown          4.83%    avg DD 2.38%
+  Recovery factor       4.58
+  Expectancy            +0.317R   ($+2.990/trade)
+  Avg winner / loser    $11.75 / $-8.51   payoff 1.38
+  Avg R  win / loss     +1.29R / -0.96R
+  Largest win / loss    $22.57 / $-11.64
+  Max streak  W / L     3 / 3
+  Sharpe / Sortino      2.07 / 4.82
+  Long / Short          17 (47% win) / 20 (65% win)
+  Avg MFE / MAE         1.33R / 0.70R
+  Avg hold              61 min
+  Profit concentration  top1 20.4%  top5 92.6%  top10 160.1%
+  Positive months       4/5
+  Costs                 commission $0.00, avg spread $0.217
+
+  Monthly P/L:
+    2026-01-31  $-21.18
+    2026-02-28  $+33.10
+    2026-03-31  $+28.91
+    2026-04-30  $+41.46
+    2026-05-31  $+28.36
+
+STRATEGY PERFORMANCE MATRIX
+          strategy  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL      18  55.6 1.69  45.37  0.318  2.521
+TREND_CONTINUATION      10  80.0 5.94  90.39  0.895  9.039
+          BREAKOUT       9  33.3 0.52 -25.11 -0.326 -2.790
+
+REGIME PERFORMANCE
+            regime  trades  win%   PF    net  avg_R  exp_$
+            CHOPPY       9  55.6 2.80  45.91  0.513  5.101
+LIQUIDITY_REVERSAL       8  50.0 0.86  -5.52  0.056 -0.691
+       COMPRESSION       5  40.0 0.99  -0.24  0.030 -0.049
+       STRONG_BEAR       5  80.0 6.12  43.97  0.860  8.794
+              BULL       4  50.0 1.07   1.25 -0.016  0.312
+              BEAR       3 100.0  inf  37.96  1.324 12.653
+       STRONG_BULL       3  33.3 0.24 -12.67 -0.560 -4.224
+
+SESSION PERFORMANCE
+session  trades  win%   PF    net  avg_R  exp_$
+ LONDON      16  37.5 0.51 -44.79 -0.296 -2.800
+OVERLAP      11  63.6 4.04  83.03  0.775  7.548
+NEWYORK      10  80.0 5.26  72.41  0.794  7.241
+
+HOUR PERFORMANCE (UTC)
+ hour  trades  win%   PF    net  avg_R  exp_$
+    7       3  66.7 1.47   4.66  0.208  1.553
+    8       4  25.0 0.25 -21.26 -0.561 -5.314
+    9       3  33.3 0.32 -11.47 -0.334 -3.822
+   10       3  66.7 2.12  10.58  0.323  3.527
+   11       3   0.0 0.00 -27.31 -1.025 -9.104
+   12       3 100.0  inf  45.58  1.737 15.194
+   13       6  66.7 5.54  53.07  0.897  8.846
+   14       1   0.0 0.00  -9.79 -1.028 -9.786
+   15       1   0.0 0.00  -5.84 -1.040 -5.840
+   17       2 100.0  inf  33.86  1.985 16.930
+   18       2  50.0 1.44   3.76  0.182  1.879
+   19       3  66.7 1.72   6.02  0.196  2.008
+   20       3 100.0  inf  28.77  1.006  9.589
+
+SETUP-SCORE PERFORMANCE
+score_bin  trades  win%     PF   net  avg_R  exp_$
+ (80, 85]      12  41.7   0.96 -2.46 -0.000 -0.205
+ (75, 80]      10  40.0   0.95 -2.29 -0.100 -0.229
+  (0, 75]       8  75.0   3.74 50.36  0.684  6.296
+ (85, 90]       3  66.7 574.86 19.80  0.786  6.599
+ (90, 95]       2 100.0    inf 10.32  0.764  5.160
+(95, 101]       2 100.0    inf 34.91  1.691 17.455
+
+EXIT REASON
+exit_reason  trades  win%      PF     net  avg_R  exp_$
+       STOP      15   0.0    0.00 -136.15 -1.026 -9.077
+    BE_STOP       9  88.9 1946.17   67.11  0.895  7.457
+        TP2       8 100.0     inf  151.45  1.987 18.931
+SESSION_END       4 100.0     inf   23.48  0.663  5.870
+       TIME       1 100.0     inf    4.76  0.522  4.761
+
+DIRECTION
+direction  trades  win%   PF    net  avg_R  exp_$
+    SHORT      20  65.0 2.80 106.39  0.525   5.32
+     LONG      17  47.1 1.06   4.25  0.073   0.25
+
+COST IMPACT
+  gross PF 1.81  ->  net PF 1.81
+  commission total   $0.00
+  avg spread paid    $0.217 per trade (cost ≈ $8.05 across all lots)
+  entry slippage     $1.85 in price units
+  exit slippage      $3.13 in price units
+
+PROFIT CONCENTRATION
+  top 1 trade   20.4% of net profit
+  top 5 trades  92.6%
+  top 10 trades 160.1%
+  best month    37.5%
+
+VALIDATION JUN-JUL
+==================
+  Trades                12   (1.09/trading day, 11 active days)
+  Win rate              41.7%   (5W / 7L)
+  Profit factor (net)   0.67      gross 0.67
+  Net P/L               $-17.04   (-3.41%)
+  Final equity          $482.96
+  Max drawdown          5.37%    avg DD 1.97%
+  Recovery factor       -0.63
+  Expectancy            -0.147R   ($-1.420/trade)
+  Avg winner / loser    $7.00 / $-7.43   payoff 0.94
+  Avg R  win / loss     +0.88R / -0.88R
+  Largest win / loss    $14.63 / $-9.94
+  Max streak  W / L     2 / 2
+  Sharpe / Sortino      -1.67 / -1.82
+  Long / Short          5 (20% win) / 7 (57% win)
+  Avg MFE / MAE         0.99R / 0.85R
+  Avg hold              59 min
+  Profit concentration  top1 nan%  top5 nan%  top10 nan%
+  Positive months       0/2
+  Costs                 commission $0.00, avg spread $0.221
+
+  Monthly P/L:
+    2026-06-30  $-1.28
+    2026-07-31  $-15.76
+
+STRATEGY PERFORMANCE MATRIX
+          strategy  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL       5  40.0 0.65  -6.27 -0.158 -1.254
+TREND_CONTINUATION       5  40.0 0.59 -10.40 -0.219 -2.081
+          BREAKOUT       2  50.0 0.96  -0.36  0.063 -0.182
+
+REGIME PERFORMANCE
+            regime  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL       5  40.0 0.65  -6.27 -0.158 -1.254
+              BEAR       2  50.0 2.37   8.45  0.474  4.227
+       COMPRESSION       2  50.0 0.96  -0.36  0.063 -0.182
+       STRONG_BULL       2   0.0 0.00 -18.93 -1.025 -9.466
+       STRONG_BEAR       1 100.0  inf   0.08  0.009  0.075
+
+SESSION PERFORMANCE
+session  trades  win%   PF    net  avg_R  exp_$
+OVERLAP       5  40.0 0.46 -10.27 -0.179 -2.053
+ LONDON       4  75.0 3.31  18.34  0.556  4.584
+NEWYORK       3   0.0 0.00 -25.11 -1.029 -8.369
+
+HOUR PERFORMANCE (UTC)
+ hour  trades  win%   PF    net  avg_R  exp_$
+    9       2  50.0 0.13  -6.91 -0.463 -3.456
+   10       1 100.0  inf  10.62  1.164 10.621
+   11       1 100.0  inf  14.63  1.985 14.629
+   12       1 100.0  inf   0.08  0.009  0.075
+   13       1   0.0 0.00  -0.03 -0.004 -0.035
+   14       3  33.3 0.46 -10.31 -0.300 -3.436
+   16       1   0.0 0.00  -9.33 -1.026 -9.333
+   18       1   0.0 0.00  -9.60 -1.024 -9.599
+   19       1   0.0 0.00  -6.18 -1.037 -6.176
+
+SETUP-SCORE PERFORMANCE
+score_bin  trades  win%   PF    net  avg_R  exp_$
+  (0, 75]       5  40.0 1.08   1.80  0.011  0.359
+ (80, 85]       4  25.0 0.00 -28.46 -0.767 -7.115
+ (75, 80]       2 100.0  inf   9.66  0.627  4.831
+ (90, 95]       1   0.0 0.00  -0.03 -0.004 -0.035
+
+EXIT REASON
+exit_reason  trades  win%     PF    net  avg_R  exp_$
+       STOP       6   0.0   0.00 -51.99 -1.028 -8.665
+    BE_STOP       4  75.0 555.36  19.29  0.580  4.823
+       TIME       1 100.0    inf   1.03  0.103  1.032
+        TP2       1 100.0    inf  14.63  1.985 14.629
+
+DIRECTION
+direction  trades  win%   PF    net  avg_R  exp_$
+    SHORT       7  57.1 1.14   3.24  0.024  0.463
+     LONG       5  20.0 0.30 -20.28 -0.385 -4.056
+
+COST IMPACT
+  gross PF 0.67  ->  net PF 0.67
+  commission total   $0.00
+  avg spread paid    $0.221 per trade (cost ≈ $2.65 across all lots)
+  entry slippage     $0.60 in price units
+  exit slippage      $1.25 in price units
+
+PROFIT CONCENTRATION
+  top 1 trade   nan% of net profit
+  top 5 trades  nan%
+  top 10 trades nan%
+  best month    nan%
+
+HOLDOUT JUL-AUG
+===============
+  Trades                16   (1.23/trading day, 13 active days)
+  Win rate              18.8%   (3W / 13L)
+  Profit factor (net)   0.30      gross 0.30
+  Net P/L               $-65.12   (-13.02%)
+  Final equity          $434.88
+  Max drawdown          13.02%    avg DD 8.80%
+  Recovery factor       -1.00
+  Expectancy            -0.509R   ($-4.070/trade)
+  Avg winner / loser    $9.22 / $-7.14   payoff 1.29
+  Avg R  win / loss     +1.24R / -0.91R
+  Largest win / loss    $10.55 / $-9.65
+  Max streak  W / L     1 / 6
+  Sharpe / Sortino      -5.77 / -8.64
+  Long / Short          7 (14% win) / 9 (22% win)
+  Avg MFE / MAE         0.74R / 0.94R
+  Avg hold              53 min
+  Profit concentration  top1 nan%  top5 nan%  top10 nan%
+  Positive months       0/2
+  Costs                 commission $0.00, avg spread $0.228
+
+  Monthly P/L:
+    2026-07-31  $-50.92
+    2026-08-31  $-14.20
+
+STRATEGY PERFORMANCE MATRIX
+          strategy  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL       7   0.0 0.00 -44.19 -0.809 -6.313
+TREND_CONTINUATION       6  33.3 0.57 -14.58 -0.263 -2.429
+          BREAKOUT       3  33.3 0.56  -6.36 -0.299 -2.119
+
+REGIME PERFORMANCE
+            regime  trades  win%   PF    net  avg_R  exp_$
+LIQUIDITY_REVERSAL       6   0.0 0.00 -39.58 -0.859 -6.596
+              BEAR       4   0.0 0.00 -33.97 -1.029 -8.493
+       STRONG_BULL       2  50.0 1.07   0.61  0.036  0.306
+       STRONG_BEAR       2  50.0 1.67   4.24  0.198  2.119
+            CHOPPY       1   0.0 0.00  -4.61 -0.512 -4.609
+       COMPRESSION       1 100.0  inf   8.19  1.174  8.185
+
+SESSION PERFORMANCE
+session  trades  win%   PF    net  avg_R  exp_$
+ LONDON       8  12.5 0.17 -39.96 -0.627 -4.995
+NEWYORK       4  50.0 1.61   7.39  0.248  1.847
+OVERLAP       4   0.0 0.00 -32.55 -1.029 -8.137
+
+HOUR PERFORMANCE (UTC)
+ hour  trades  win%   PF    net  avg_R  exp_$
+    7       1   0.0 0.00  -9.65 -1.023 -9.649
+    9       1   0.0 0.00  -6.88 -1.035 -6.883
+   10       2  50.0 1.01   0.12  0.074  0.058
+   11       4   0.0 0.00 -23.54 -0.776 -5.886
+   12       1   0.0 0.00  -8.25 -1.027 -8.247
+   13       2   0.0 0.00 -16.07 -1.029 -8.037
+   14       1   0.0 0.00  -8.23 -1.030 -8.228
+   17       1 100.0  inf   8.91  1.100  8.907
+   18       1   0.0 0.00  -7.46 -1.035 -7.464
+   19       1 100.0  inf  10.55  1.437 10.554
+   20       1   0.0 0.00  -4.61 -0.512 -4.609
+
+SETUP-SCORE PERFORMANCE
+score_bin  trades  win%   PF    net  avg_R  exp_$
+  (0, 75]       5  40.0 0.77  -5.90 -0.109 -1.180
+ (80, 85]       4  25.0 0.36 -14.83 -0.480 -3.707
+ (75, 80]       2   0.0 0.00 -11.49 -0.774 -5.746
+ (85, 90]       2   0.0 0.00  -8.93 -0.517 -4.467
+(95, 101]       2   0.0 0.00 -16.52 -1.030 -8.261
+ (90, 95]       1   0.0 0.00  -7.45 -1.030 -7.446
+
+EXIT REASON
+exit_reason  trades  win%     PF    net  avg_R  exp_$
+       STOP      11   0.0   0.00 -88.12 -1.030 -8.011
+    BE_STOP       3  66.7 418.92  17.05  0.755  5.684
+SESSION_END       2  50.0   2.29   5.94  0.462  2.972
+
+DIRECTION
+direction  trades  win%   PF    net  avg_R  exp_$
+    SHORT       9  22.2 0.33 -37.86 -0.511 -4.207
+     LONG       7  14.3 0.25 -27.26 -0.506 -3.894
+
+COST IMPACT
+  gross PF 0.30  ->  net PF 0.30
+  commission total   $0.00
+  avg spread paid    $0.228 per trade (cost ≈ $3.65 across all lots)
+  entry slippage     $0.80 in price units
+  exit slippage      $1.78 in price units
+
+PROFIT CONCENTRATION
+  top 1 trade   nan% of net profit
+  top 5 trades  nan%
+  top 10 trades nan%
+  best month    nan%
+
+
+##############################################################################
+# WALK-FORWARD — 0.01 lot / 2% cap
+##############################################################################
+ window                  train                   test  is_trades  is_pf  is_wr  oos_trades  oos_pf  oos_wr  oos_ret  oos_dd  oos_exp_r
+      1 2026-01-01->2026-03-17 2026-03-17->2026-04-11          9   2.63   55.6           1   99.00   100.0     1.77    0.00      1.235
+      2 2026-01-26->2026-04-11 2026-04-11->2026-05-06         13   2.24   61.5           8    1.56    50.0     2.95    5.06      0.215
+      3 2026-02-20->2026-05-06 2026-05-06->2026-05-31         12   3.39   66.7           5    8.08    80.0     8.27    1.08      0.864
+      4 2026-03-17->2026-05-31 2026-05-31->2026-06-25         12   3.85   66.7           4    0.94    25.0    -0.18    3.11     -0.021
+      5 2026-04-11->2026-06-25 2026-06-25->2026-07-20         12   2.19   58.3           4    0.00    25.0    -5.06    5.06     -0.770
+      6 2026-05-06->2026-07-20 2026-07-20->2026-08-14          9   1.09   44.4           6    0.00     0.0    -7.11    7.11     -0.774
+
+stability: {
+  "windows": 6,
+  "profitable_windows": 3,
+  "pct_profitable": 50.0,
+  "mean_oos_pf": 2.08,
+  "median_oos_pf": 1.25,
+  "mean_oos_expR": 0.125,
+  "worst_oos_ret": -7.11,
+  "total_oos_trades": 28
+}
+
+NOTE: windows carry 1-8 out-of-sample trades each. The mean OOS PF is
+dominated by one 5-trade window; the median is the honest figure.
+
+
+##############################################################################
+# MONTE CARLO — 0.01 lot / 2% cap, 5000 resamples
+##############################################################################
+  runs                       5000
+  median_final               462.9727
+  p05_final                  413.8877
+  p95_final                  508.5175
+  prob_profit                0.092
+  median_max_dd_pct          19.9416
+  p95_max_dd_pct             29.9327
+  worst_max_dd_pct           43.8307
+  median_losing_streak       7.0
+  worst_losing_streak        18
+  prob_ruin_50pct            0.0
+
+
+##############################################################################
+# DEPLOYMENT GATE — 0.01 lot / 2% cap
+##############################################################################
+FINAL DEPLOYMENT GATE
+=====================
+  [PASS] realistic spread model  — session-based + volatility-scaled, applied to every fill
+  [PASS] realistic slippage model  — entry + stop slippage, gap fills at bar open
+  [PASS] walk-forward completed  — 6 windows
+  [PASS] Monte Carlo completed  — 5000 runs
+  [PASS] out-of-sample completed  — holdout evaluated once
+  [FAIL] walk-forward stability >= 60% profitable windows  — 50.0% of windows profitable
+  [PASS] mean out-of-sample PF > 1.0  — mean OOS PF 2.08
+  [PASS] mean out-of-sample expectancy > 0  — +0.125R
+  [FAIL] Monte Carlo probability of profit >= 60%  — 9.2%
+  [PASS] Monte Carlo probability of 50% ruin < 1%  — 0.00%
+
+VERDICT: DO NOT DEPLOY — 2 critical check(s) failed:
+  - walk-forward stability >= 60% profitable windows: 50.0% of windows profitable
+  - Monte Carlo probability of profit >= 60%: 9.2%

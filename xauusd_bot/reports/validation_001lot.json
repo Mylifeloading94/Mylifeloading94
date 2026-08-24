@@ -1,0 +1,25 @@
+{
+  "mc": {
+    "runs": 5000,
+    "median_final": 462.97269847129763,
+    "p05_final": 413.88765373356335,
+    "p95_final": 508.5175206194038,
+    "prob_profit": 0.092,
+    "median_max_dd_pct": 19.94156555230774,
+    "p95_max_dd_pct": 29.932741673191256,
+    "worst_max_dd_pct": 43.83069863164245,
+    "median_losing_streak": 7.0,
+    "worst_losing_streak": 18,
+    "prob_ruin_50pct": 0.0
+  },
+  "wf_stability": {
+    "windows": 6,
+    "profitable_windows": 3,
+    "pct_profitable": 50.0,
+    "mean_oos_pf": 2.08,
+    "median_oos_pf": 1.25,
+    "mean_oos_expR": 0.125,
+    "worst_oos_ret": -7.11,
+    "total_oos_trades": 28
+  }
+}

@@ -14,7 +14,40 @@ See [Results](#results) — the numbers are real and not flattered.
 ## Results
 
 Real XAUUSD M1 bars from HistData.com, **2026-01-01 → 2026-08-21**
-(226,604 bars, 194 trading days), $500 starting equity, 0.50% risk per trade.
+(226,604 bars, 194 trading days), $500 starting equity.
+
+### 0.01 standard lot (default contract)
+
+At 0.01 lots gold is **$1 of P&L per $1 of price movement**, so risk per trade
+is decided by the stop distance, not by a risk percentage. The 0.50% target is
+unreachable; the min-lot rejection must be overridden and a hard risk cap
+decides which setups are still refused.
+
+| Hard cap | Trades | Win% | Net PF | Return | Max DD | Median risk/trade |
+|---|---|---|---|---|---|---|
+| 1.0% | 2 | 50.0% | — | +1.00% | 0.01% | 0.88% |
+| **2.0%** | **74** | **41.9%** | **1.00** | **−0.18%** | **21.01%** | **1.67%** |
+| 3.0% | 84 | 40.5% | 0.89 | −11.66% | 21.09% | 2.20% |
+| uncapped | 79 | 35.4% | 0.68 | **−46.02%** | **57.09%** | 4.15% |
+
+A 1% cap leaves 2 trades in eight months — not a system. The 2% cap is the
+only variant that both trades and survives, and it is dead flat (PF 1.00) with
+a **21% drawdown**. Uncapped, the account loses nearly half its value.
+
+Splits at 0.01 lot / 2% cap:
+
+| Window | Trades | Win% | Net PF | Return | Max DD |
+|---|---|---|---|---|---|
+| In-sample Jan–May | 37 | 56.8% | 1.81 | +22.13% | 4.83% |
+| Validation Jun–Jul (unseen) | 12 | 41.7% | **0.67** | −3.41% | 5.37% |
+| Holdout Jul–Aug (opened once) | 16 | 18.8% | **0.30** | **−13.02%** | 13.02% |
+
+Walk-forward: 3 of 6 windows profitable, **median** OOS PF 1.25 (mean 2.08,
+inflated by one 5-trade window), 28 out-of-sample trades total.
+Monte Carlo: probability of profit **9.2%**, median max drawdown 19.9%, p95
+29.9%, worst 43.8%.
+
+### 0.001 micro lot (0.50% risk honoured)
 
 | Window | Trades | Win% | Net PF | Return | Max DD |
 |---|---|---|---|---|---|
@@ -23,19 +56,24 @@ Real XAUUSD M1 bars from HistData.com, **2026-01-01 → 2026-08-21**
 | Validation (Jun–Jul, unseen) | 12 | 33.3% | **0.50** | −1.38% | 2.03% |
 | Holdout (Jul–Aug, opened once) | 11 | 27.3% | **0.63** | −0.86% | 2.33% |
 
-**Walk-forward** (6 rolling 75d-train / 25d-test windows, re-optimised each
-window): 2 of 6 windows profitable, mean out-of-sample PF **0.78**, mean
-expectancy **−0.172R**.
+Walk-forward: 2 of 6 windows profitable, median OOS PF 0.58, mean expectancy
+−0.172R. Monte Carlo: probability of profit **0.0%**.
 
-**Monte Carlo** (5,000 resamples with reshuffling, 10% missed trades, cost
-shocks and R noise): probability of profit **0.0%**, median max drawdown 9.6%,
-median losing streak 9 trades.
+### Lot size does not change the edge
 
-**Against the stated targets** (60%+ win rate, PF 3.0+): not met, not close,
-and the gap is not a tuning problem — every configuration that looked good
-in-sample degraded out-of-sample.
+Expectancy per trade is essentially zero at both sizes (−0.013R at 0.01/2% cap,
+−0.082R at 0.001). Lot size only scales the swings: the same non-edge produces
+a 7.6% drawdown at 0.001 lots and a 21%–57% drawdown at 0.01. The small
+apparent improvement at 0.01 lots comes from the 2% cap **filtering out
+wide-stop setups**, which is a trade filter, not a sizing effect — and it does
+not survive the holdout (PF 0.30).
 
-Full detail: `reports/PERFORMANCE_REPORT.txt`.
+**Against the stated targets** (60%+ win rate, PF 3.0+): not met at either lot
+size, and the gap is not a tuning problem — every configuration that looked
+good in-sample degraded out-of-sample.
+
+Full detail: `reports/PERFORMANCE_REPORT.txt` and
+`reports/PERFORMANCE_REPORT_001LOT.txt`.
 
 ### Two findings that matter more than the P&L
 
@@ -43,12 +81,14 @@ Full detail: `reports/PERFORMANCE_REPORT.txt`.
 risk limits.** One standard lot is 100 oz, so the 0.01 minimum lot is $1 per
 $1 of gold movement. Gold's M5 ATR in 2026 ran $3–6, giving structural stops
 of $3–15. At the 0.01 minimum that is **0.6%–3.0% risk per trade** on $500 —
-above the 0.25–0.50% target and often above any sane cap. The position sizer
-returns an explicit rejection rather than silently rounding up, and in the
-standard-contract backtest **every single setup was rejected: zero trades**.
-All results above therefore use a micro contract (`min_lot = 0.001`), which
-only some TradeLocker brokers offer. Confirm your broker's minimum before
-anything else — on a standard contract this account size is not viable.
+above the 0.25–0.50% target. With the risk limits enforced the sizer rejects
+every setup and the backtest takes **zero trades**; with the override enabled
+the account carries 1.7%–4.2% median risk per trade and 21%–57% drawdowns.
+The daily 1.5% loss lock then fires on almost every losing trade (50 of 74
+trades at the 2% cap risk more than the entire daily allowance), so the risk
+framework spends most of its time locked out. Confirm your broker's minimum
+lot before anything else — on a standard contract this account size is not
+viable.
 
 **2. The in-sample optimum was worse out-of-sample than not optimising at
 all.** IS-tuned PF 1.27 → validation PF 0.50, versus untuned PF 0.99 on the
@@ -63,12 +103,18 @@ everything else lost money.
 `deployment_gate.py` runs before any order can be placed, in demo *and* live:
 
 ```
-[FAIL] walk-forward stability >= 60% profitable windows  — 33.3%
-[FAIL] mean out-of-sample PF > 1.0                       — 0.78
-[FAIL] mean out-of-sample expectancy > 0                 — -0.172R
-[FAIL] Monte Carlo probability of profit >= 60%          — 0.0%
-VERDICT: DO NOT DEPLOY
+0.001 micro lot                                   0.01 standard lot / 2% cap
+[FAIL] walk-forward stability >= 60%   — 33.3%    [FAIL] stability >= 60%   — 50.0%
+[FAIL] median OOS PF > 1.0             — 0.58     [PASS] median OOS PF      — 1.25
+[FAIL] OOS sample size >= 100 trades   — 49       [FAIL] OOS sample size    — 28
+[FAIL] mean OOS expectancy > 0         — -0.172R  [PASS] mean OOS expectancy— +0.125R
+[FAIL] Monte Carlo P(profit) >= 60%    — 0.0%     [FAIL] MC P(profit)       — 9.2%
+VERDICT: DO NOT DEPLOY                            VERDICT: DO NOT DEPLOY
 ```
+
+The gate judges walk-forward robustness on the **median** window, not the
+mean — six windows are far too few for a mean to mean anything, and the
+0.01-lot mean of 2.08 is one 5-trade window.
 
 `bot.py` exits with code 2 when the gate fails. This is deliberate: the point
 of the gate is that it is allowed to say no.
@@ -142,9 +188,12 @@ with realised volatility.
 pip install -r xauusd_bot/requirements.txt
 
 python3 -m pytest xauusd_bot/tests/ -q     # 56 tests
-python3 run_backtest.py                    # both contract modes
+python3 run_backtest.py                    # 0.01 vs 0.001 contract modes
+python3 run_001lot.py                      # 0.01 lot across four risk caps
+python3 validate_001lot.py                 # 0.01 lot splits + walk-forward + MC
 python3 validate_all.py                    # walk-forward + sensitivity + MC + holdout
 python3 generate_report.py                 # reports/PERFORMANCE_REPORT.txt
+python3 report_001lot.py                   # reports/PERFORMANCE_REPORT_001LOT.txt
 
 cp xauusd_bot/.env.example .env            # then fill it in
 python3 xauusd_bot/bot.py --mode demo
@@ -181,7 +230,9 @@ passing deployment gate. All three.
 ## What would need to happen before this is worth deploying
 
 1. Get 3–5 years of XAUUSD M1 data and re-run the whole validation suite.
-2. Confirm a broker offering 0.001 lots on gold, or use a larger account.
+2. Confirm a broker offering 0.001 lots on gold, or fund the account to a size
+   where 0.01 lots is 0.5% risk. At a $3–15 stop that means roughly
+   **$600–$3,000 per 0.01 lot of intended risk** — realistically $2,000+.
 3. Find an edge that survives walk-forward — the current strategies do not.
    The one stable signal across all six windows was that the London/NY
    **overlap and New York sessions** outperform the London morning; that is a

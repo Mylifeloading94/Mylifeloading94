@@ -37,9 +37,9 @@ def run_walk_forward(F: pd.DataFrame, base: Config, grid: list[dict], news=None,
         rows.append({
             "window": wi, "train": f"{a.date()}->{b.date()}", "test": f"{c.date()}->{d.date()}",
             "params": best,
-            "is_trades": best_m["trades"], "is_pf": round(best_m["profit_factor"], 2),
+            "is_trades": best_m["trades"], "is_pf": round(min(best_m["profit_factor"], 99.0), 2),
             "is_wr": round(best_m["win_rate"], 1),
-            "oos_trades": mt["trades"], "oos_pf": round(mt["profit_factor"], 2),
+            "oos_trades": mt["trades"], "oos_pf": round(min(mt["profit_factor"], 99.0), 2),
             "oos_wr": round(mt["win_rate"], 1), "oos_ret": round(mt["net_return_pct"], 2),
             "oos_dd": round(mt["max_dd_pct"], 2), "oos_exp_r": round(mt["expectancy_r"], 3),
         })
@@ -59,8 +59,10 @@ def stability(wf: pd.DataFrame) -> dict:
         "windows": len(wf),
         "profitable_windows": int(prof.sum()),
         "pct_profitable": round(100 * prof.mean(), 1),
-        "mean_oos_pf": round(wf["oos_pf"].replace([float("inf")], 5).mean(), 2),
-        "median_oos_pf": round(wf["oos_pf"].replace([float("inf")], 5).median(), 2),
+        # a no-loss window is capped at 5 so one lucky window cannot
+        # dominate the mean; the median is the honest summary either way
+        "mean_oos_pf": round(wf["oos_pf"].clip(upper=5.0).mean(), 2),
+        "median_oos_pf": round(wf["oos_pf"].clip(upper=5.0).median(), 2),
         "mean_oos_expR": round(wf["oos_exp_r"].mean(), 3),
         "worst_oos_ret": round(wf["oos_ret"].min(), 2),
         "total_oos_trades": int(wf["oos_trades"].sum()),

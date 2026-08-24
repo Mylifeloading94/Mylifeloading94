@@ -1,0 +1,67 @@
+train   554,542 samples  2015-01-02 -> 2022-12-30  long_win=0.593 short_win=0.599
+valid   130,109 samples  2023-01-02 -> 2024-12-31  long_win=0.600 short_win=0.591
+test    114,301 samples  2025-01-01 -> 2026-08-21  long_win=0.597 short_win=0.598
+after embargo: train 554,516  valid 130,083  test 114,301
+
+LONG  iters=400  AUC train-holdout=-0.6654  AUC valid=0.5074  AUC test=0.5099
+SHORT iters=400  AUC train-holdout=-0.6629  AUC valid=0.5048  AUC test=0.5061
+
+LONG — VALIDATION 2023-2024  (base win rate 60.0%)
+ threshold   trades  per day    win%    avg $   total $     PF
+      0.50  128,088   246.32    60.0   -0.436  -55845.0   0.50
+      0.55  117,174   225.33    60.1   -0.429  -50223.9   0.50
+      0.60   53,631   103.14    60.6   -0.427  -22885.7   0.51
+      0.65    8,166    15.70    61.5   -0.458   -3737.3   0.48
+      0.70    1,136     2.18    64.5   -0.489    -555.7   0.41
+      0.75      158     0.30    67.7   -0.476     -75.2   0.40
+
+LONG — TEST 2025-2026 (held out)  (base win rate 59.7%)
+ threshold   trades  per day    win%    avg $   total $     PF
+      0.50  111,959   262.81    59.7   -0.495  -55450.7   0.79
+      0.55   98,552   231.34    59.9   -0.463  -45630.5   0.80
+      0.60   46,122   108.27    60.4   -0.403  -18602.0   0.83
+      0.65    7,504    17.62    61.1   -0.483   -3623.7   0.81
+      0.70    1,020     2.39    61.9   -0.668    -681.3   0.74
+      0.75      121     0.28    62.0   -0.604     -73.1   0.70
+
+SHORT — VALIDATION 2023-2024  (base win rate 59.1%)
+ threshold   trades  per day    win%    avg $   total $     PF
+      0.50  127,899   245.96    59.1   -0.453  -57971.4   0.49
+      0.55  118,793   228.45    59.1   -0.449  -53289.1   0.49
+      0.60   65,578   126.11    59.4   -0.448  -29386.3   0.48
+      0.65    8,935    17.18    59.2   -0.538   -4809.4   0.40
+      0.70      992     1.91    60.4   -0.766    -759.9   0.24
+      0.75      167     0.32    64.1   -1.030    -172.0   0.13
+
+SHORT — TEST 2025-2026 (held out)  (base win rate 59.8%)
+ threshold   trades  per day    win%    avg $   total $     PF
+      0.50  112,519   264.13    59.9   -0.407  -45823.4   0.83
+      0.55  103,363   242.64    60.0   -0.387  -40022.8   0.83
+      0.60   59,253   139.09    60.1   -0.388  -22977.0   0.83
+      0.65   10,418    24.46    60.2   -0.508   -5295.2   0.78
+      0.70    1,540     3.62    58.8   -0.729   -1123.1   0.72
+      0.75      211     0.50    58.8   -1.435    -302.8   0.56
+
+Top 20 features (permutation importance, LONG model, validation):
+H1_range_pos          0.00277
+tod_sin               0.00210
+H1_rsi                0.00191
+M15_di_diff           0.00184
+d_day_high            0.00160
+atr_expand_120        0.00144
+M15_range_pos         0.00136
+day_range_atr         0.00134
+M15_atr_rank          0.00133
+H1_di_diff            0.00132
+dow                   0.00104
+tod_cos               0.00099
+M3_bars_since_disp    0.00090
+M5_di_diff            0.00087
+M5_range_pos          0.00087
+M3_ema_spread_atr     0.00081
+M15_ema_slope_atr     0.00074
+M15_bbw_rank          0.00073
+d_M15_swing_low       0.00064
+M15_ema_spread_atr    0.00059
+
+[exited with code 0]

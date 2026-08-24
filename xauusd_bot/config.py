@@ -14,9 +14,11 @@ class Instrument:
     symbol: str = "XAUUSD"
     contract_size: float = 100.0     # troy oz per 1.00 lot
     tick_size: float = 0.01          # price increment
-    min_lot: float = 0.01            # broker minimum (0.001 on micro accounts)
+    min_lot: float = 0.001           # micro. A 0.01 standard lot cannot be
+    #                                  risked correctly on a small account: see
+    #                                  README "Account size".
     max_lot: float = 50.0
-    lot_step: float = 0.01
+    lot_step: float = 0.001
     digits: int = 2
 
     def money_per_price_unit(self, lots: float) -> float:
@@ -44,7 +46,7 @@ class CostModel:
     # fraction of the target. This is the filter that makes the system
     # volatility-aware: gold at $1300 with a $0.29 spread is not scalpable,
     # gold at $4600 with the same spread is. 1.0 disables it.
-    max_cost_to_target_ratio: float = 1.0
+    max_cost_to_target_ratio: float = 0.03
 
 
 # ---------------------------------------------------------------- risk
@@ -55,8 +57,8 @@ class RiskConfig:
     max_consecutive_losses: int = 3
     max_daily_loss_percent: float = 1.50
     max_weekly_loss_percent: float = 4.00
-    max_daily_trades: int = 5
-    min_rr: float = 1.5
+    max_daily_trades: int = 6
+    min_rr: float = 0.9
     allow_min_lot_override: bool = False  # if True, take min lot even if it
     #                                       exceeds risk_percent (NOT default)
     max_risk_percent_hard_cap: float = 1.00  # never risk more than this
@@ -65,7 +67,7 @@ class RiskConfig:
 # ---------------------------------------------------------------- stops/targets
 @dataclass
 class ExitConfig:
-    stop_scale: float = 1.0           # multiplies the structural stop distance.
+    stop_scale: float = 3.0           # multiplies the structural stop distance.
     #                                   Validated on 2024-25: wider stops with
     #                                   proportionally larger targets beat tight
     #                                   stops, because the round-trip cost then
@@ -73,24 +75,26 @@ class ExitConfig:
     atr_mult_sl: float = 1.1          # ATR floor for the stop
     structure_buffer_atr: float = 0.25  # buffer beyond the invalidation swing
     min_sl_price: float = 1.20        # never place a stop tighter than this ($)
-    max_sl_atr: float = 3.0           # reject setups needing an absurd stop
-    tp_model: str = "partial"         # full | partial | trail | structure
-    tp1_r: float = 1.5
-    tp2_r: float = 2.5
+    max_sl_atr: float = 4.0           # reject setups needing an absurd stop
+    tp_model: str = "full"            # full | partial | trail | structure
+    tp1_r: float = 1.0                # validated geometry: wide stop, 1R target
+    tp2_r: float = 1.0
     partial_frac: float = 0.5
-    breakeven_at_r: float = 1.0
+    breakeven_at_r: float = 99.0      # OFF: never validated, and each such
+    #                                   knob is a free parameter that flatters
+    #                                   the backtest without earning its keep
     be_buffer_atr: float = 0.05
-    trail_start_r: float = 1.5
+    trail_start_r: float = 99.0       # OFF, same reason
     trail_atr_mult: float = 1.5
-    max_hold_minutes: int = 240
+    max_hold_minutes: int = 480
     time_stop_min_r: float = 0.0      # exit at max_hold regardless
 
 
 # ---------------------------------------------------------------- session/hours
 @dataclass
 class SessionConfig:
-    enabled_sessions: tuple = ("LONDON", "OVERLAP", "NEWYORK")
-    trade_start_utc: int = 7
+    enabled_sessions: tuple = ("ASIA", "LONDON", "OVERLAP", "NEWYORK")
+    trade_start_utc: int = 0
     trade_end_utc: int = 20           # last minute a trade may be OPENED
     friday_cutoff_utc: int = 16
     flat_by_utc: int = 21             # force-close everything (no overnight)
@@ -115,8 +119,8 @@ class RegimeConfig:
 @dataclass
 class EntryGate:
     """Hard component requirements, on top of the numeric setup score."""
-    require_retest: bool = False
-    require_m15_alignment: bool = False
+    require_retest: bool = True
+    require_m15_alignment: bool = True
     require_h1_alignment: bool = False
     require_ltf_structure: bool = False
 
@@ -132,7 +136,7 @@ class ScoreConfig:
     w_retest: float = 10
     w_atr: float = 5
     w_spread: float = 5
-    threshold: float = 75.0
+    threshold: float = 0.0            # superseded by the hard EntryGate
     grade_a_plus: float = 90.0
     grade_a: float = 85.0
     grade_b: float = 75.0

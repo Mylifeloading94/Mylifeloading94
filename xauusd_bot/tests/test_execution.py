@@ -145,8 +145,13 @@ def test_stale_data_trips_kill_switch():
 
 
 def test_stop_is_never_widened():
+    # breakeven/trailing are OFF by default in the validated config, so this
+    # test turns them on explicitly - it is testing the management logic, not
+    # the shipped defaults.
     c = FakeClient()
-    pm = PositionManager(c, Config(), INS)
+    cfg = Config().with_overrides(**{"exits.breakeven_at_r": 1.0,
+                                     "exits.trail_start_r": 1.5})
+    pm = PositionManager(c, cfg, INS)
     p = LivePosition("p1", 1, 4600.0, 4595.0, 4607.5, 4612.5, 0.01, 0.01, 5.0, 2.0)
     pm.manage(p, 4606.0)                 # >1R -> breakeven
     assert p.be_moved and p.stop > 4595.0
@@ -157,7 +162,10 @@ def test_stop_is_never_widened():
 
 def test_partial_and_trail_sequence():
     c = FakeClient()
-    pm = PositionManager(c, Config().with_overrides(**{"instrument.min_lot": 0.001}), INS)
+    pm = PositionManager(c, Config().with_overrides(**{
+        "instrument.min_lot": 0.001, "exits.tp_model": "partial",
+        "exits.tp1_r": 1.5, "exits.breakeven_at_r": 1.0,
+        "exits.trail_start_r": 1.5}), INS)
     p = LivePosition("p1", 1, 4600.0, 4595.0, 4607.5, 4612.5, 0.02, 0.02, 5.0, 2.0)
     acts = pm.manage(p, 4608.0)          # past TP1 (1.5R) and trail start
     assert p.partial_done and c.closes

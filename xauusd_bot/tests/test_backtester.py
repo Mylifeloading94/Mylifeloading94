@@ -11,6 +11,14 @@ from xauusd_bot.data.data_engine import DataEngine
 from xauusd_bot.strategy import regime_engine, selector, setup_scorer
 
 MICRO = {"instrument.min_lot": 0.001, "instrument.lot_step": 0.001}
+# The shipped config is deliberately selective; on short synthetic series it
+# would produce too few trades to test mechanics. These tests therefore relax
+# the entry gate and cost filter - they verify FILL and RISK behaviour, not
+# the strategy's selectivity.
+PERMISSIVE = {**MICRO, "gate.require_retest": False,
+              "gate.require_m15_alignment": False,
+              "costs.max_cost_to_target_ratio": 1.0,
+              "exits.stop_scale": 1.0}
 
 
 def _run(F, cfg, news=None):
@@ -22,7 +30,7 @@ def _run(F, cfg, news=None):
 
 
 def test_entry_is_never_the_signal_bar_close(synthetic_m1):
-    cfg = Config().with_overrides(**MICRO); cfg.initial_equity = 500.0
+    cfg = Config().with_overrides(**PERMISSIVE); cfg.initial_equity = 500.0
     F = DataEngine().build(synthetic_m1)
     res = _run(F, cfg)
     if res.trades.empty:
@@ -37,7 +45,7 @@ def test_entry_is_never_the_signal_bar_close(synthetic_m1):
 def test_costs_always_hurt(synthetic_m1):
     """Widening the spread can only reduce net profit, never increase it."""
     F = DataEngine().build(synthetic_m1)
-    base = Config().with_overrides(**MICRO); base.initial_equity = 500.0
+    base = Config().with_overrides(**PERMISSIVE); base.initial_equity = 500.0
     wide = base.with_overrides(**{"costs.base_spread": 1.0,
                                   "costs.spread_by_session": {k: 1.0 for k in
                                   ["ASIA", "LONDON", "OVERLAP", "NEWYORK", "CLOSED"]},
@@ -55,7 +63,7 @@ def _wrap(res):
 
 def test_commission_reduces_pnl(synthetic_m1):
     F = DataEngine().build(synthetic_m1)
-    base = Config().with_overrides(**MICRO); base.initial_equity = 500.0
+    base = Config().with_overrides(**PERMISSIVE); base.initial_equity = 500.0
     withc = base.with_overrides(**{"costs.commission_per_lot_round_turn": 50.0})
     a = _run(F, base); b = _run(F, withc)
     if a.trades.empty:
@@ -95,7 +103,7 @@ def test_entry_fill_is_worse_than_mid():
 
 
 def test_risk_never_exceeds_configured_percent(synthetic_m1):
-    cfg = Config().with_overrides(**MICRO); cfg.initial_equity = 500.0
+    cfg = Config().with_overrides(**PERMISSIVE); cfg.initial_equity = 500.0
     F = DataEngine().build(synthetic_m1)
     res = _run(F, cfg)
     if res.trades.empty:
@@ -104,7 +112,7 @@ def test_risk_never_exceeds_configured_percent(synthetic_m1):
 
 
 def test_never_more_than_one_position_at_a_time(synthetic_m1):
-    cfg = Config().with_overrides(**MICRO); cfg.initial_equity = 500.0
+    cfg = Config().with_overrides(**PERMISSIVE); cfg.initial_equity = 500.0
     F = DataEngine().build(synthetic_m1)
     res = _run(F, cfg)
     if len(res.trades) < 2:
@@ -115,7 +123,7 @@ def test_never_more_than_one_position_at_a_time(synthetic_m1):
 
 
 def test_news_blackout_blocks_entries(synthetic_m1):
-    cfg = Config().with_overrides(**MICRO); cfg.initial_equity = 500.0
+    cfg = Config().with_overrides(**PERMISSIVE); cfg.initial_equity = 500.0
     F = DataEngine().build(synthetic_m1)
     a = _run(F, cfg)
     block = pd.Series(True, index=F.index)
@@ -125,7 +133,7 @@ def test_news_blackout_blocks_entries(synthetic_m1):
 
 
 def test_spread_block(synthetic_m1):
-    cfg = Config().with_overrides(**{**MICRO, "costs.max_spread": 0.01})
+    cfg = Config().with_overrides(**{**PERMISSIVE, "costs.max_spread": 0.01})
     cfg.initial_equity = 500.0
     F = DataEngine().build(synthetic_m1)
     res = _run(F, cfg)
@@ -134,7 +142,7 @@ def test_spread_block(synthetic_m1):
 
 
 def test_no_overnight_positions(synthetic_m1):
-    cfg = Config().with_overrides(**MICRO); cfg.initial_equity = 500.0
+    cfg = Config().with_overrides(**PERMISSIVE); cfg.initial_equity = 500.0
     F = DataEngine().build(synthetic_m1)
     res = _run(F, cfg)
     if res.trades.empty:
@@ -144,7 +152,7 @@ def test_no_overnight_positions(synthetic_m1):
 
 
 def test_equity_curve_matches_trade_pnl(synthetic_m1):
-    cfg = Config().with_overrides(**MICRO); cfg.initial_equity = 500.0
+    cfg = Config().with_overrides(**PERMISSIVE); cfg.initial_equity = 500.0
     F = DataEngine().build(synthetic_m1)
     res = _run(F, cfg)
     if res.trades.empty:

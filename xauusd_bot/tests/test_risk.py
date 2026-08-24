@@ -21,14 +21,17 @@ def test_size_derives_from_risk_not_hardcoded():
 
 
 def test_min_lot_rejection_is_explicit():
-    c = _cfg()   # min lot 0.01
+    # standard-contract broker: 0.01 minimum lot
+    c = _cfg(**{"instrument.min_lot": 0.01, "instrument.lot_step": 0.01})
     r = size_position(500, 4600, 4590, c)     # $10 stop -> 2% at min lot
     assert not r.ok and "min lot" in r.reason
     assert r.lots == 0.0
 
 
 def test_hard_risk_cap_enforced():
-    c = _cfg(**{"risk.allow_min_lot_override": True, "risk.max_risk_percent_hard_cap": 1.0})
+    c = _cfg(**{"instrument.min_lot": 0.01, "instrument.lot_step": 0.01,
+                "risk.allow_min_lot_override": True,
+                "risk.max_risk_percent_hard_cap": 1.0})
     r = size_position(500, 4600, 4590, c)     # min lot risks 2% > 1% cap
     assert not r.ok
 

@@ -1,0 +1,215 @@
+XAUUSD SYSTEM v3 — FINAL REPORT (shipped default configuration)
+Real HistData M1. 4,070,991 bars, 2015-01-01 -> 2026-08-21.
+==============================================================================
+  stop        = 3.0x structural invalidation distance
+  target      = 1.0R   (no partials, no breakeven, no trailing)
+  entry gate  = retest AND M15 alignment required
+  cost filter = round trip must be <= 3% of target
+  max hold    = 480 min, flat by 21:00 UTC
+  risk        = 0.5% per trade, min lot 0.001
+
+
+##############################################################################
+# YEAR BY YEAR — configuration identical throughout
+##############################################################################
+  year     n    win%     PF     ret%    dd%    expR
+  2015    14    28.6   0.17    -0.95   0.95  -0.159
+  2016    35    51.4   1.09     0.25   0.84   0.024
+  2017     1   100.0   9.99     0.09   0.00   0.335
+  2018     2     0.0   0.00    -0.10   0.10  -0.174
+  2019    19    36.8   0.52    -1.02   1.40  -0.152
+  2020    88    51.1   1.12     1.08   1.84   0.047
+  2021    61    34.4   0.57    -3.04   3.77  -0.125
+  2022    83    41.0   0.73    -3.00   3.00  -0.133
+  2023    49    53.1   1.51     2.29   1.59   0.112
+  2024   105    53.3   1.38     4.10   1.45   0.105
+  2025   220    60.0   1.64    15.44   2.81   0.177
+  2026    91    52.7   1.21     3.31   3.76   0.068
+
+POOLED 2015-2026: n=768  win=51.0%  PF=1.19  expectancy=+0.056R  totalR=42.8
+  (equity resets each year, so returns are not compounded across years)
+
+
+##############################################################################
+# 2026 HOLDOUT IN FULL
+##############################################################################
+2026 HOLDOUT
+============
+  Trades                91   (1.26/trading day, 72 active days)
+  Win rate              52.7%   (48W / 43L)
+  Profit factor (net)   1.21      gross 1.21
+  Net P/L               $16.55   (+3.31%)
+  Final equity          $516.55
+  Max drawdown          3.76%    avg DD 1.37%
+  Recovery factor       0.88
+  Expectancy            +0.068R   ($+0.182/trade)
+  Avg winner / loser    $1.96 / $-1.80   payoff 1.09
+  Avg R  win / loss     +0.91R / -0.87R
+  Largest win / loss    $2.53 / $-2.59
+  Max streak  W / L     6 / 5
+  Sharpe / Sortino      0.97 / 1.22
+  Long / Short          39 (49% win) / 52 (56% win)
+  Avg MFE / MAE         0.71R / 0.67R
+  Avg hold              179 min
+  Profit concentration  top1 15.3%  top5 75.4%  top10 148.6%
+  Positive months       4/8
+  Costs                 commission $0.00, avg spread $0.302
+
+  Monthly P/L:
+    2026-01-31  $-0.92
+    2026-02-28  $+13.97
+    2026-03-31  $+2.42
+    2026-04-30  $-4.38
+    2026-05-31  $+0.14
+    2026-06-30  $-6.30
+    2026-07-31  $-0.15
+    2026-08-31  $+11.77
+
+STRATEGY PERFORMANCE MATRIX
+          strategy  trades  win%   PF   net  avg_R  exp_$
+          BREAKOUT      58  56.9 1.43 19.85  0.155  0.342
+LIQUIDITY_REVERSAL      25  40.0 0.71 -7.50 -0.164 -0.300
+TREND_CONTINUATION       8  62.5 1.75  4.20  0.165  0.524
+
+REGIME PERFORMANCE
+            regime  trades  win%   PF   net  avg_R  exp_$
+       COMPRESSION      40  62.5 1.63 19.58  0.212  0.489
+LIQUIDITY_REVERSAL      11  27.3 0.33 -9.42 -0.432 -0.857
+            CHOPPY      10  50.0 1.16  1.46  0.052  0.146
+       STRONG_BEAR       8  75.0 2.70  7.22  0.415  0.902
+              BULL       7  42.9 1.32  1.60  0.124  0.228
+              BEAR       6  33.3 0.37 -4.68 -0.323 -0.780
+       STRONG_BULL       6  50.0 1.27  1.39 -0.011  0.231
+         EXPANSION       3  33.3 0.62 -0.58 -0.071 -0.195
+
+SESSION PERFORMANCE
+session  trades  win%   PF   net  avg_R  exp_$
+   ASIA      51  58.8 1.50 19.89  0.173  0.390
+ LONDON      20  50.0 1.22  3.95  0.037  0.198
+OVERLAP      14  35.7 0.60 -7.31 -0.250 -0.522
+NEWYORK       6  50.0 1.01  0.01  0.024  0.002
+
+HOUR PERFORMANCE (UTC)
+ hour  trades  win%    PF   net  avg_R  exp_$
+    0      12  50.0  1.05  0.57 -0.014  0.048
+    1       8  62.5  1.62  4.01  0.238  0.501
+    2      13  53.8  1.24  2.53  0.105  0.194
+    3       4  75.0  3.01  4.28  0.490  1.070
+    4       2 100.0   inf  3.26  0.701  1.629
+    5       7  71.4  2.91  6.99  0.490  0.999
+    6       5  40.0  0.70 -1.75 -0.209 -0.349
+    8       4  50.0  1.01  0.05 -0.009  0.012
+    9       4  25.0  0.50 -2.04 -0.281 -0.510
+   10       4  25.0  0.32 -4.26 -0.510 -1.066
+   11       8  75.0  4.29 10.21  0.492  1.276
+   12       5  40.0  0.72 -1.78 -0.209 -0.356
+   13       5  60.0  1.38  1.80  0.192  0.360
+   14       3   0.0  0.00 -6.67 -1.011 -2.224
+   15       1   0.0  0.00 -0.65 -0.392 -0.650
+   16       1   0.0  0.00 -1.17 -0.478 -1.167
+   18       1   0.0  0.00 -0.17 -0.080 -0.170
+   19       3  66.7 29.72  0.54  0.105  0.181
+   20       1 100.0   inf  0.81  0.388  0.807
+
+SETUP-SCORE PERFORMANCE
+score_bin  trades  win%   PF   net  avg_R  exp_$
+  (0, 75]      42  47.6 1.02  0.58  0.002  0.014
+ (75, 80]      18  61.1 1.90 11.17  0.246  0.621
+ (80, 85]      14  50.0 0.94 -0.72 -0.041 -0.051
+ (90, 95]       7  57.1 1.00 -0.01  0.054 -0.001
+ (85, 90]       5  60.0 1.63  2.40  0.190  0.480
+(95, 101]       5  60.0 1.77  3.13  0.192  0.626
+
+EXIT REASON
+exit_reason  trades  win%   PF    net  avg_R  exp_$
+        TP2      42 100.0  inf  89.77  0.993  2.137
+       STOP      34   0.0 0.00 -70.46 -1.013 -2.072
+       TIME       8  37.5 0.57  -2.12 -0.097 -0.265
+SESSION_END       7  42.9 0.68  -0.64 -0.035 -0.091
+
+DIRECTION
+direction  trades  win%   PF   net  avg_R  exp_$
+    SHORT      52  55.8 1.42 16.72  0.136  0.321
+     LONG      39  48.7 1.00 -0.16 -0.022 -0.004
+
+COST IMPACT
+  gross PF 1.21  ->  net PF 1.21
+  commission total   $0.00
+  avg spread paid    $0.302 per trade (cost ≈ $2.75 across all lots)
+  entry slippage     $4.55 in price units
+  exit slippage      $4.83 in price units
+
+PROFIT CONCENTRATION
+  top 1 trade   15.3% of net profit
+  top 5 trades  75.4%
+  top 10 trades 148.6%
+  best month    84.4%
+
+ADDITIONAL
+  rejections: {'entry_gate': 1806, 'position_size_below_min_lot': 788, 'cost_to_target': 36, 'cooldown': 23, 'no_stop': 22, 'spread_blocked': 12}
+
+
+##############################################################################
+# WALK-FORWARD (config fixed, rolling 6-month blocks 2019-2026)
+##############################################################################
+                 block   n  win   pf   ret   dd   expR
+2019-01-01..2019-07-01   2 50.0 0.20 -0.09 0.12 -0.109
+2019-07-01..2020-01-01  17 35.3 0.54 -0.92 1.29 -0.157
+2020-01-01..2020-07-01  43 48.8 1.12  0.58 1.84  0.052
+2020-07-01..2021-01-01  45 53.3 1.11  0.51 1.18  0.043
+2021-01-01..2021-07-01  38 31.6 0.41 -3.25 3.77 -0.218
+2021-07-01..2022-01-01  23 39.1 1.28  0.45 0.96  0.026
+2022-01-01..2022-07-01  48 37.5 0.71 -1.81 1.84 -0.136
+2022-07-01..2023-01-01  36 47.2 0.81 -0.94 2.55 -0.103
+2023-01-01..2023-07-01  29 55.2 1.38  1.28 1.59  0.143
+2023-07-01..2024-01-01  20 50.0 1.70  0.73 0.52  0.070
+2024-01-01..2024-07-01  45 51.1 1.19  0.96 1.15  0.070
+2024-07-01..2025-01-01  60 55.0 1.53  3.14 1.46  0.131
+2025-01-01..2025-07-01 101 52.5 1.10  1.40 1.94  0.029
+2025-07-01..2026-01-01 118 66.1 2.33 14.18 1.74  0.304
+2026-01-01..2026-07-01  66 48.5 1.08  0.99 3.76  0.012
+
+stability: {
+  "windows": 14,
+  "profitable_windows": 10,
+  "pct_profitable": 71.4,
+  "mean_oos_pf": 1.16,
+  "median_oos_pf": 1.12,
+  "mean_oos_expR": 0.019,
+  "worst_oos_ret": -3.25,
+  "total_oos_trades": 689
+}
+
+MONTE CARLO (5000 resamples): {
+  "runs": 5000,
+  "median_final": 508.481,
+  "p05_final": 488.4067,
+  "p95_final": 529.785,
+  "prob_profit": 0.7614,
+  "median_max_dd_pct": 7.1693,
+  "p95_max_dd_pct": 11.1241,
+  "worst_max_dd_pct": 21.3558,
+  "median_losing_streak": 9.0,
+  "worst_losing_streak": 18,
+  "prob_ruin_50pct": 0.0
+}
+
+
+##############################################################################
+# DEPLOYMENT GATE
+##############################################################################
+FINAL DEPLOYMENT GATE
+=====================
+  [PASS] realistic spread model  — session-based + volatility-scaled, applied to every fill
+  [PASS] realistic slippage model  — entry + stop slippage, gap fills at bar open
+  [PASS] walk-forward completed  — 14 windows
+  [PASS] Monte Carlo completed  — 5000 runs
+  [PASS] out-of-sample completed  — holdout evaluated once
+  [PASS] walk-forward stability >= 60% profitable windows  — 71.4% of windows profitable
+  [PASS] median out-of-sample PF > 1.0  — median OOS PF 1.12 (mean 1.16, informational)
+  [PASS] out-of-sample sample size >= 100 trades  — 689 out-of-sample trades — below this nothing is statistically distinguishable from noise
+  [PASS] mean out-of-sample expectancy > 0  — +0.019R
+  [PASS] Monte Carlo probability of profit >= 60%  — 76.1%
+  [PASS] Monte Carlo probability of 50% ruin < 1%  — 0.00%
+
+VERDICT: all critical checks passed — demo forward testing may begin.

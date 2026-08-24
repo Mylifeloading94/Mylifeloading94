@@ -29,3 +29,8 @@ hp_bot_backtest_results.json
 
 # Cached price data (regenerable, large)
 data/
+
+# XAUUSD bot: cached market data + generated runtime artefacts
+data_cache/
+xauusd_bot/logs/
+*.pkl

@@ -49,10 +49,11 @@ def structural_stop(F: pd.DataFrame, direction: np.ndarray, anchor_high: pd.Seri
     struct_dist = np.where(np.isfinite(struct_dist), struct_dist, np.nan)
 
     dist = np.fmax(np.nan_to_num(struct_dist, nan=0.0), atr_dist) + buf
+    dist = dist * cfg.exits.stop_scale
     dist = np.maximum(dist, cfg.exits.min_sl_price)
     sl = np.where(direction > 0, close - dist, close + dist)
-    # reject absurd stops
-    too_wide = dist > (cfg.exits.max_sl_atr * atr)
+    # reject absurd stops (the ceiling scales with the deliberate widening)
+    too_wide = dist > (cfg.exits.max_sl_atr * cfg.exits.stop_scale * atr)
     sl = np.where(too_wide | (direction == 0), np.nan, sl)
     return sl
 

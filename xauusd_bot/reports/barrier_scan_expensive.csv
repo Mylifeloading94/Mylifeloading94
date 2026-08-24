@@ -1,0 +1,41 @@
+condition,n,P(up)%,z,sig
+extended >3 ATR above EMA20,360107,48.69,-15.7,***
+M3 BOS up,163024,48.62,-11.1,***
+BASELINE (all bars),3110251,49.7,-10.7,***
+H1 EMA20<EMA50,1503044,49.59,-10.0,***
+M5 RSI>70,130300,48.72,-9.2,***
+regime=NEUTRAL,601125,49.41,-9.1,***
+session=NEWYORK,654822,49.51,-7.9,***
+regime=CHOPPY,80302,48.78,-6.9,***
+price >1.5 ATR ABOVE vwap,298800,49.39,-6.6,***
+session=OVERLAP,541138,49.58,-6.2,***
+low vol (ATR rank<0.2),725316,49.64,-6.1,***
+regime=LIQUIDITY_REVERSAL,821003,49.67,-6.0,***
+M5 CHoCH up,74593,48.94,-5.8,***
+H1 EMA20>EMA50,1604305,49.78,-5.6,***
+M15 structure bearish,906305,49.71,-5.4,***
+session=LONDON,689830,49.68,-5.4,***
+trading below prev day low,529802,49.66,-5.0,***
+M15 structure bullish,930576,49.75,-4.9,***
+M15 RSI>70,157319,49.49,-4.1,***
+"swept PDL, closed back over",17358,48.5,-3.9,**
+regime=STRONG_BULL,125343,49.56,-3.1,**
+M15 ADX>30 & trend down,466727,49.8,-2.8,*
+regime=BEAR,185778,49.69,-2.7,*
+M5 displacement up,66843,49.73,-1.4,
+regime=EXPANSION,80762,49.92,-0.5,
+"swept PDH, closed back under",17790,49.84,-0.4,
+session=ASIA,1096741,49.98,-0.4,
+trading above prev day high,641330,50.03,0.4,
+high vol (ATR rank>0.8),543514,50.06,0.9,
+M15 ADX>30 & trend up,446146,50.12,1.6,
+price >1.5 ATR BELOW vwap,281239,50.15,1.6,
+regime=COMPRESSION,180633,50.25,2.1,*
+M5 CHoCH down,74609,50.45,2.5,*
+M5 displacement down,68022,50.77,4.0,**
+regime=BULL,188118,50.56,4.9,***
+M15 RSI<30,135928,50.82,6.1,***
+regime=STRONG_BEAR,117447,51.16,8.0,***
+M3 BOS down,161733,51.02,8.2,***
+M5 RSI<30,118676,51.37,9.4,***
+extended >3 ATR below EMA20,314448,51.73,19.4,***

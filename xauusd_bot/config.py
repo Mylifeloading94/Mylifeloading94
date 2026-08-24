@@ -40,6 +40,11 @@ class CostModel:
     stop_slippage: float = 0.12          # stops fill worse than they trigger
     stop_slippage_news: float = 0.50
     max_slippage: float = 0.60
+    # Refuse a setup when the round trip (spread + both slippages) is a large
+    # fraction of the target. This is the filter that makes the system
+    # volatility-aware: gold at $1300 with a $0.29 spread is not scalpable,
+    # gold at $4600 with the same spread is. 1.0 disables it.
+    max_cost_to_target_ratio: float = 1.0
 
 
 # ---------------------------------------------------------------- risk
@@ -60,6 +65,11 @@ class RiskConfig:
 # ---------------------------------------------------------------- stops/targets
 @dataclass
 class ExitConfig:
+    stop_scale: float = 1.0           # multiplies the structural stop distance.
+    #                                   Validated on 2024-25: wider stops with
+    #                                   proportionally larger targets beat tight
+    #                                   stops, because the round-trip cost then
+    #                                   becomes a small fraction of the target.
     atr_mult_sl: float = 1.1          # ATR floor for the stop
     structure_buffer_atr: float = 0.25  # buffer beyond the invalidation swing
     min_sl_price: float = 1.20        # never place a stop tighter than this ($)
@@ -102,6 +112,15 @@ class RegimeConfig:
 
 
 # ---------------------------------------------------------------- scoring
+@dataclass
+class EntryGate:
+    """Hard component requirements, on top of the numeric setup score."""
+    require_retest: bool = False
+    require_m15_alignment: bool = False
+    require_h1_alignment: bool = False
+    require_ltf_structure: bool = False
+
+
 @dataclass
 class ScoreConfig:
     w_h1_regime: float = 15
@@ -188,6 +207,7 @@ class Config:
     sessions: SessionConfig = field(default_factory=SessionConfig)
     regime: RegimeConfig = field(default_factory=RegimeConfig)
     score: ScoreConfig = field(default_factory=ScoreConfig)
+    gate: EntryGate = field(default_factory=EntryGate)
     toggles: StrategyToggles = field(default_factory=StrategyToggles)
     trend: TrendConfig = field(default_factory=TrendConfig)
     liquidity: LiquidityConfig = field(default_factory=LiquidityConfig)

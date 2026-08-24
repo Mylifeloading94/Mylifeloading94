@@ -90,6 +90,10 @@ class Backtester:
         sp = spread.values
         nw = news.values
         sdir = sig["dir"].values
+        s_retest = sig["c_retest"].values.astype(bool)
+        s_m15 = sig["c_m15"].values.astype(bool)
+        s_h1 = sig["c_h1"].values.astype(bool)
+        s_ltf = sig["c_ltf"].values.astype(bool)
         ssl = sig["sl"].values
         sstrat = sig["strategy"].values
         sreason = sig["reason"].values
@@ -195,6 +199,13 @@ class Backtester:
             if i - last_exit_i < cooldown:
                 rm.rejections["cooldown"] = rm.rejections.get("cooldown", 0) + 1
                 continue
+            g = cfg.gate
+            if (g.require_retest and not s_retest[j]) or \
+               (g.require_m15_alignment and not s_m15[j]) or \
+               (g.require_h1_alignment and not s_h1[j]) or \
+               (g.require_ltf_structure and not s_ltf[j]):
+                rm.rejections["entry_gate"] = rm.rejections.get("entry_gate", 0) + 1
+                continue
             if sscore[j] < thr:
                 rm.rejections["setup_score_below_threshold"] = \
                     rm.rejections.get("setup_score_below_threshold", 0) + 1
@@ -225,6 +236,15 @@ class Backtester:
                 continue
             if fill.slippage > cfg.costs.max_slippage:
                 rm.rejections["slippage_blocked"] = rm.rejections.get("slippage_blocked", 0) + 1
+                continue
+
+            # cost-to-target filter: refuse setups where the round trip eats
+            # too much of what we are trying to win
+            main_r = e.tp1_r if e.tp_model == "full" else e.tp2_r
+            target_dist = main_r * r_dist
+            round_trip = sp[i] + 2 * cfg.costs.entry_slippage
+            if target_dist > 0 and (round_trip / target_dist) > cfg.costs.max_cost_to_target_ratio:
+                rm.rejections["cost_to_target"] = rm.rejections.get("cost_to_target", 0) + 1
                 continue
 
             tp1 = entry + d * e.tp1_r * r_dist

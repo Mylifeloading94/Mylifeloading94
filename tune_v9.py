@@ -363,6 +363,12 @@ def round_entry15():
     print(f"  split boundaries (unchanged): train<{sp['train'][1]}  "
           f"test>={sp['test'][0]}")
 
+    # `targets.max_hold_bars` counts ENTRY bars, so the live 96 means 96 hours
+    # on a 1H entry frame and 24 hours on a 15m one. Every row here holds the
+    # wall-clock budget at 96 hours (384 15m bars) so that a time-stop change
+    # cannot be mistaken for an entry-timing effect. Round `entry15b` prints
+    # the unmatched 24h version beside it.
+    hold = {"targets.max_hold_bars": 384}
     variants = {
         "swing15 (15m fills)": {},
         "  +hard 15m LTF confirm": {"filters.require_ltf_confirmation": True},
@@ -380,12 +386,82 @@ def round_entry15():
     for label, over in variants.items():
         merged = dict(LIVE)
         merged.update({"active_stack": "swing15"})
+        merged.update(hold)
         merged.update(over)
         row, _ = priced(cfg, engine, contexts, merged, label, splits=sp)
         rows.append(row)
         show([row])
     print("\n=== ANGLE 1 SUMMARY ===")
     return show(rows, name="v9_entry15",
+                cols=PCOLS + ["clusters", "ccl_lo", "ccl_hi", "clears"])
+
+
+# The entry-matched control for angle 1.
+#
+# Moving `entry_tf` from 1H to 15m does TWO things at once, and only one of
+# them is the thing being asked about:
+#
+#   1. the fill is simulated on 15m bars instead of 1H bars -- the entry
+#      refinement itself;
+#   2. `_ltf_confirmation` stops being degenerate. With `entry_tf == setup_tf`
+#      it collapses to "the setup bar confirmed itself", and since displacement
+#      is ALREADY a hard gate that is automatically true -- so +5 of the live
+#      card's 95 points is a free constant on every setup. On a real 15m frame
+#      it becomes a genuine test that only some setups pass, and setups that
+#      were clearing the gate of 80 on that free 5 stop clearing it.
+#
+# (2) is a SETUP-POPULATION change wearing an entry-refinement costume, and it
+# is what takes the ledger from 196 trades to 100. To measure (1) on its own,
+# the control sets `ltf_confirmation` to zero weight and drops the gate by the
+# same 5 points: same card, same bar, minus the constant. The population then
+# matches the 1H baseline and the ONLY difference left is the fill.
+#
+# It also has to fix a SECOND confound, and this one is an exit change wearing
+# an entry-refinement costume. `targets.max_hold_bars: 96` is counted in ENTRY
+# bars. On the 1H entry frame that is a 96-HOUR time budget; on a 15m frame the
+# identical number is 24 hours. v5's Round H measured that time stop as doing
+# real work at 96 1H-bars, so quartering it silently is not a neutral act. The
+# control therefore runs 384 15m bars = the same 96 hours of wall clock.
+CONTROL = {"scoring.weights.ltf_confirmation": 0, "scoring.threshold": 75.0,
+           "targets.max_hold_bars": 384}
+
+
+def round_entry15b():
+    cfg, engine, contexts = env("swing15", "_causal15")
+    sp = bounds(contexts)
+    print("\n=== ANGLE 1, ENTRY-MATCHED: the fill change on its own ===")
+    print("Every row below neutralises the `ltf_confirmation` constant and")
+    print("restores the 96-HOUR hold budget, so the setup population is the 1H")
+    print("baseline's and the only thing that moves is when and at what price")
+    print("the entry is taken.\n")
+
+    variants = {
+        "control: 15m fills (96h hold)": {},
+        "  +close_back confirm (1 bar)": {"entry.confirm_mode": "close_back",
+                                          "entry.confirm_bars": 1},
+        "  +close_back confirm (2 bars)": {"entry.confirm_mode": "close_back",
+                                           "entry.confirm_bars": 2},
+        "  +close_back confirm (4 bars)": {"entry.confirm_mode": "close_back",
+                                           "entry.confirm_bars": 4},
+        "  +close_back confirm (8 bars)": {"entry.confirm_mode": "close_back",
+                                           "entry.confirm_bars": 8},
+        "  +close_dir confirm (1 bar)": {"entry.confirm_mode": "close_dir",
+                                         "entry.confirm_bars": 1},
+        "  +close_dir confirm (2 bars)": {"entry.confirm_mode": "close_dir",
+                                          "entry.confirm_bars": 2},
+        "UNMATCHED: 24h hold (96 15m bars)": {"targets.max_hold_bars": 96},
+    }
+    rows = []
+    for label, over in variants.items():
+        merged = dict(LIVE)
+        merged.update({"active_stack": "swing15"})
+        merged.update(CONTROL)
+        merged.update(over)
+        row, _ = priced(cfg, engine, contexts, merged, label, splits=sp)
+        rows.append(row)
+        show([row])
+    print("\n=== ANGLE 1 ENTRY-MATCHED SUMMARY ===")
+    return show(rows, name="v9_entry15_matched",
                 cols=PCOLS + ["clusters", "ccl_lo", "ccl_hi", "clears"])
 
 
@@ -426,7 +502,8 @@ def round_final(extra=None, stack="swing", tag="_causal", name="candidate"):
 def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--round", required=True,
-                    choices=["ledger", "align", "score", "entry15", "final"])
+                    choices=["ledger", "align", "score", "entry15", "entry15b",
+                             "final"])
     ap.add_argument("--extra", default="")
     ap.add_argument("--stack", default="swing")
     ap.add_argument("--tag", default="_causal")
@@ -434,7 +511,7 @@ def main():
     args = ap.parse_args()
     extra = json.loads(args.extra) if args.extra else None
     fn = {"ledger": round_ledger, "align": round_align, "score": round_score,
-          "entry15": round_entry15}.get(args.round)
+          "entry15": round_entry15, "entry15b": round_entry15b}.get(args.round)
     if fn:
         fn()
     else:

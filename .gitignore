@@ -48,6 +48,6 @@ smc_insample.csv
 xau/__pycache__/
 
 # Sniper 87 backtest outputs (regenerated)
-sniper87_trades_*.csv
-sniper87_equity_*.csv
-sniper87_all_windows.csv
+smc_trades_*.csv
+smc_equity_*.csv
+smc_all_windows.csv

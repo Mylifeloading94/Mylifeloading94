@@ -1,4 +1,4 @@
-"""Build the XAUUSD SMC Ultimate Sniper Bot backtest workbook.
+"""Build the Sniper 87 XAUUSD backtest workbook.
 
 Layout: blue headers / white body / black text, green profit, red loss.
 Daily, weekly and monthly tables are driven by SUMIFS against the trade log,
@@ -80,12 +80,12 @@ def widths(ws, spec):
 # ---------------------------------------------------------------------------
 def trade_sheet(wb, tr, risk_label, sheet_name):
     ws = wb.create_sheet(sheet_name)
-    title(ws, 1, f"XAUUSD SMC ULTIMATE SNIPER — TRADE LOG ({risk_label} risk)", 16,
+    title(ws, 1, f"XAUUSD SNIPER 87 — TRADE LOG ({risk_label} risk)", 16,
           "All times US Central (America/Chicago). Pips: 1 pip = $0.10. "
           "Positive pips/P&L green, negative red.")
     cols = ["#", "Pair", "Entry Date/Time (CT)", "Exit Date/Time (CT)", "Side",
-            "Entry", "Stop", "Runner TP", "Exit", "Lots", "Pips", "P/L ($)",
-            "R", "Result", "Engine", "Balance ($)"]
+            "Entry", "Stop", "Target", "Exit", "Lots", "Pips", "P/L ($)",
+            "R", "Result", "Score", "Balance ($)"]
     hdr(ws, 3, cols)
     r = 4
     for i, t in enumerate(tr.itertuples(), start=1):
@@ -98,21 +98,21 @@ def trade_sheet(wb, tr, risk_label, sheet_name):
                        color="1F4E79" if t.side == "BUY" else "833C00")
         body(ws, r, 6, round(t.entry, 2), "#,##0.00")
         body(ws, r, 7, round(t.stop, 2), "#,##0.00")
-        body(ws, r, 8, round(t.runner, 2), "#,##0.00")
+        body(ws, r, 8, round(t.target, 2), "#,##0.00")
         body(ws, r, 9, round(t.exit, 2), "#,##0.00")
         body(ws, r, 10, t.lots, "0.00")
         body(ws, r, 11, round(t.pips, 1), "+#,##0.0;-#,##0.0;0.0")
-        body(ws, r, 12, float(t.pnl), "$#,##0.00;($#,##0.00);-")
+        body(ws, r, 12, round(t.pnl, 2), "$#,##0.00;($#,##0.00);-")
         body(ws, r, 13, round(t.r, 3), "+0.000;-0.000;0.000")
         body(ws, r, 14, t.reason.upper(), align="center")
-        body(ws, r, 15, f"{t.engine} · {int(t.score)}", align="center")
-        body(ws, r, 16, float(t.balance), "$#,##0.00")
+        body(ws, r, 15, int(t.score), "0", align="center")
+        body(ws, r, 16, round(t.balance, 2), "$#,##0.00")
         r += 1
     last = r - 1
     # totals, as formulas
     body(ws, r, 2, "TOTAL", bold=True, align="center")
     body(ws, r, 11, round(float(tr.pips.sum()), 1), "+#,##0.0;-#,##0.0;0.0", bold=True)
-    body(ws, r, 12, float(tr.pnl.sum()), "$#,##0.00;($#,##0.00);-", bold=True)
+    body(ws, r, 12, round(float(tr.pnl.sum()), 2), "$#,##0.00;($#,##0.00);-", bold=True)
     body(ws, r, 13, round(float(tr.r.sum()), 3), "+0.000;-0.000;0.000", bold=True)
     for cc in range(1, 17):
         ws.cell(row=r, column=cc).fill = PatternFill("solid", fgColor=BLUE_LIGHT)
@@ -129,7 +129,7 @@ def trade_sheet(wb, tr, risk_label, sheet_name):
 def period_sheet(wb, tr, name, freq, label, trade_sheet_name, n_trades):
     """Daily / weekly / monthly P&L and ROI, computed with SUMIFS over the log."""
     ws = wb.create_sheet(name)
-    title(ws, 1, f"XAUUSD SMC ULTIMATE SNIPER — {label} PROFIT & ROI", 7,
+    title(ws, 1, f"XAUUSD SNIPER 87 — {label} PROFIT & ROI", 7,
           "P/L and ROI aggregated from the trade log by exit date (US Central). "
           "ROI is measured against the $10,000 starting balance.")
     hdr(ws, 3, [label, "Trades", "Wins", "Losses", "P/L ($)", "ROI (%)", "Cumulative ($)"])
@@ -156,19 +156,19 @@ def period_sheet(wb, tr, name, freq, label, trade_sheet_name, n_trades):
         body(ws, r, 2, len(g), "0", align="center")
         body(ws, r, 3, int((g.pnl > 0).sum()), "0", align="center")
         body(ws, r, 4, int((g.pnl <= 0).sum()), "0", align="center")
-        body(ws, r, 5, float(g.pnl.sum()), "$#,##0.00;($#,##0.00);-")
+        body(ws, r, 5, round(g.pnl.sum(), 2), "$#,##0.00;($#,##0.00);-")
         body(ws, r, 6, float(g.pnl.sum()) / START_BAL, "+0.00%;-0.00%;0.00%")
         cum += float(g.pnl.sum())
-        body(ws, r, 7, cum, "$#,##0.00;($#,##0.00);-")
+        body(ws, r, 7, round(cum, 2), "$#,##0.00;($#,##0.00);-")
         r += 1
     last = r - 1
     body(ws, r, 1, "TOTAL", bold=True, align="left")
     body(ws, r, 2, int(len(d)), "0", bold=True, align="center")
     body(ws, r, 3, int((d.pnl > 0).sum()), "0", bold=True, align="center")
     body(ws, r, 4, int((d.pnl <= 0).sum()), "0", bold=True, align="center")
-    body(ws, r, 5, float(d.pnl.sum()), "$#,##0.00;($#,##0.00);-", bold=True)
+    body(ws, r, 5, round(float(d.pnl.sum()), 2), "$#,##0.00;($#,##0.00);-", bold=True)
     body(ws, r, 6, float(d.pnl.sum()) / START_BAL, "+0.00%;-0.00%;0.00%", bold=True)
-    body(ws, r, 7, float(d.pnl.sum()), "$#,##0.00;($#,##0.00);-", bold=True)
+    body(ws, r, 7, round(float(d.pnl.sum()), 2), "$#,##0.00;($#,##0.00);-", bold=True)
     for cc in range(1, 8):
         ws.cell(row=r, column=cc).fill = PatternFill("solid", fgColor=BLUE_LIGHT)
         ws.cell(row=r, column=cc).border = BORDER
@@ -180,7 +180,7 @@ def period_sheet(wb, tr, name, freq, label, trade_sheet_name, n_trades):
 
 def summary_sheet(wb, tr1, tr2, n1, n2):
     ws = wb.create_sheet("Summary", 0)
-    title(ws, 1, "XAUUSD SMC ULTIMATE SNIPER BOT — BACKTEST SUMMARY", 8,
+    title(ws, 1, "XAUUSD SNIPER 87 — BACKTEST SUMMARY", 8,
           "TradeLocker PULSE live feed · 1 Jan 2026 → 21 Aug 2026 · $10,000 start · "
           "all times US Central · 1 pip = $0.10")
 
@@ -194,17 +194,17 @@ def summary_sheet(wb, tr1, tr2, n1, n2):
         gain = float(tr.loc[tr.pnl > 0, "pnl"].sum())
         loss = float(tr.loc[tr.pnl <= 0, "pnl"].sum())
         body(ws, r, 3, int(len(tr)), "0", align="center")
-        body(ws, r, 4, gain, "$#,##0.00;($#,##0.00);-")
-        body(ws, r, 5, loss, "$#,##0.00;($#,##0.00);-")
-        body(ws, r, 6, gain + loss, "$#,##0.00;($#,##0.00);-", bold=True)
+        body(ws, r, 4, round(gain, 2), "$#,##0.00;($#,##0.00);-")
+        body(ws, r, 5, round(loss, 2), "$#,##0.00;($#,##0.00);-")
+        body(ws, r, 6, round(gain + loss, 2), "$#,##0.00;($#,##0.00);-", bold=True)
         body(ws, r, 7, (gain + loss) / START_BAL, "+0.00%;-0.00%;0.00%", bold=True)
-        body(ws, r, 8, START_BAL + gain + loss, "$#,##0.00", bold=True)
+        body(ws, r, 8, round(START_BAL + gain + loss, 2), "$#,##0.00", bold=True)
         r += 1
     money_rule(ws, "D5:F6")
     money_rule(ws, "G5:G6")
 
     # ---- detailed metrics ------------------------------------------------
-    hdr(ws, 9, ["Metric", "1% Risk", "2% Risk", "Rule-set target (§24)"], fill=BLUE_MID)
+    hdr(ws, 9, ["Metric", "1% Risk", "2% Risk", "Rule-set target (§28)"], fill=BLUE_MID)
     def stats(tr):
         w = tr[tr.pnl > 0]; L = tr[tr.pnl <= 0]
         e = pd.Series([START_BAL] + list(tr.balance))
@@ -224,7 +224,7 @@ def summary_sheet(wb, tr1, tr2, n1, n2):
             streak=mx, hold=tr.hold_min.median(), n=len(tr))
     s1, s2 = stats(tr1), stats(tr2)
     rows = [
-        ("Total trades", s1["n"], s2["n"], "≥ 300 (§23)", "0"),
+        ("Total trades", s1["n"], s2["n"], "≥ 300", "0"),
         ("Win rate", s1["wr"], s2["wr"], "≥ 87%", "0.00%"),
         ("Profit factor", s1["pf"], s2["pf"], "≥ 2.0", "0.00"),
         ("Max drawdown", s1["dd"], s2["dd"], "≤ 8%", "0.00%"),
@@ -232,13 +232,13 @@ def summary_sheet(wb, tr1, tr2, n1, n2):
         ("Average R / trade", s1["expr"], s2["expr"], "positive", "+0.000;-0.000;0.000"),
         ("Recovery factor", s1["rec"], s2["rec"], "≥ 2", "0.00"),
         ("Sharpe (approx.)", s1["sharpe"], s2["sharpe"], "≥ 1.5", "0.00"),
-        ("Max consecutive losses", s1["streak"], s2["streak"], "≤ 4 preferred", "0"),
+        ("Max consecutive losses", s1["streak"], s2["streak"], "≤ 4", "0"),
         ("Average win ($)", s1["avg_w"], s2["avg_w"], "—", "$#,##0.00"),
         ("Average loss ($)", s1["avg_l"], s2["avg_l"], "—", "$#,##0.00;($#,##0.00);-"),
         ("Largest win ($)", s1["best"], s2["best"], "—", "$#,##0.00"),
         ("Largest loss ($)", s1["worst"], s2["worst"], "—", "$#,##0.00;($#,##0.00);-"),
         ("Total pips", s1["pips"], s2["pips"], "—", "+#,##0;-#,##0;0"),
-        ("Average win (pips)", s1["aw_p"], s2["aw_p"], "—", "+#,##0.0"),
+        ("Average win (pips)", s1["aw_p"], s2["aw_p"], "≥ 25", "+#,##0.0"),
         ("Average loss (pips)", s1["al_p"], s2["al_p"], "—", "+#,##0.0;-#,##0.0"),
         ("Median hold (minutes)", s1["hold"], s2["hold"], "—", "0"),
     ]
@@ -256,7 +256,7 @@ def summary_sheet(wb, tr1, tr2, n1, n2):
 
 def equity_sheet(wb, eq1, eq2):
     ws = wb.create_sheet("Equity Chart")
-    title(ws, 1, "XAUUSD SMC ULTIMATE SNIPER — EQUITY CURVE", 4,
+    title(ws, 1, "XAUUSD SNIPER 87 — EQUITY CURVE", 4,
           "Account balance after each closed trade, $10,000 start.")
     hdr(ws, 3, ["Trade #", "Date (CT)", "1% Risk ($)", "2% Risk ($)"])
     n = max(len(eq1), len(eq2))
@@ -269,7 +269,7 @@ def equity_sheet(wb, eq1, eq2):
         body(ws, r, 4, round(float(eq2.iloc[i]), 2) if i < len(eq2) else None, "$#,##0.00")
     last = 3 + n
     ch = LineChart()
-    ch.title = "Equity Curve — XAUUSD SMC Ultimate Sniper (Jan–Aug 2026)"
+    ch.title = "Equity Curve — XAUUSD Sniper 87 (Jan–Aug 2026)"
     ch.style = 2
     ch.y_axis.title = "Account Balance ($)"
     ch.x_axis.title = "Trade Number"
@@ -294,13 +294,6 @@ def notes_sheet(wb, pooled):
     title(ws, 1, "METHOD, ASSUMPTIONS AND CAVEATS", 3,
           "Read before acting on any figure in this workbook.")
     lines = [
-        ("HEADLINE RESULT", ""),
-        ("1% risk", "60 trades · 50.00% win rate · PF 0.90 · -$273.87 (-2.74%) · max DD 9.49%"),
-        ("2% risk", "60 trades · 50.00% win rate · PF 0.86 · -$766.50 (-7.67%) · max DD 19.44%"),
-        ("Versus §24 targets", "Win rate 50% vs 87% target · PF 0.86-0.90 vs 2.0 target · "
-                               "the 2% run's 19.4% drawdown exceeds the 8% limit. "
-                               "The bot LOST money over the forward-test window."),
-        ("", ""),
         ("EXECUTION ASSUMPTIONS", ""),
         ("Data source", "TradeLocker live PULSE feed, XAUUSD M1 bars (real broker data)"),
         ("Backtest window", "1 Jan 2026 → 21 Aug 2026 (last completed bar in the feed)"),
@@ -309,85 +302,67 @@ def notes_sheet(wb, pooled):
         ("Slippage", "0.5 pip on entry, 1.0 extra pip when a stop triggers"),
         ("Commission", "$7.00 per standard lot, round turn"),
         ("Contract size", "100 oz per lot → $1.00 move = $100 per lot"),
-        ("Pip convention", "1 pip = $0.10"),
+        ("Pip convention", "1 pip = $0.10, so a 25-pip target = $2.50"),
         ("Bar ambiguity", "A bar touching both stop and target is recorded as a STOP"),
-        ("Pips column", "Position-weighted: reflects the 30%/30%/40% scale-out, so it is the "
-                        "pips actually captured, not the distance to a single exit"),
-        ("Cell values", "Static backtest record, so figures are computed values rather than "
-                        "live formulas. LibreOffice is unavailable in this build environment, "
-                        "so formulas could not be machine-verified; values guarantee correct "
-                        "display everywhere. All totals cross-checked by verify_workbook.py."),
+        ("Cell values", "This is a static backtest record, so every figure is a computed "
+                        "value rather than a live formula. LibreOffice is unavailable in the "
+                        "build environment, so formulas could not be machine-verified; writing "
+                        "values guarantees the numbers display correctly everywhere. Totals were "
+                        "cross-checked against the source trade CSVs (see verify_workbook.py)."),
         ("", ""),
         ("RULE SET IMPLEMENTED", ""),
-        ("§1 H4 macro bias", "3-of-5: higher highs, higher lows, above equilibrium, "
-                             "displacement, order flow (EMA20 vs EMA50)"),
-        ("§2 H1 premium/discount", "latest 60-bar H1 dealing range, equilibrium 50%"),
-        ("§3 M15 liquidity map", "PDH/PDL, PWH/PWL, Asian H/L, London H/L, M15 swings"),
-        ("§5-§9 M5 sequence", "sweep + reclaim → displacement ≥1.5× median body → MSS → "
-                              "FVG → order block, with OB/FVG overlap scored highest"),
-        ("§10 M1 precision", "M1 MSS then limit at 50% of the M1 OB/FVG zone"),
+        ("§2 H4 macro filter", "3-of-4 test: EMA50, EMA50>EMA200, HH/HL structure, prior-week midpoint"),
+        ("§3 H1 filter", "structure, EMA50, last swing intact, recent displacement"),
+        ("§4 Liquidity map", "PDH/PDL, PWH/PWL, Asian H/L, London H/L, M15 swings, xx00/xx50"),
+        ("§6-§9 M5 sequence", "sweep → reclaim → displacement ≥1.5× median body → MSS → FVG"),
+        ("§10 M1 entry", "M1 MSS then limit at 50% of the M1 FVG"),
         ("§11 Score", "100-point model, minimum 90 (A+ only)"),
-        ("§12-§13 Engines", "A liquidity reversal (ranging) · B trend continuation (trending) · "
-                            "C session breakout (compression); regime engine selects, and "
-                            "chop/abnormal volatility blocks all trading"),
-        ("§16 Stop", "sweep extreme ∓ 0.20 × M5 ATR"),
-        ("§17-§18 Targets", "30% at 1.5R, 30% at 2R, remainder to external liquidity (capped 3R); "
-                            "breakeven+spread at +1R"),
-        ("§14 Sessions", "London 07:00–10:00 London time; New York 08:00–11:00 NY time (true DST)"),
-        ("§19 Daily protection", "max 3 trades/day, stop after 3 consecutive losses, daily loss cap"),
+        ("§14 Stop", "sweep extreme ∓ 0.20 × M5 ATR"),
+        ("§15 Target", "2R (the document's 'preferred')"),
+        ("§16 Management", "breakeven+spread at +1R, 50% partial at +1.5R"),
+        ("§18 Sessions", "London 07:00–10:00 London time; New York 08:00–11:00 NY time"),
+        ("§19/§21 Limits", "max 2 trades/day, stop after 2 losses, daily loss kill switch"),
         ("", ""),
-        ("AN AMBIGUITY IN THE RULE SET", ""),
-        ("The conflict", "§2 calls H1 discount/premium a 'preference'. §21 makes it a hard "
-                         "condition ('AND H1 discount'). §11 awards it 10 points, which implies "
-                         "it is graded rather than binary."),
-        ("Reading used here", "§2/§11 — premium/discount is SCORED, not a veto. This is the only "
-                              "reading that produces a testable sample."),
-        ("§21 reading result", f"Hard-gate reading gives just 27 trades across 2024-2026 "
-                               f"(55.56% win rate, PF 0.96) and only 7 trades in 2026 "
-                               f"(42.86%, PF 0.75, -0.19%). Too few to judge."),
-        ("", ""),
-        ("DEVIATIONS AND GAPS", ""),
-        ("Risk sizing", "You asked for 1% and 2%. The rule set specifies 0.25–0.50% "
-                        "(start 0.25%). Both requested levels exceed it."),
-        ("Daily kill switch", "§19 stops the day at −1%. At 2% risk the first loss would end "
+        ("DEVIATIONS AND GAPS — PLEASE READ", ""),
+        ("Risk sizing", "You asked for 1% and 2%. The rule set (§20) caps risk at 1% and "
+                        "recommends 0.25–0.50%. The 2% run therefore exceeds the document."),
+        ("Daily kill switch", "§21 stops the day at −1%. At 2% risk the first loss would end "
                               "every day, so the switch was scaled to −2% (1% run) and −4% "
-                              "(2% run). A deviation from the document."),
-        ("§15 News filter", "NOT APPLIED. No high-impact news calendar is available in this "
-                            "environment, so news bars are included. Live results would differ."),
-        ("§23 Development data", "Document specifies development from Jan 2022. The broker's M1 "
-                                 "history begins 2024-01-01, so development used 2024."),
+                              "(2% run). This is a deviation from the document."),
+        ("§17 News filter", "NOT APPLIED. No high-impact news calendar is available in this "
+                            "environment. Live results would differ, most likely for the worse, "
+                            "since unfiltered news bars are included here."),
+        ("§26 Development data", "The document specifies development from Jan 2022. The broker's "
+                                 "M1 history only reaches 2024-01-01, so development used 2024."),
         ("", ""),
-        ("VALIDATION ACROSS ALL THREE §23 WINDOWS", ""),
-        ("Development 2024", "138 trades · 49.28% · PF 0.91 · −1.39%"),
-        ("Validation 2025", "110 trades · 54.55% · PF 1.24 · +2.48%"),
-        ("Forward test 2026", "60 trades · 50.00% · PF 0.89 · −0.60%"),
-        ("Pooled 2024–2026", f"{pooled['n']} trades · {pooled['wr']:.2f}% · PF {pooled['pf']:.2f}"),
-        ("Sample size", "§23 requires ≥300 trades. The pooled sample meets it — so the ~51% "
-                        "win rate is a reliable estimate, not small-sample noise."),
-        ("What this means", "Across 308 trades the system sits at roughly break-even (PF ~1.0) "
-                            "with a ~51% win rate. That is a genuine measurement on an adequate "
-                            "sample, and it is far below the 87% objective. The forward-test "
-                            "window is negative at both risk levels."),
-        ("Per §23", "2026 is forward-test data and was NOT used to tune anything."),
+        ("SAMPLE SIZE — THE CENTRAL CAVEAT", ""),
+        ("§27 requires", "≥300 trades, 500+ preferred, before an '87%' claim is credible"),
+        ("Trades in this window", "13"),
+        ("Trades across 2024–2026", f"{pooled['n']}"),
+        ("Pooled win rate 2024–2026", f"{pooled['wr']:.2f}%"),
+        ("Pooled profit factor", f"{pooled['pf']:.2f}"),
+        ("What this means", "The Jan–Aug 2026 result is positive but rests on 13 trades. "
+                            "A 13-trade sample cannot distinguish a 61% system from a 45% one. "
+                            "Across the full 2024–2026 history the same rules produced a "
+                            f"{pooled['wr']:.0f}% win rate — far below the 87% target."),
+        ("Per §26", "2026 is the forward-test window and was NOT used to tune anything."),
     ]
     r = 3
-    for a_, b_ in lines:
-        ca = ws.cell(row=r, column=1, value=a_)
-        if b_ == "" and a_ != "":
+    for a, b in lines:
+        ca = ws.cell(row=r, column=1, value=a)
+        if b == "" and a != "":
             ca.font = Font(name=FONT, bold=True, size=11, color=WHITE)
             ca.fill = PatternFill("solid", fgColor=BLUE_MID)
             ws.merge_cells(start_row=r, start_column=1, end_row=r, end_column=3)
         else:
             ca.font = Font(name=FONT, bold=True, size=10, color="000000")
             ca.alignment = Alignment(vertical="top")
-            cb = ws.cell(row=r, column=2, value=b_)
+            cb = ws.cell(row=r, column=2, value=b)
             cb.font = Font(name=FONT, size=10, color="000000")
             cb.alignment = Alignment(wrap_text=True, vertical="top")
             ws.merge_cells(start_row=r, start_column=2, end_row=r, end_column=3)
         r += 1
-    widths(ws, {"A": 30, "B": 66, "C": 26})
-    for rr in range(3, r):
-        ws.row_dimensions[rr].height = None
+    widths(ws, {"A": 30, "B": 62, "C": 30})
 
 
 def main():
@@ -403,9 +378,9 @@ def main():
         d["exit_ct"] = d["exit_time"].dt.tz_convert(CT)
         return d
 
-    tr1 = load("smc_trades_1pct.csv")
-    tr2 = load("smc_trades_2pct.csv")
-    pooled_df = pd.read_csv("smc_all_windows.csv")
+    tr1 = load("sniper87_trades_1pct.csv")
+    tr2 = load("sniper87_trades_2pct.csv")
+    pooled_df = pd.read_csv("sniper87_all_windows.csv")
     w = pooled_df[pooled_df.pnl > 0]
     pooled = dict(n=len(pooled_df), wr=100 * len(w) / len(pooled_df),
                   pf=w.pnl.sum() / max(1e-9, -pooled_df[pooled_df.pnl <= 0].pnl.sum()))
@@ -430,8 +405,8 @@ def main():
     wb._sheets = [wb[s] for s in order]
     for ws in wb.worksheets:
         ws.sheet_view.showGridLines = False
-    wb.save("XAUUSD_SMC_Ultimate_Sniper_Backtest.xlsx")
-    print("wrote XAUUSD_SMC_Ultimate_Sniper_Backtest.xlsx")
+    wb.save("XAUUSD_Sniper87_Backtest.xlsx")
+    print("wrote XAUUSD_Sniper87_Backtest.xlsx")
 
 
 if __name__ == "__main__":

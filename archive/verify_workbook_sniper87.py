@@ -19,8 +19,8 @@ def load(path):
     return d
 
 
-tr1, tr2 = load("smc_trades_1pct.csv"), load("smc_trades_2pct.csv")
-wb = load_workbook("XAUUSD_SMC_Ultimate_Sniper_Backtest.xlsx")
+tr1, tr2 = load("sniper87_trades_1pct.csv"), load("sniper87_trades_2pct.csv")
+wb = load_workbook("XAUUSD_Sniper87_Backtest.xlsx")
 fails = []
 
 

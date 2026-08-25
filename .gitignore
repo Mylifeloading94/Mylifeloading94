@@ -46,3 +46,8 @@ smc_insample.csv
 
 # XAUUSD research scratch
 xau/__pycache__/
+
+# Sniper 87 backtest outputs (regenerated)
+sniper87_trades_*.csv
+sniper87_equity_*.csv
+sniper87_all_windows.csv

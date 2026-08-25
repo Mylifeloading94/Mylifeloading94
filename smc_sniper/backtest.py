@@ -241,24 +241,67 @@ class Backtester:
 
         highs, lows = eframe["high"].values, eframe["low"].values
         opens = eframe["open"].values
+        ecloses = eframe["close"].values
 
-        # --- find the fill (trade-through, never a touch) ---------------
-        fill_i = None
+        # --- find the tap (trade-through, never a touch) -----------------
+        tap_i = None
         for j in range(start, min(end + 1, len(eframe))):
             if long and lows[j] < sig.entry:
-                fill_i = j
+                tap_i = j
                 break
             if not long and highs[j] > sig.entry:
-                fill_i = j
+                tap_i = j
                 break
-        if fill_i is None:
+        if tap_i is None:
             return None
+
+        # --- v9: entry-timeframe CONFIRMATION (opt-in, default off) ------
+        # The adopted config fills a resting limit the instant price trades
+        # through the zone. `entry.confirm_mode` instead waits for the entry
+        # timeframe to confirm the reaction before committing:
+        #
+        #   close_back  a bar must CLOSE back beyond the limit price in the
+        #               trade direction -- the zone rejected price rather than
+        #               being cut straight through.
+        #   close_dir   a bar must merely close in the trade direction
+        #               (close > open for a long) -- the weaker version.
+        #
+        # The entry is then the NEXT bar's OPEN with spread and slippage
+        # against us: the first price actually reachable once the confirming
+        # bar has printed. Reading the confirming bar's own close as a fill
+        # would be lookahead, and the stop is left where the structure put it,
+        # so a worse entry genuinely costs R rather than being papered over.
+        #
+        # Defaults to "off", so every published number stays reproducible and
+        # `execute_live.py` is bit-for-bit unaffected.
+        confirm_mode = str(icfg.get("entry.confirm_mode", "off") or "off")
+        fill_i = tap_i
+        fill_ref = sig.entry
+        if confirm_mode != "off":
+            window = int(icfg.get("entry.confirm_bars", 1) or 1)
+            hit = None
+            for j in range(tap_i, min(tap_i + window + 1, end + 1, len(eframe))):
+                if confirm_mode == "close_back":
+                    ok = (ecloses[j] > sig.entry) if long else (ecloses[j] < sig.entry)
+                elif confirm_mode == "close_dir":
+                    ok = (ecloses[j] > opens[j]) if long else (ecloses[j] < opens[j])
+                else:
+                    raise ValueError(f"unknown entry.confirm_mode {confirm_mode!r}")
+                if ok:
+                    hit = j
+                    break
+            if hit is None:
+                return None
+            fill_i = hit + 1
+            if fill_i > end or fill_i >= len(eframe):
+                return None
+            fill_ref = float(opens[fill_i])
 
         # Effective fill: spread + slippage, always against us.
         if long:
-            entry_px = sig.entry + spread_price + slip
+            entry_px = fill_ref + spread_price + slip
         else:
-            entry_px = sig.entry - spread_price - slip
+            entry_px = fill_ref - spread_price - slip
 
         risk_price = abs(entry_px - sig.stop)
         if risk_price <= 0:

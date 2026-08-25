@@ -43,3 +43,6 @@ trades_walkforward.csv
 
 # SMC study outputs (regenerated)
 smc_insample.csv
+
+# XAUUSD research scratch
+xau/__pycache__/

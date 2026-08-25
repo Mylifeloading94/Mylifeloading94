@@ -7,7 +7,377 @@ honestly.
 
 ---
 
-## STATUS — read this first  ·  **v8**
+## STATUS — read this first  ·  **v9**
+
+**The live configuration is UNCHANGED. Nothing was adopted, and that is the
+finding for the third round running.**
+
+v9 was asked: *"Let's improve it, go over the bot, find any solution to make it
+better. Then give a stats update. Let's push for a higher win rate."*
+
+Three genuinely new angles were pre-registered and measured. All three came
+back negative. The adopted 1:2 config ships untouched — **196 trades, 47.45%
+WR, PF 1.478 (1.424 on the compounding $100k run), +0.2660R, full-window
+cluster CI [+0.0245, +0.5151]**, verified bit-for-bit at the start of the
+session and again at the end.
+
+### The one-line summary of all three
+
+**The win rate goes up. It goes up every single time. And every single time it
+costs money.** v7 found that on target width, v8 found it on break-even
+arming, and v9 has now found it on entry confirmation — three mechanically
+independent levers, one answer.
+
+---
+
+### 1. The 15-minute entry refinement — the win rate rises, the money falls
+
+The most promising of the three, and the one that needed the most machinery.
+The live config qualifies a setup on the 1H chart and fills a resting limit the
+instant price trades through the zone. The question was whether waiting for a
+**15m confirmation candle inside the already-qualified 1H zone** does better.
+
+**This is NOT v3/v4's failed 15m SETUP stack** and was not treated as though it
+were. Setup qualification (sweep → MSS → OB/FVG → zone) stays entirely on 1H;
+only the entry moves. Two things had to be built first.
+
+**Data.** The 15m cache started 2024-09-13 — inside TRAIN, leaving only 18 of
+95 TRAIN trades. `fetch_deep.py --interval 15m --days 1300` pulled the broker's
+real depth: **15m bars are served back to 2023-02-02**, comfortably before the
+1H window opens on 2023-05-29. All 29 instruments now carry the full window, so
+the established TRAIN/TEST boundary was used unchanged rather than a new one
+invented to fit the data.
+
+**A new fill mechanic**, `entry.confirm_mode`, default OFF:
+
+* `close_back` — price taps the zone, and the entry is taken only once an entry
+  bar **closes back beyond the limit price** in the trade direction.
+* `close_dir` — the weaker version: any close in the trade direction.
+
+Either way the fill is the **NEXT bar's OPEN with spread and slippage against
+us** — the first price actually reachable once the confirming bar has printed.
+Reading the confirming bar's own close as a fill would be lookahead. The
+structural stop is left where it is, so a worse entry genuinely costs R.
+
+#### Two confounds had to be removed before any of it meant anything
+
+Moving `entry_tf` from 1H to 15m does three things, and only one of them is the
+question:
+
+1. **The fill is simulated on 15m bars** — the refinement itself.
+2. **`_ltf_confirmation` stops being degenerate.** With `entry_tf == setup_tf`
+   it collapses to "the setup bar confirmed itself", and displacement is
+   already a hard gate — so **+5 of the live card's 95 points is a free
+   constant on every setup**. On a real 15m frame it becomes a genuine test.
+   Setups clearing the gate of 80 on that free 5 stop clearing it, and the
+   ledger drops from **196 trades to 100**. That is a setup-population change
+   wearing an entry-refinement costume.
+3. **`targets.max_hold_bars: 96` counts ENTRY bars.** On 1H that is a 96-HOUR
+   time budget; on 15m the identical number is **24 hours**. v5's Round H
+   measured that time stop as doing real work, so quartering it silently is not
+   neutral — **on its own it costs −0.13R** (+0.2663 → +0.1355). This was
+   caught mid-round and every published row below holds the wall clock at 96
+   hours (384 15m bars).
+
+#### The entry-matched control — the honest test
+
+Card neutralised (`ltf_confirmation` weight 0, gate 75 — same bar, minus the
+constant), hold budget 96 hours. The population then matches the 1H baseline
+exactly and **the only thing that moves is when and at what price the entry is
+taken.**
+
+| Variant | n | **WR** | PF | E (R) | **TRAIN E** | TEST E | Cluster CI | Clears? |
+|---|---|---|---|---|---|---|---|---|
+| **1H baseline (LIVE)** | 196 | 47.45% | 1.478 | **+0.2660** | **+0.2931** | +0.1688 | **[+0.0245, +0.5151]** | **YES** |
+| **control: 15m fills, 96h hold** | **196** | 46.94% | 1.474 | **+0.2663** | +0.2645 | +0.2804 | **[+0.0246, +0.5178]** | **YES** |
+| +`close_back` 1 bar | 147 | 48.98% | 1.299 | +0.1643 | +0.2030 | +0.0688 | [−0.0809, +0.4160] | no |
+| +`close_back` 2 bars | 164 | **49.39%** | 1.294 | +0.1594 | +0.1335 | +0.1494 | [−0.0685, +0.3887] | no |
+| +`close_back` 4 bars | 173 | 48.55% | 1.247 | +0.1357 | +0.1119 | +0.1012 | [−0.0887, +0.3588] | no |
+| +`close_back` 8 bars | 181 | 48.62% | 1.258 | +0.1412 | +0.0940 | +0.1290 | [−0.0799, +0.3584] | no |
+| +`close_dir` 1 bar | 132 | 49.24% | 1.291 | +0.1529 | +0.0622 | +0.1988 | [−0.1155, +0.4236] | no |
+| +`close_dir` 2 bars | 173 | **50.29%** | 1.431 | +0.2297 | +0.1416 | +0.2709 | [−0.0069, +0.4739] | no |
+| *(unmatched: 24h hold)* | 197 | 46.19% | 1.244 | +0.1355 | +0.1767 | +0.0560 | [−0.0897, +0.3651] | no |
+
+**Read the control row first, because it is the valuable positive result in
+this whole session.** With the two confounds removed, simulating the fill on
+15m bars instead of 1H bars returns **+0.2663R against the 1H model's
++0.2660R**, on the same 196 trades, with a cluster interval that lands on top
+of the baseline's ([+0.0246, +0.5178] vs [+0.0245, +0.5151]). **The 1H fill
+model is not flattering this system.** That question has been open since v2 and
+it is now closed, on the broker's own 15m bars.
+
+**Then read the confirmation rows.** Six variants, two independent definitions
+of "confirmed", four window widths. **Every one raises the win rate (+1.6 to
++3.4 points). Every one lowers expectancy. Every one lowers TRAIN expectancy.
+Every one breaks the cluster interval.** There is not one exception, and the
+effect is monotone in strictness — the tighter the confirmation, the more the
+money falls away. A filter that removed bad trades would not look like this.
+
+#### The version that looks like it works, and why it does not
+
+Run WITHOUT the entry-matched control — i.e. letting the `ltf_confirmation`
+population change through as well, which is what an owner switching
+`entry_tf` to 15m would actually get:
+
+| Variant | n | /day | **WR** | PF | E (R) | **TRAIN E** | TEST E (n) | Cluster CI | Clears? |
+|---|---|---|---|---|---|---|---|---|---|
+| **1H baseline (LIVE)** | **196** | 0.167 | 47.45% | 1.478 | +0.2660 | **+0.2931** | +0.1688 (61) | [+0.0245, +0.5151] | YES |
+| swing15, live card | 100 | 0.085 | 47.00% | 1.479 | +0.2744 | +0.2228 | +0.6182 (27) | [−0.0449, +0.5956] | no |
+| **+hard 15m LTF gate** | **88** | 0.075 | **50.00%** | **1.675** | **+0.3569** | **+0.2129** | **+1.0250 (19)** | **[+0.0164, +0.6943]** | **YES** |
+| +`close_back` 1 bar | 70 | 0.060 | 52.86% | 1.534 | +0.2744 | +0.3001 | +0.4873 (19) | [−0.0710, +0.6211] | no |
+| +`close_back` 2 bars | 79 | 0.067 | 51.90% | 1.454 | +0.2383 | +0.1996 | +0.4868 (23) | [−0.0675, +0.5643] | no |
+| +`close_back` 4 bars | 84 | 0.071 | 51.19% | 1.394 | +0.2107 | +0.1624 | +0.4868 (23) | [−0.0967, +0.5214] | no |
+| +`close_back` 2 + hard LTF | 70 | 0.060 | **54.29%** | 1.603 | +0.2923 | +0.1915 | +0.7353 (17) | [−0.0381, +0.6237] | no |
+
+**`+hard 15m LTF gate` is the trap of this round.** 50.00% win rate, PF 1.675,
++0.3569R, and a **full-window cluster interval that clears zero**. It is
+rejected, on four grounds stated before the walk-forward was run:
+
+1. **It fails the repo's own adoption rule at the first step.** TRAIN
+   expectancy is **+0.2129 against the live config's +0.2931** — it makes the
+   half it would be selected on *worse*. Selection is made on TRAIN here and
+   has been since v5.
+2. **Its headline is 19 TEST trades.** +1.0250R on nineteen observations is not
+   a measurement, it is the same n-too-small failure that rejected gate-85 in
+   v5, gate-82 in v6 and the one-pair universe in v8.
+3. **Adopting it because its FULL-WINDOW interval clears is the one selection
+   this repo forbids.** v6 wrote that warning against flat 2R in exactly these
+   words and it still stands.
+4. **It deletes 55% of the book** — 88 trades in 1,200 days, 0.075 a day, one
+   trade every thirteen days across 29 instruments.
+
+#### It was walked forward anyway, and the walk-forward is what kills it
+
+It is the closest thing to a survivor this repo has produced, so it was not
+dismissed on the four grounds above. It was given the full walk-forward, and
+then the one control that separates "a real filter" from "a lucky deletion":
+**the same stack with the hard gate removed.**
+
+| Walk-forward, 5 rolling folds | OOS n | clusters | WR | PF | E (R) | **Cluster CI** | |
+|---|---|---|---|---|---|---|---|
+| **LIVE 1H config** | **168** | 122 | 46.43% | 1.404 | **+0.2304** | **[−0.0305, +0.5005]** | spans |
+| `swing15`, live card, **no** gate | **78** | 63 | 47.44% | 1.486 | **+0.2790** | **[−0.0691, +0.6419]** | **spans** |
+| `swing15` **+ hard 15m LTF gate** | **68** | 57 | **51.47%** | **1.761** | **+0.3913** | **[+0.0215, +0.7588]** | **CLEARS** |
+
+Per fold, the candidate: **15, 9, 20, 17, 7** out-of-sample trades, at
++0.3566 / −0.0869 / +0.1106 / **+0.6068** / **+1.3588**R. The live config's
+folds, for scale: **30, 34, 37, 39, 28** trades, at +0.2336 / +0.2268 /
++0.3883 / +0.2094 / +0.0518R — four times the sample per fold and a quarter of
+the dispersion.
+
+**The two swing15 rows differ by ten out-of-sample trades, and that is the
+whole clearance.** Removing 10 of 78 walk-forward trades takes the cluster
+interval from [−0.0691, +0.6419] to [+0.0215, +0.7588]. An interval whose
+clearance rests on deleting 13% of a 78-trade sample — and whose folds are 7
+to 22 trades apiece, one of them carrying +1.36R on seven trades — is not an
+established edge. It is what a thin sample looks like when a filter happens to
+land on the right side of it.
+
+**And the pre-registered hypothesis is separately dead.** The question asked
+was whether a 15m confirmation candle improves entry TIMING. The entry-matched
+control answers that directly and the answer is no, in all six variants. What
+this row actually does is delete 55% of the setups on a criterion that has
+nothing to do with timing — the 15m frame's displacement at the setup bar's
+close — while making TRAIN worse. That is a different, unregistered hypothesis
+that arrived at the end of a search, and this repo has a name for adopting
+those.
+
+**Not adopted. Flagged as the strongest open lead in the project** and the one
+thing worth a dedicated round: a hard 15m displacement requirement at signal
+time, pre-registered, on more data, judged on TRAIN first.
+
+
+**Angle 1 verdict: the 15m entry refinement raises the win rate by 2–7 points
+and costs 15–50% of the expectancy every way it is cut.** The one genuinely
+useful thing it produced is the negative control: the 1H fill model is honest.
+
+---
+
+### 2. Triple-timeframe alignment — already enforced, by arithmetic
+
+The brief asked to check what is enforced before assuming anything was new.
+That check is the answer.
+
+| Layer | Status in the LIVE config |
+|---|---|
+| **1D bias** | **HARD gate.** `direction = ctx.htf_bias(i)` — the trade direction *is* the 1D bias, and a neutral 1D bias skips the bar. |
+| **1H structure** | **HARD gate.** A MSS/CHoCH/BOS in the trade direction between the sweep bar and the setup bar is required (`no_structure_event_after_sweep`). |
+| **4H structure** | **SOFT.** Worth +15 as `htf_aligned`; no gate. |
+
+So only the 4H layer was ever open — and the score gate has been closing it all
+along. **195 of the 196 traded setups already have 4H alignment (99.5%)**,
+because at a gate of 80 out of a 95-point maximum a setup that gives up those
+15 points cannot clear.
+
+| Change | n | WR | PF | E | TRAIN E | TEST E | Cluster CI |
+|---|---|---|---|---|---|---|---|
+| **LIVE (baseline)** | 196 | 47.45% | 1.478 | +0.2660 | +0.2931 | **+0.1688** | [+0.0245, +0.5151] |
+| **+`require_structure_alignment`** | 196 | 47.96% | 1.509 | +0.2802 | +0.3072 | **+0.1688** | [+0.0380, +0.5251] |
+| +`require_ltf_confirmation` | 196 | 47.45% | 1.478 | +0.2660 | +0.2931 | +0.1688 | [+0.0245, +0.5151] |
+| +`require_major_sweep` | 196 | 47.45% | 1.478 | +0.2660 | +0.2931 | +0.1688 | [+0.0245, +0.5151] |
+| +`require_ob_and_fvg` | 196 | 47.45% | 1.478 | +0.2660 | +0.2931 | +0.1688 | [+0.0245, +0.5151] |
+| +4H align +OB&FVG | 196 | 47.96% | 1.509 | +0.2802 | +0.3072 | +0.1688 | [+0.0380, +0.5251] |
+
+Promoting 4H alignment to a hard gate **deletes exactly one trade** — a
+−1.0372R loser in TRAIN — and the concurrency caps hand the slot to another, so
+the count stays at 196. **TEST is bit-for-bit unchanged at +0.1688.** The other
+three hard gates are exact no-ops, replicating v5's Round Q finding on the 1:2
+population.
+
+**Not adopted.** One trade is not evidence, TEST provides none, and unlike v6's
+break-even-at-+3R there is not even a risk argument beside it: max drawdown
+(3.57%) and longest losing streak (7) are identical either way. It is recorded
+as a spec-hygiene option the owner may take on consistency grounds, and
+explicitly not as an improvement.
+
+---
+
+### 3. Scoring-weight re-derivation — there is nothing to re-weight
+
+The riskiest angle, treated with the most suspicion, and it failed for a reason
+nobody had looked for: **most of the card does not vary.**
+
+Component presence across the 196 traded setups:
+
+| Component | Weight | Present | Varies? |
+|---|---|---|---|
+| `major_sweep` | 15 | 196/196 | **NO — constant** |
+| `valid_ob` | 10 | 196/196 | **NO — constant** |
+| `valid_fvg` | 10 | 196/196 | **NO — constant** |
+| `displacement` | 5 | 196/196 | **NO — constant** |
+| `ltf_confirmation` | 5 | 196/196 | **NO — constant** (degenerate at `entry_tf == setup_tf`) |
+| `favorable_spread` | 5 | 196/196 | **NO — constant** |
+| `htf_aligned` | 15 | 195/196 | one trade |
+| `premium_discount` | 5 | 162/196 | yes |
+| `mss_choch` | 10 | 141/196 | yes |
+| `bos` | 10 | 61/196 | yes |
+| `pd_pw_liquidity` | 5 | 47/196 | yes |
+
+**Six of eleven components — 50 of the 95 points — are constant on the traded
+population.** They are hard gates or gate-implied consequences, so their
+weights are *unfalsifiable on this data*: a column that never varies cannot
+correlate with anything. The score card at a gate of 80 is not a 95-point
+ranking at all; it is "50 constant points, plus 4H alignment, plus at least 15
+from four optional components".
+
+Marginal contribution of the four that do vary, **selected on TRAIN, judged on
+TEST**:
+
+| Component | TRAIN n present | **TRAIN Δ E** | **TEST Δ E** | Agrees? |
+|---|---|---|---|---|
+| `pd_pw_liquidity` | 22 | **+0.3123** | −0.0313 | **flips** |
+| `mss_choch` | 65 | **+0.2871** | **−0.5235** | **flips hard** |
+| `bos` | 33 | −0.1902 | **+0.5252** | **flips hard** |
+| `premium_discount` | 76 | **−0.6137** | **+0.2204** | **flips hard** |
+
+**Every single component that varies flips sign between TRAIN and TEST.** Not
+one agrees across the split. There is no ranking here to re-weight towards —
+the TRAIN ordering is noise, and a card built on it would be fitted to noise by
+construction. That is the answer before any re-weighted card is run.
+
+Run anyway, for the record:
+
+| Card | n | WR | PF | E | TRAIN E | TEST E | Cluster CI | Clears? |
+|---|---|---|---|---|---|---|---|---|
+| **LIVE weights** | 196 | 47.45% | 1.478 | **+0.2660** | +0.2931 | +0.1688 | [+0.0245, +0.5151] | YES |
+| +5 `htf_aligned` / −5 `premium_discount` | 387 | 36.69% | 0.948 | **−0.0295** | −0.0121 | −0.0582 | [−0.1853, +0.1379] | no |
+| +10 / −10, same pair | 400 | 36.00% | 0.922 | **−0.0478** | −0.0187 | −0.0831 | [−0.2016, +0.1106] | no |
+| gate 75 | 389 | 36.76% | 0.952 | −0.0270 | +0.0036 | −0.0506 | [−0.1895, +0.1372] | no |
+| **gate 78** | **196** | 47.45% | 1.478 | +0.2660 | +0.2931 | +0.1688 | [+0.0245, +0.5151] | **exact no-op** |
+| gate 82 / 85 | **26** | 46.15% | 1.445 | +0.2690 | +1.0258 (n=7) | +0.2438 (n=13) | [−0.3858, +0.9537] | no |
+
+**Moving five points between two components takes the ledger from 196 trades to
+387 and expectancy from +0.2660R to −0.0295R, negative on TRAIN and TEST
+independently.** The card is a **cliff, not a slope**: gate 78 is an exact
+no-op, gate 80 gives 196 trades, gate 82 gives 26. Any re-weighting either does
+nothing or falls off the cliff, and there is no direction to fall in because
+every varying component's TRAIN sign is a coin.
+
+**Angle 3 verdict: the scoring weights cannot be re-derived on this data, and
+the reason is structural rather than a shortage of trades.** The gate at 80
+converts most of the card into a set of hard requirements; what is left carries
+no out-of-sample signal.
+
+---
+
+### The stats update — the live config, unchanged
+
+$100,000 at 1% risk, compounding trade by trade, `report_format.py` house
+standard. **These numbers are v7/v8's and they have not moved, because nothing
+was changed.**
+
+| | **Full window (1,200 days)** | **Most recent 90 days** |
+|---|---|---|
+| Trades | **196** | **7** |
+| Trades/day | 0.167 | 0.078 |
+| Win rate | **47.45%** (break-even line 33.33%, cleared by **14.12**) | 28.57% |
+| Profit factor | 1.424 | 0.094 |
+| Expectancy | **+0.2660R** ($266/trade) | — |
+| Ending balance | **$161,928.66** | $95,313.02 |
+| **Profit / ROI** | **+$61,928.66 / +61.93%** | −$4,686.98 / −4.69% |
+| CAGR | 15.80% | — |
+| Max drawdown | **7.57%** | 5.18% |
+| Longest losing streak | **7** | 5 |
+| Full-window cluster CI | **[+0.0245, +0.5151] clears** | n=7 — refused |
+| Walk-forward cluster CI | **[−0.0305, +0.5005] spans zero** | — |
+
+**The 90-day window is seven trades and it is still not evidence.**
+
+### The honest verdict
+
+**Three new angles, properly built, properly split, properly priced, and none
+of them is there.**
+
+* The 15m entry refinement **works exactly as advertised on the win rate** —
+  47.45% up to 54.29% at the extreme — and costs 15–50% of the expectancy in
+  every one of the ten variants measured. The one thing it proved is that the
+  1H fill model is honest, which is worth having.
+* The 4H alignment requirement is **already enforced by the score gate on 195
+  of 196 trades**. Making it explicit moves one trade.
+* The score card **cannot be re-weighted** because six of its eleven components
+  never vary at the gate the system runs at, and all four that do vary flip
+  sign out of sample.
+
+**No `profiles.v9` was created, because nothing survived validation and this
+document does not manufacture a candidate to have one.** The live configuration
+— `profiles.v6` + flat 1:2 + the 20-pip gate, as `scan_live.ADOPTED` builds it
+— is byte-identical to what it was before this session, verified by running its
+backtest at the start and again at the end:
+**196 / 47.45% / PF 1.478 / +0.2660R / cluster CI [+0.0245, +0.5151].**
+
+**No order was placed by anything in this session.** `execute_live.py`,
+`scan_live.py` and `analyze_gold_mtf.py` are untouched. The only shared-engine
+change is `entry.confirm_mode`, which defaults to `"off"` and is inert.
+
+**The walk-forward cluster interval still spans zero ([−0.0305, +0.5005]). The
+edge is encouraging and it is NOT established** — the fourth version in a row
+to have to end on that sentence.
+
+### How to run v9
+
+```bash
+# The live config must reproduce EXACTLY, before and after anything else
+python3 tune_v9.py --round ledger
+
+# Angle 2 -- what is already enforced, and what promoting 4H alignment costs
+python3 tune_v9.py --round align
+
+# Angle 3 -- component -> outcome on TRAIN, then re-weighted cards
+python3 tune_v9.py --round score
+
+# Angle 1 -- the deep 15m history first (read-only, additive to the cache)
+python3 fetch_deep.py --interval 15m --days 1300
+python3 tune_v9.py --round entry15    # as an owner switching entry_tf would get it
+python3 tune_v9.py --round entry15b   # ENTRY-MATCHED: the confirmation on its own
+
+# Walk-forward any candidate
+python3 tune_v9.py --round final --stack swing15 --tag _causal15 \
+  --extra '{"targets.max_hold_bars": 384, "filters.require_ltf_confirmation": true}'
+```
+
+---
+
+## STATUS — v8 (superseded by v9, kept for continuity)
 
 **Do not trade any of this live.**
 

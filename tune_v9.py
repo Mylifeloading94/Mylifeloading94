@@ -470,7 +470,9 @@ def round_entry15b():
 # ---------------------------------------------------------------------------
 def round_final(extra=None, stack="swing", tag="_causal", name="candidate"):
     cfg, engine, contexts = env(stack, tag)
-    sp = bounds(contexts) if stack == "swing" else bounds(env()[2])
+    # `data_window` reads the SETUP frame, which is 1H on both `swing` and
+    # `swing15`, so the split boundaries are identical either way.
+    sp = bounds(contexts)
     over = dict(LIVE)
     if stack != "swing":
         over["active_stack"] = stack
@@ -482,13 +484,13 @@ def round_final(extra=None, stack="swing", tag="_causal", name="candidate"):
     show([row], cols=PCOLS + ["clusters", "ccl_lo", "ccl_hi", "clears"])
 
     variant = apply(cfg, over)
-
-    def make_bt(c):
-        return Backtester(c, engine)
-
-    wf = walkforward.walk_forward(make_bt, contexts, folds=5, train_frac=0.5,
-                                  cfg=variant)
-    oos = wf.get("oos_trades")
+    bt = Backtester(variant, engine)
+    bt.bind(contexts)
+    wf = walkforward.walk_forward(bt, contexts, folds=5, train_frac=0.5,
+                                  anchored=False)
+    oos = wf["oos_trades"]
+    print("\n" + wf["folds"][["fold", "oos_trades", "oos_wr", "oos_pf",
+                              "oos_exp_r"]].to_string(index=False))
     if oos is not None and len(oos):
         m = compute_metrics(oos, 10000.0)
         lo, hi, nc = cluster_bootstrap(oos, 5000)

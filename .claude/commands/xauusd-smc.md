@@ -83,6 +83,6 @@ thresholds to raise signal count.
 
 ## Before changing anything
 
-Run `python3 xau_bot.py selftest` (235 offline checks). It asserts the invariants above: no
+Run `python3 xau_bot.py selftest` (237 offline checks). It asserts the invariants above: no
 fabricated prices, no probability without a sample, honest fills, coherent trade
 geometry, causal `Series.before`, weights summing to 100.

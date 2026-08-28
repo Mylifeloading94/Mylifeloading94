@@ -11,7 +11,7 @@ python3 xau_bot.py scan        # one full scan, printed to the terminal
 python3 xau_bot.py run         # the 60-second live scanner loop
 python3 xau_bot.py serve       # web dashboard: TradingView chart + SMC chart
 python3 xau_bot.py backtest    # rebuild the validated win-rate statistics
-python3 xau_bot.py selftest    # 235 internal consistency checks, offline
+python3 xau_bot.py selftest    # 237 internal consistency checks, offline
 ```
 
 No third-party packages. Python 3.10+ and the standard library only.

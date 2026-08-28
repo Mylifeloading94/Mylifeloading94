@@ -11,7 +11,7 @@ python3 xau_bot.py scan        # one full scan, printed to the terminal
 python3 xau_bot.py run         # the 60-second live scanner loop
 python3 xau_bot.py serve       # web dashboard: TradingView chart + SMC chart
 python3 xau_bot.py backtest    # rebuild the validated win-rate statistics
-python3 xau_bot.py selftest    # 239 internal consistency checks, offline
+python3 xau_bot.py selftest    # 264 internal consistency checks, offline
 ```
 
 No third-party packages. Python 3.10+ and the standard library only.
@@ -370,6 +370,55 @@ down by mode, setup type, direction, session, grade and timeframe.
 
 Until signals have resolved, this panel stays **empty**. It does not fall back
 to the backtest's numbers.
+
+---
+
+## 10b. Automatic execution (TradeLocker)
+
+```bash
+export TL_EMAIL=you@example.com
+export TL_PASSWORD='...'          # never put this in a file in this repo
+export TL_SERVER=PULSE
+export TL_ENV=demo                # demo | live  — demo is the default
+
+python3 xau_bot.py trade                                   # DRY RUN, prints orders
+python3 xau_bot.py trade --execute --risk 0.5 --min-grade A # actually trades
+```
+
+`xausmc/broker.py` is the only module that can move money, and `xausmc/executor.py`
+is the loop that drives it. It is the one place the package needs a third-party
+package (`requests`) — TradeLocker sits behind Cloudflare, which rejects urllib's
+TLS fingerprint outright. The analysis engine stays stdlib-only.
+
+**Safety properties, structural rather than advisory** (all covered by `selftest`):
+
+- **Stop loss and take profit are sent with the order, in the same request.** If
+  the process dies, the container is reclaimed, or the network drops, the broker
+  still holds the protective orders. `broker.place()` has no code path that opens
+  an unprotected position — it raises instead.
+- **Position size is floored, never rounded.** A size that rounds to less than
+  0.01 lots is refused, not rounded up. On a small account with a wide stop that
+  means the trade is skipped rather than silently over-risked.
+- **An unknown calibration is a refusal, not a zero.** When the analysis runs on
+  a proxy feed, every level is shifted by the measured broker-vs-feed offset
+  before it is sent. If that offset cannot be established — no broker quote, no
+  feed price — the executor blocks. Treating an unknown offset as zero would send
+  proxy-derived levels roughly nine dollars wrong on gold, which puts the stop on
+  the wrong side of the zone it was placed behind.
+- **Setting `TL_*` credentials removes the problem entirely**, because the engine
+  then reads the broker's own XAUUSD feed and there is nothing to calibrate.
+- Gates re-checked every cycle against live equity: max open, max trades per day,
+  consecutive losses, and a daily loss limit measured from start-of-day equity.
+- `--execute` is required to send anything. Without it, every order is printed
+  and nothing is sent.
+
+**Position sizing on a small account.** One 0.01 lot on XAUUSD risks $0.10 per
+pip. At 2% risk on a $272 account ($5.45), the widest tradeable stop is about
+54 pips — scalp stops run 25–150, so a large share of signals will be skipped by
+the size floor. That is the floor working correctly, not a fault.
+
+**This container cannot host it.** Cloud sessions are ephemeral and get
+reclaimed. Run the loop somewhere persistent — your own machine or a VPS.
 
 ---
 

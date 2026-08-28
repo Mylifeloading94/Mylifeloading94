@@ -418,8 +418,105 @@ def t_config():
           cfg.risk.max_setups_per_day >= cfg.risk.target_setups_per_day)
 
 
+def t_execution():
+    """The invariants that protect real money. Nothing here touches a network."""
+    import os
+
+    from .broker import BrokerError, TradeLockerBroker
+    from .engine import ScanResult
+    from .executor import XAU_USD_PER_PIP_PER_LOT, ExecConfig, Executor
+    from .feed import FeedStatus
+
+    cfg = ExecConfig(risk_pct=0.02)
+    check("exec/dry run is the default", cfg.dry_run is True,
+          "sending real orders must take a deliberate flag")
+    check("exec/demo is the default environment",
+          TradeLockerBroker(env=None).env == "demo" if not os.environ.get("TL_ENV") else True)
+    check("exec/unknown environment is rejected",
+          _raises(lambda: TradeLockerBroker(env="production"), BrokerError))
+
+    ex = Executor.__new__(Executor)
+    ex.cfg = cfg
+
+    # Sizing must never round UP into extra risk.
+    for equity, sl_pips in ((10_000, 60), (10_000, 25), (272.54, 30), (272.54, 45), (5_000, 137)):
+        lots, budget = ex.size(sl_pips, equity)
+        risk = lots * sl_pips * XAU_USD_PER_PIP_PER_LOT
+        check("exec/size never exceeds the risk budget", risk <= budget + 1e-9,
+              f"{lots} lots x {sl_pips} pips = ${risk:.2f} vs ${budget:.2f} budget")
+        check("exec/size is a valid lot step", abs(round(lots * 100) - lots * 100) < 1e-6)
+
+    # A stop too wide for the minimum lot must yield a sub-minimum size, which
+    # submit() then refuses — rather than silently trading at 0.01 and over-risking.
+    lots, budget = ex.size(200.0, 272.54)
+    check("exec/too-wide stop yields a sub-minimum size", lots < 0.01,
+          f"got {lots} lots for a 200-pip stop on a small account")
+    tiny = Setup(direction="SELL", entry=4580.0, sl=4600.0, tp1=4560.0, tp2=4540.0,
+                 sl_pips=200.0, mode="SCALP", grade="A", id="x")
+    ex.dry = None
+    plan = ex.submit(tiny, 272.54, 0.0)
+    check("exec/sub-minimum size is refused, not rounded up", "error" in plan, str(plan)[:120])
+
+    # Calibration: an unknown offset is a refusal, never a zero.
+    live_true = ScanResult(feed=FeedStatus(state="LIVE", is_true_xauusd=True), price=4584.0)
+    check("exec/true broker feed needs no calibration", ex.basis(live_true)[0] == 0.0)
+
+    class NoQuote:
+        def quote(self, _):
+            return (None, None)
+
+    ex.broker = NoQuote()
+    proxy = ScanResult(feed=FeedStatus(state="LIVE", is_true_xauusd=False), price=4576.0)
+    b, note = ex.basis(proxy)
+    check("exec/unknown offset refuses rather than assuming zero", b is None,
+          "a zero basis would send proxy prices ~9 USD wrong")
+    check("exec/refusal explains itself", bool(note))
+
+    class Quote:
+        def quote(self, _):
+            return (4584.5, 4585.1)
+
+    ex.broker = Quote()
+    b2, _ = ex.basis(proxy)
+    check("exec/offset is measured against the broker mid", abs(b2 - 8.8) < 0.01, str(b2))
+
+    # The broker client must have no path that opens an unprotected position.
+    br = TradeLockerBroker(env="demo")
+    br.account = type("A", (), {"id": "1", "acc_num": "1"})()
+    check("exec/no order without a stop loss",
+          _raises(lambda: br.place("XAUUSD", "sell", 0.1, 0, 4500), BrokerError))
+    check("exec/no order without a take profit",
+          _raises(lambda: br.place("XAUUSD", "sell", 0.1, 4600, 0), BrokerError))
+    check("exec/no order with a non-positive size",
+          _raises(lambda: br.place("XAUUSD", "sell", 0, 4600, 4500), BrokerError))
+    check("exec/no order with an invalid side",
+          _raises(lambda: br.place("XAUUSD", "hold", 0.1, 4600, 4500), BrokerError))
+
+    # Gates
+    ex.state = type("S", (), {"halted": False, "halt_reason": "", "trades_today": 0,
+                              "consecutive_losses": 3, "day_start_equity": 1000.0,
+                              "realised_today": 0.0})()
+    blocks = ex.gates([])
+    check("exec/consecutive losses stand the bot down",
+          any("consecutive" in b for b in blocks), str(blocks))
+    ex.state.consecutive_losses = 0
+    ex.state.realised_today = -100.0
+    check("exec/daily loss limit halts new trades",
+          any("daily loss" in b for b in ex.gates([])), str(ex.gates([])))
+
+
+def _raises(fn, exc_type) -> bool:
+    try:
+        fn()
+    except exc_type:
+        return True
+    except Exception:
+        return False
+    return False
+
+
 TESTS = [t_candles, t_smc, t_grading, t_setup_geometry, t_journal, t_probability_honesty,
-         t_feed_honesty, t_invalidation, t_backtest_fills, t_config]
+         t_feed_honesty, t_invalidation, t_backtest_fills, t_execution, t_config]
 
 
 def run_selftest() -> int:

@@ -153,6 +153,94 @@ def cmd_config(args) -> int:
     return 0
 
 
+def cmd_trade(args) -> int:
+    """Automatic execution loop against TradeLocker."""
+    import os
+
+    from xausmc.broker import BrokerError, TradeLockerBroker
+    from xausmc.executor import ExecConfig, Executor
+
+    cfg = _cfg(args)
+    cfg.modes = tuple(m.strip().upper() for m in args.modes.split(","))
+    ex = ExecConfig(modes=cfg.modes, min_grade=args.min_grade,
+                    risk_pct=args.risk / 100.0, max_open=args.max_open,
+                    max_trades_per_day=args.max_trades, poll_sec=args.interval,
+                    daily_loss_pct=args.daily_loss / 100.0,
+                    max_consecutive_losses=args.max_consecutive_losses,
+                    dry_run=not args.execute)
+
+    env = os.environ.get("TL_ENV", "demo").lower()
+    print(render.rule("═", f"AUTOMATIC EXECUTION — {env.upper()}"))
+    mode_line = ("DRY RUN — orders are printed, nothing is sent"
+                 if ex.dry_run else "EXECUTING — orders will be sent to the broker")
+    print(f"  {render.BOLD}{mode_line}{render.RESET}")
+    if not ex.dry_run and env == "live":
+        print(f"  {render.RED}{render.BOLD}THIS IS A LIVE ACCOUNT. REAL MONEY.{render.RESET}")
+    print(f"  filter    {'/'.join(ex.modes)} setups, grade {ex.min_grade} and above")
+    print(f"  risk      {args.risk:.2f}% per trade · max {ex.max_open} open · "
+          f"max {ex.max_trades_per_day}/day")
+    print(f"  stand-down  daily loss {args.daily_loss:.1f}% · "
+          f"{ex.max_consecutive_losses} consecutive losses")
+    print(f"  scan      every {ex.poll_sec}s")
+
+    try:
+        broker = TradeLockerBroker(env=env)
+        acct = broker.connect()
+    except BrokerError as exc:
+        print(f"\n  {render.RED}broker connection failed:{render.RESET} {exc}")
+        print(f"  {render.DIM}Set TL_EMAIL, TL_PASSWORD, TL_SERVER (and TL_ENV=demo|live) "
+              f"in the environment.{render.RESET}")
+        return 1
+
+    print(f"  account   {acct.id} ({acct.env}) · balance {acct.balance:,.2f} "
+          f"{acct.currency} · equity {acct.equity:,.2f}")
+    try:
+        ins = broker.instrument("XAUUSD")
+        bid, ask = broker.quote("XAUUSD")
+        print(f"  instrument {ins['name']} id={ins['id']} · bid {bid} / ask {ask}")
+    except BrokerError as exc:
+        print(f"\n  {render.RED}instrument check failed:{render.RESET} {exc}")
+        return 1
+    print(render.rule("─"))
+
+    engine = Engine(cfg)
+    ex_engine = Executor(engine, broker, ex)
+    try:
+        while True:
+            t0 = time.time()
+            try:
+                out = ex_engine.cycle()
+            except BrokerError as exc:
+                print(f"  {render.RED}broker error:{render.RESET} {exc}")
+                out = {}
+            res = out.get("scan")
+            stamp = time.strftime("%H:%M:%S", time.gmtime())
+            if res is not None:
+                print(f"  {render.DIM}{stamp}{render.RESET} {res.headline} · "
+                      f"equity {out.get('equity', 0):,.2f} · open "
+                      f"{out.get('open_positions', 0)} · basis {out.get('basis', 0):+.2f}")
+            for n in out.get("notes", []):
+                print(f"      {render.DIM}{n}{render.RESET}")
+            for b in out.get("blocked", []):
+                print(f"      {render.YELLOW}blocked:{render.RESET} {b}")
+            for p in out.get("placed", []):
+                tag = "[dry run] would send" if p.get("dry_run") else "SENT"
+                if p.get("error"):
+                    print(f"      {render.RED}skipped:{render.RESET} {p['error']}")
+                    continue
+                print(f"      {render.GREEN}{tag}{render.RESET} {p['side'].upper()} "
+                      f"{p['qty']} lots {p['symbol']} {p['order_type']} @ {p['entry']:,.2f} "
+                      f"SL {p['stop_loss']:,.2f} TP {p['take_profit']:,.2f} "
+                      f"({p['sl_pips']} pips, ${p['risk_usd']} risk, grade {p['grade']})")
+            if args.once:
+                break
+            time.sleep(max(5.0, ex.poll_sec - (time.time() - t0)))
+    except KeyboardInterrupt:
+        print("\n  stopped. Open positions keep their broker-side stop loss and take "
+              "profit — this loop is not what protects them.")
+    return 0
+
+
 def cmd_selftest(args) -> int:
     from xausmc.selftest import run_selftest
     return run_selftest()
@@ -221,6 +309,23 @@ def main(argv=None) -> int:
     s = sub.add_parser("config", help="write a config file you can edit")
     s.add_argument("--out", default="xausmc.config.json")
     s.set_defaults(fn=cmd_config)
+
+    s = sub.add_parser("trade", help="automatic execution loop against TradeLocker")
+    s.add_argument("--execute", action="store_true",
+                   help="actually send orders. Without this it is a dry run.")
+    s.add_argument("--risk", type=float, default=0.5, dest="risk",
+                   help="risk per trade in percent of equity (default 0.5)")
+    s.add_argument("--modes", default="SCALP", help="comma separated (default SCALP)")
+    s.add_argument("--min-grade", default="A", choices=["A+", "A", "B", "C"],
+                   help="lowest grade to execute (default A)")
+    s.add_argument("--max-open", type=int, default=1)
+    s.add_argument("--max-trades", type=int, default=6, help="per day")
+    s.add_argument("--daily-loss", type=float, default=6.0,
+                   help="stand down for the day after this percent of equity is lost")
+    s.add_argument("--max-consecutive-losses", type=int, default=3)
+    s.add_argument("--interval", type=int, default=60, help="seconds between scans")
+    s.add_argument("--once", action="store_true", help="run a single cycle and exit")
+    s.set_defaults(fn=cmd_trade)
 
     s = sub.add_parser("selftest", help="internal consistency checks")
     s.set_defaults(fn=cmd_selftest)

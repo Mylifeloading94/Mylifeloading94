@@ -188,13 +188,18 @@ class TradeLockerProvider(Provider):
     expected_delay_sec = 0
     priority = 1
 
-    BASE = os.environ.get("TL_BASE_URL", "https://demo.tradelocker.com/backend-api")
-    INFO_ROUTE = int(os.environ.get("TL_INFO_ROUTE", "452"))
+    ENV_URLS = {"demo": "https://demo.tradelocker.com/backend-api",
+                "live": "https://live.tradelocker.com/backend-api"}
     RES = {"M1": "1m", "M5": "5m", "M15": "15m", "M30": "30m", "H1": "1H", "H4": "4H", "D1": "1D"}
 
     def __init__(self):
+        env = os.environ.get("TL_ENV", "demo").lower()
+        # Resolved per account, never guessed: a hardcoded route id belongs to
+        # whichever broker the constant was copied from, not to this one.
+        self.base = os.environ.get("TL_BASE_URL") or self.ENV_URLS.get(env, self.ENV_URLS["demo"])
         self._headers: dict | None = None
         self._instrument_id: int | None = None
+        self._info_route: int | None = None
         self._auth_ts = 0.0
 
     def available(self) -> bool:
@@ -206,13 +211,13 @@ class TradeLockerProvider(Provider):
         body = json.dumps({"email": os.environ["TL_EMAIL"],
                            "password": os.environ["TL_PASSWORD"],
                            "server": os.environ.get("TL_SERVER", "GenFX")}).encode()
-        tok = _http_json(f"{self.BASE}/auth/jwt/token", {"Content-Type": "application/json"},
+        tok = _http_json(f"{self.base}/auth/jwt/token", {"Content-Type": "application/json"},
                          data=body, method="POST")
         access = tok.get("accessToken")
         if not access:
             raise RuntimeError("tradelocker auth returned no accessToken")
         h = {"Authorization": f"Bearer {access}", "Accept": "application/json"}
-        accs = _http_json(f"{self.BASE}/auth/jwt/all-accounts", h).get("accounts", [])
+        accs = _http_json(f"{self.base}/auth/jwt/all-accounts", h).get("accounts", [])
         if not accs:
             raise RuntimeError("tradelocker returned no accounts")
         want = os.environ.get("TL_ACCOUNT_ID")
@@ -221,14 +226,19 @@ class TradeLockerProvider(Provider):
         self._headers = h
         self._auth_ts = now_utc()
         if self._instrument_id is None:
-            instr = _http_json(f"{self.BASE}/trade/accounts/{acc['id']}/instruments", h)
+            instr = _http_json(f"{self.base}/trade/accounts/{acc['id']}/instruments", h)
             for it in (instr.get("d", {}) or {}).get("instruments", []):
                 if it.get("name", "").upper().startswith("XAUUSD"):
                     self._instrument_id = it.get("tradableInstrumentId")
                     self.symbol = it.get("name")
+                    self._info_route = next(
+                        (r.get("id") for r in (it.get("routes") or [])
+                         if r.get("type") == "INFO"), None)
                     break
         if self._instrument_id is None:
             raise RuntimeError("XAUUSD instrument not found on this TradeLocker account")
+        if self._info_route is None:
+            raise RuntimeError("no INFO route for XAUUSD on this account")
 
     def fetch(self, tf: str, bars: int) -> Series:
         self._auth()
@@ -236,9 +246,9 @@ class TradeLockerProvider(Provider):
         to_ms = int(now_utc() * 1000)
         frm_ms = to_ms - int((bars + 5) * span * 1000 * 1.6)   # slack for weekend gaps
         q = urllib.parse.urlencode({"tradableInstrumentId": self._instrument_id,
-                                    "routeId": self.INFO_ROUTE, "resolution": self.RES[tf],
+                                    "routeId": self._info_route, "resolution": self.RES[tf],
                                     "from": frm_ms, "to": to_ms})
-        d = _http_json(f"{self.BASE}/trade/history?{q}", self._headers)
+        d = _http_json(f"{self.base}/trade/history?{q}", self._headers)
         raw = (d.get("d") or {}).get("barDetails") or []
         rows = [(int(b["t"]) // 1000, b["o"], b["h"], b["l"], b["c"], b.get("v", 0.0)) for b in raw]
         s = make_series(tf, rows, self.name, self.symbol)

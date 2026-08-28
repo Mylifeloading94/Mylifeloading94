@@ -71,6 +71,12 @@ class Record:
     # Kept so re-validation can check the ORIGINAL premise — a liquidity
     # reclaim or an invalidated FVG cannot be detected without them.
     anchors: dict = field(default_factory=dict)
+    # Execution linkage — populated only when an order was actually sent.
+    broker_env: str = ""                # demo | live
+    broker_order_id: str = ""
+    broker_position_id: str = ""
+    lots: float = 0.0
+    executed: bool = False
 
     @property
     def buy(self) -> bool:

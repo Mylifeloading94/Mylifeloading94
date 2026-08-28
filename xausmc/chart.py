@@ -17,6 +17,7 @@ Colour system (identical to the terminal renderer):
 """
 from __future__ import annotations
 
+import bisect
 import html
 from datetime import datetime, timezone
 
@@ -84,10 +85,17 @@ def svg_chart(series: Series, ctx: Context | None = None, setup: Setup | None = 
 
     cw = plot_w / len(win)
     t0 = win[0].ts
+    ts_index = [b.ts for b in win]
 
     def x_of_ts(ts: int) -> float:
-        step = win[1].ts - win[0].ts if len(win) > 1 else 1
-        return ml + max(0.0, min(float(len(win)), (ts - t0) / step)) * cw
+        """
+        Map a timestamp to a candle position by INDEX, not by elapsed time.
+        Candles are drawn one per slot regardless of the gaps between them, so
+        on a real XAUUSD feed — which stops every weekend — dividing by a fixed
+        step would slide every annotation away from the bar it belongs to.
+        """
+        i = bisect.bisect_left(ts_index, ts)
+        return ml + max(0.0, min(float(len(win)), float(i))) * cw
 
     p: list[str] = [f'<svg viewBox="0 0 {width} {height}" width="100%" '
                     f'preserveAspectRatio="xMidYMid meet" class="smcchart">',

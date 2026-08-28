@@ -29,3 +29,12 @@ hp_bot_backtest_results.json
 
 # Cached price data (regenerable, large)
 data/
+
+# XAUUSD SMC engine runtime state.
+# state/stats.json and state/backtest_trades.json ARE committed — they are the
+# validated statistics the bot is allowed to quote. Everything else is runtime.
+state/cache/
+state/signals.jsonl
+state/news.json
+xauusd_dashboard.html
+xausmc.config.json

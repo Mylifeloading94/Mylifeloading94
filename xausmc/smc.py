@@ -22,7 +22,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Sequence
 
-from .candles import Bar, Series, atr, atr_series
+from .candles import Bar, atr, atr_series
 
 # --------------------------------------------------------------------------
 # Swings
@@ -236,10 +236,15 @@ def _session_levels(bars: Sequence[Bar]) -> list[LiquidityPool]:
         d = datetime.fromtimestamp(b.ts, tz=timezone.utc)
         by_day.setdefault(d.strftime("%Y-%m-%d"), []).append(b)
     days = sorted(by_day)
+    span = (bars[1].ts - bars[0].ts) if len(bars) > 1 else 0
+    full_day = (86400 // span) if span else 0
     if len(days) >= 2:
         prev = by_day[days[-2]]
-        out.append(LiquidityPool(max(b.h for b in prev), "high", "pdh", 3, prev[-1].ts))
-        out.append(LiquidityPool(min(b.l for b in prev), "low", "pdl", 3, prev[-1].ts))
+        # A window holding only a slice of yesterday does not know yesterday's
+        # high or low, and publishing that slice as PDH/PDL would be a lie.
+        if full_day and len(prev) >= full_day * 0.5:
+            out.append(LiquidityPool(max(b.h for b in prev), "high", "pdh", 3, prev[-1].ts))
+            out.append(LiquidityPool(min(b.l for b in prev), "low", "pdl", 3, prev[-1].ts))
     today = by_day[days[-1]] if days else []
     asia = [b for b in today if 0 <= datetime.fromtimestamp(b.ts, tz=timezone.utc).hour < 7]
     if len(asia) >= 4:

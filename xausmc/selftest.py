@@ -11,7 +11,7 @@ from __future__ import annotations
 
 import math
 
-from .candles import Bar, Series, atr, make_series, resample, to_pips, tf_seconds
+from .candles import Series, atr, make_series, resample, to_pips, tf_seconds
 from .config import GRADE_BANDS, GRADE_WEIGHTS, MODES, EngineConfig, StrategyConfig
 from .feed import DataFeed, FeedStatus, Provider
 from .grading import apply_history_veto, grade
@@ -61,9 +61,9 @@ def _synth(n: int = 400, start: float = 2000.0, seed: int = 7, tf: str = "M15") 
     return make_series(tf, rows, "synthetic", "TEST")
 
 
-def _synth_stack(n: int = 7000) -> dict:
+def _synth_stack(n: int = 7000, seed: int = 7) -> dict:
     """An M5 base plus every timeframe derived from it — one coherent market."""
-    base = _synth(n, tf="M5")
+    base = _synth(n, seed=seed, tf="M5")
     return {"M1": base, "M5": base, "M15": resample(base, "M15"),
             "H1": resample(base, "H1"), "H4": resample(base, "H4")}
 
@@ -152,40 +152,56 @@ def t_grading():
 def t_setup_geometry():
     """Every setup the detector emits must be internally coherent."""
     cfg = StrategyConfig()
-    stack = _synth_stack()
     checked = 0
-    for mode_name in ("SCALP", "INTRADAY", "SWING"):
-        mode = MODES[mode_name]
-        ctx = build_context(mode, {tf: stack[tf] for tf in mode.timeframes}, cfg)
-        check(f"setup/{mode_name} context builds", ctx is not None)
-        if ctx is None:
-            continue
-        for st in detect(ctx):
-            checked += 1
-            sign = 1 if st.direction == "BUY" else -1
-            check("setup/stop on the losing side",
-                  (st.sl < st.entry) if st.direction == "BUY" else (st.sl > st.entry),
-                  f"{st.direction} entry {st.entry} sl {st.sl}")
-            check("setup/targets ordered away from entry",
-                  sign * (st.tp1 - st.entry) > 0 and sign * (st.tp2 - st.tp1) >= 0)
-            if st.tp3:
-                check("setup/tp3 beyond tp2", sign * (st.tp3 - st.tp2) >= 0)
-                check("setup/tp3 within reach", st.rr_tp3 <= mode.tp_r[2] * 2.0 + 0.01,
-                      f"tp3 at 1:{st.rr_tp3} is not a level this trade can be judged on")
-            check("setup/headline rr within reach", st.rr <= mode.tp_r[1] * 2.0 + 0.01,
-                  f"rr 1:{st.rr} exceeds the reach cap")
-            risk = abs(st.entry - st.sl)
-            check("setup/rr matches geometry",
-                  abs(st.rr - abs(st.tp2 - st.entry) / risk) < 0.02)
-            check("setup/sl pips match price distance",
-                  abs(st.sl_pips - to_pips(risk)) < 0.2)
-            check("setup/stop distance inside the mode band",
-                  mode.min_sl_pips <= st.sl_pips <= mode.max_sl_pips)
-            check("setup/entry zone contains a limit entry",
-                  st.entry_type != "LIMIT" or st.entry_low - 1e-6 <= st.entry <= st.entry_high + 1e-6)
-    check("setup/detector produced something to check on synthetic data", checked > 0,
-          "the geometry assertions never ran")
+    # Several synthetic markets, so the geometry and grading invariants are
+    # exercised across a real spread of setups rather than whichever one seed 7
+    # happens to produce.
+    for seed in (7, 19, 53, 101, 257, 613, 1009, 2311):
+        stack = _synth_stack(seed=seed)
+        for mode_name in ("SCALP", "INTRADAY", "SWING"):
+            mode = MODES[mode_name]
+            ctx = build_context(mode, {tf: stack[tf] for tf in mode.timeframes}, cfg)
+            if seed == 7:
+                check(f"setup/{mode_name} context builds", ctx is not None)
+            if ctx is None:
+                continue
+            for st in detect(ctx):
+                checked += 1
+                sign = 1 if st.direction == "BUY" else -1
+                check("setup/stop on the losing side",
+                      (st.sl < st.entry) if st.direction == "BUY" else (st.sl > st.entry),
+                      f"{st.direction} entry {st.entry} sl {st.sl}")
+                check("setup/targets ordered away from entry",
+                      sign * (st.tp1 - st.entry) > 0 and sign * (st.tp2 - st.tp1) >= 0)
+                if st.tp3:
+                    check("setup/tp3 beyond tp2", sign * (st.tp3 - st.tp2) >= 0)
+                    check("setup/tp3 within reach", st.rr_tp3 <= mode.tp_r[2] * 2.0 + 0.01,
+                          f"tp3 at 1:{st.rr_tp3} is not a level this trade can be judged on")
+                check("setup/headline rr within reach", st.rr <= mode.tp_r[1] * 2.0 + 0.01,
+                      f"rr 1:{st.rr} exceeds the reach cap")
+                risk = abs(st.entry - st.sl)
+                check("setup/rr matches geometry",
+                      abs(st.rr - abs(st.tp2 - st.entry) / risk) < 0.02)
+                check("setup/sl pips match price distance",
+                      abs(st.sl_pips - to_pips(risk)) < 0.2)
+                check("setup/stop distance inside the mode band",
+                      mode.min_sl_pips <= st.sl_pips <= mode.max_sl_pips)
+                check("setup/entry zone contains a limit entry",
+                      st.entry_type != "LIMIT" or st.entry_low - 1e-6 <= st.entry <= st.entry_high + 1e-6)
 
+                graded = grade(st, cfg)
+                check("grading/score is the sum of its components",
+                      abs(graded.score - sum(d["points"] for d in graded.component_scores.values()))
+                      < 0.15, f"{graded.score} vs components")
+                check("grading/score cannot exceed 100", graded.score <= 100.0 + 1e-6)
+                check("grading/grade matches the band",
+                      (graded.grade == "INVALID") == (graded.status == "INVALID"))
+                check("grading/an invalid setup always carries a reason",
+                      graded.status != "INVALID" or bool(graded.invalid_reason))
+    check("setup/geometry invariants got real coverage", checked >= 8,
+          f"only {checked} setups were available to assert against")
+
+    stack = _synth_stack()
     # A setup id must identify the SEQUENCE. If it moved with the live price, an
     # armed market entry would mint a new journal record every single scan.
     mode = MODES["INTRADAY"]

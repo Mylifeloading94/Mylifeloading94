@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 
 from .candles import Series
 from .engine import ScanResult
-from .journal import Journal, Record
+from .journal import Journal
 from .performance import Report
 from .setups import Setup
 from .stats import DISCLAIMER, StatsStore

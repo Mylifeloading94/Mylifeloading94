@@ -9,10 +9,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .candles import tf_seconds, to_pips
+from .candles import tf_seconds
 from .config import MODES, StrategyConfig
 from .setups import Context, Setup
-from .smc import PremiumDiscount
 
 
 @dataclass

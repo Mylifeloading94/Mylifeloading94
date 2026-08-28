@@ -323,7 +323,7 @@ class DataFeed:
                 return series
         series = prov.fetch(tf, bars)
         if hit:                                    # keep history depth across refreshes
-            series = hit[1].merge(series)
+            series = hit[1].merge(series).tail(max(bars * 4, 500))
         self._cache[key] = (now_utc(), series)
         return series
 

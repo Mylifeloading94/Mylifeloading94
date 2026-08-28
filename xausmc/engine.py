@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-from .candles import tf_seconds, to_pips
+from .candles import tf_seconds
 from .config import MODES, EngineConfig
 from .feed import DataFeed, FeedStatus, Snapshot
 from .grading import apply_history_veto, grade
@@ -30,7 +30,7 @@ from .journal import Journal, Record
 from .news import NewsVerdict, check as news_check
 from .sessions import SessionInfo, session_at
 from .setups import Context, Setup, build_context, detect
-from .stats import DISCLAIMER, StatsStore, apply_probability
+from .stats import StatsStore, apply_probability
 
 GRADE_RANK = {"A+": 4, "A": 3, "B": 2, "C": 1, "INVALID": 0}
 
@@ -238,6 +238,8 @@ class Engine:
             rec, is_new = self.journal.record(s)
             if is_new:
                 res.guard.setups_today += 1
+                res.guard.open_trades = len(self.journal.open_records())
+                res.guard.evaluate()          # the ceiling binds inside a scan too
                 res.notes.append(f"new setup recorded: {s.grade} {s.direction} {s.mode} [{s.id}]")
 
         if not res.setups:

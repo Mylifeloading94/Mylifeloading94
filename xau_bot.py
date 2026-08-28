@@ -22,7 +22,7 @@ import sys
 import time
 
 from xausmc import render
-from xausmc.config import MODES, EngineConfig
+from xausmc.config import EngineConfig
 from xausmc.engine import Engine
 
 

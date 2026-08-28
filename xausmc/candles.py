@@ -9,7 +9,7 @@ the series is explicitly marked `has_forming_bar`.
 from __future__ import annotations
 
 import bisect
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import Iterable, Sequence
 

@@ -4,7 +4,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Sequence
 
-from .candles import Bar, atr, atr_series, percentile
+from .candles import Bar, atr_series
 from .smc import Structure
 
 
@@ -35,8 +35,9 @@ def directional_efficiency(bars: Sequence[Bar]) -> float:
 def classify(bars: Sequence[Bar], structure: Structure, window: int = 40) -> Regime:
     if len(bars) < 60:
         return Regime(note="not enough bars to classify regime")
-    a_hist = [x for x in atr_series(bars, 14)[-200:] if x > 0]
-    a_now = atr(bars[-60:], 14)
+    full = atr_series(bars, 14)
+    a_hist = [x for x in full[-200:] if x > 0]
+    a_now = full[-1] if full else 0.0
     if not a_hist or a_now <= 0:
         return Regime(note="ATR unavailable")
 

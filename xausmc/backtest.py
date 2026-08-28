@@ -21,6 +21,7 @@ comparable): 50% off at TP1 and stop to breakeven, the remainder runs to TP2.
 """
 from __future__ import annotations
 
+import bisect
 import json
 import os
 import time
@@ -200,7 +201,6 @@ def run_mode(mode_name: str, series_by_tf: dict[str, Series], cfg: EngineConfig,
         best = max(cands, key=lambda s: s.score)
         res.signals += 1
 
-        import bisect
         j = bisect.bisect_right(ttf_ts, now_ts - 1)
         if j >= len(ttf.bars):
             continue

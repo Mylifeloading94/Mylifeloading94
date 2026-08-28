@@ -103,14 +103,16 @@ def _bias(b: str) -> str:
 def market_panel(res: ScanResult) -> str:
     out = [rule("─", "MULTI-TIMEFRAME STRUCTURE")]
     out.append(f"  {DIM}{'MODE':9} {'BIAS':11} {'HTF':9} {'MTF':9} {'EXEC':9} {'REGIME':9} "
-               f"{'VOL':9} {'PD ZONE':12} {'POOLS/FVG/OB'}{RESET}")
+               f"{'VOL':9} {'PD ZONE':12} {'P/F/OB':9} {'STRUCTURE HI/LO'}{RESET}")
     for m, v in res.modes.items():
         if v.note:
             out.append(f"  {m:9} {GREY}{v.note}{RESET}")
             continue
+        sh = f"{v.struct_high:,.2f}" if v.struct_high else "—"
+        sl_ = f"{v.struct_low:,.2f}" if v.struct_low else "—"
         out.append(f"  {m:9} {v.htf_bias:11} {v.htf_trend:9} {v.mtf_trend:9} {v.ltf_trend:9} "
                    f"{v.regime:9} {v.volatility:9} {v.pd_zone:>9}{v.pd_position:5.2f}   "
-                   f"{v.unswept_pools:>2}/{v.open_fvgs:>2}/{v.fresh_obs:<2}")
+                   f"{v.unswept_pools:>2}/{v.open_fvgs:>2}/{v.fresh_obs:<3} {sh:>9} / {sl_:<9}")
     v = next((x for x in res.modes.values() if not x.note), None)
     if v:
         out.append(f"  {DIM}Dealing range {v.range_low:,.2f} — {v.range_high:,.2f}   "

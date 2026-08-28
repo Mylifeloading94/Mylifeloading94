@@ -294,8 +294,10 @@ def render_page(engine: Engine, res: ScanResult, tv_symbol: str = "OANDA:XAUUSD"
         f'<td>{_e(v.mtf_trend)}</td><td>{_e(v.ltf_trend)}</td><td>{_e(v.regime)}</td>'
         f'<td>{_e(v.volatility)}</td><td>{_e(v.pd_zone)} <span class="dim">{v.pd_position:.2f}'
         f'</span></td><td class="num">{v.range_low:,.2f} – {v.range_high:,.2f}</td>'
-        f'<td class="num">{v.unswept_pools}/{v.open_fvgs}/{v.fresh_obs}</td></tr>'
-        if not v.note else f'<tr><td>{_e(m)}</td><td colspan="9" class="dim">{_e(v.note)}</td></tr>'
+        f'<td class="num">{v.unswept_pools}/{v.open_fvgs}/{v.fresh_obs}</td>'
+        f'<td class="num">{(f"{v.struct_high:,.2f}" if v.struct_high else "—")} / '
+        f'{(f"{v.struct_low:,.2f}" if v.struct_low else "—")}</td></tr>'
+        if not v.note else f'<tr><td>{_e(m)}</td><td colspan="10" class="dim">{_e(v.note)}</td></tr>'
         for m, v in res.modes.items())
 
     rejected = "".join(
@@ -385,7 +387,8 @@ the analysis above comes from {_e(res.feed.source or "the configured feed")}.</d
 <h2>Multi-timeframe structure</h2>
 <div class="card"><table><thead><tr><th>Mode</th><th>Bias</th><th>HTF</th><th>MTF</th>
 <th>Exec</th><th>Regime</th><th>Volatility</th><th>Premium/Discount</th>
-<th class="num">Dealing range</th><th class="num">Pools/FVG/OB</th></tr></thead>
+<th class="num">Dealing range</th><th class="num">Pools/FVG/OB</th>
+<th class="num">Structure hi/lo</th></tr></thead>
 <tbody>{mode_rows}</tbody></table></div>
 
 <h2>Rejected this scan — why there is no trade</h2>

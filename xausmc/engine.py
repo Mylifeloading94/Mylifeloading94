@@ -81,7 +81,11 @@ class ModeView:
     unswept_pools: int = 0
     open_fvgs: int = 0
     fresh_obs: int = 0
-    candidates: int = 0
+    # The live structural references: the swing whose break would extend the
+    # trend, and the one whose break would flip it. Either can be absent right
+    # after a break, before a new swing has been confirmed.
+    struct_high: float | None = None
+    struct_low: float | None = None
     note: str = ""
 
 
@@ -277,7 +281,9 @@ def _mode_view(m: str, ctx: Context) -> ModeView:
         equilibrium=round(htf.pd.equilibrium, 2),
         unswept_pools=sum(1 for p in ltf.pools if not p.swept),
         open_fvgs=sum(1 for g in ltf.fvgs if not g.mitigated),
-        fresh_obs=sum(1 for o in ltf.obs if not o.mitigated))
+        fresh_obs=sum(1 for o in ltf.obs if not o.mitigated),
+        struct_high=round(ltf.structure.ref_high, 2) if ltf.structure.ref_high else None,
+        struct_low=round(ltf.structure.ref_low, 2) if ltf.structure.ref_low else None)
 
 
 def _record_to_setup(rec: Record) -> Setup:

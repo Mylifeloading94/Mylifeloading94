@@ -161,6 +161,7 @@ def _setup_card(s: Setup, lots=None, risk_usd=None) -> str:
             f'<span class="pill">{_e(s.mode)}</span>'
             f'<span class="pill">score {s.score}/100</span>'
             f'<div class="big {dcol}" style="margin:9px 0 2px">{_e(s.direction)} XAUUSD</div>'
+            f'<div class="dim" style="margin-bottom:4px">{_e(s.advice)}</div>'
             f'<div class="dim" style="margin-bottom:12px">'
             f'{_e(s.pattern.replace("_", " ").title())} · {_e(s.anchors.get("ltf_tf", ""))} execution · '
             f'{_e(s.session)}{" / " + _e(s.killzone) if s.killzone else ""} · '

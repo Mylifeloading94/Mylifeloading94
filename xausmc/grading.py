@@ -15,7 +15,7 @@ Historical performance is applied separately, as a veto (apply_history_veto).
 """
 from __future__ import annotations
 
-from .config import GRADE_BANDS, GRADE_WEIGHTS, MODES, StrategyConfig
+from .config import GRADE_ADVICE, GRADE_BANDS, GRADE_WEIGHTS, MODES, StrategyConfig
 from .setups import Setup
 
 REVERSAL_PATTERNS = {"LIQUIDITY_SWEEP_REVERSAL", "PREMIUM_DISCOUNT_REVERSAL"}
@@ -200,6 +200,7 @@ def grade(setup: Setup, cfg: StrategyConfig) -> Setup:
         setup.status, setup.invalid_reason = "INVALID", f"confluence score {setup.score} below 60"
     else:
         setup.status, setup.invalid_reason = "VALID", ""
+    setup.advice = GRADE_ADVICE.get(setup.grade, "")
     return setup
 
 

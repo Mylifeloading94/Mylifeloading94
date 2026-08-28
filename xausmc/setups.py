@@ -339,6 +339,7 @@ class Setup:
     # state
     status: str = "VALID"              # VALID | INVALID
     invalid_reason: str = ""
+    advice: str = ""                   # what the engine itself thinks of this grade
     # context
     session: str = ""
     killzone: str | None = None

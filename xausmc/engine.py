@@ -225,6 +225,10 @@ class Engine:
                 if s.status == "VALID" and res.news is not None and res.news.blocked:
                     s.status, s.grade = "INVALID", "INVALID"
                     s.invalid_reason = f"news blackout — {res.news.reason}"
+                if s.status == "VALID" and GRADE_RANK[s.grade] < GRADE_RANK[self.cfg.min_publish_grade]:
+                    s.status, s.invalid_reason = "INVALID", (
+                        f"grade {s.grade} is below the configured publish minimum "
+                        f"of {self.cfg.min_publish_grade}")
                 (res.setups if s.status == "VALID" else res.rejected).append(s)
 
         res.setups.sort(key=lambda s: (-GRADE_RANK[s.grade], -s.score))

@@ -198,6 +198,8 @@ def t_setup_geometry():
                       (graded.grade == "INVALID") == (graded.status == "INVALID"))
                 check("grading/an invalid setup always carries a reason",
                       graded.status != "INVALID" or bool(graded.invalid_reason))
+                check("grading/every grade carries the engine's own read of it",
+                      bool(graded.advice))
     check("setup/geometry invariants got real coverage", checked >= 8,
           f"only {checked} setups were available to assert against")
 

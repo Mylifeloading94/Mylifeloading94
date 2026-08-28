@@ -124,7 +124,8 @@ def setup_panel(setup: Setup, lots: float | None = None, risk_usd: float | None 
     dcol = GREEN if setup.direction == "BUY" else RED
     status = f"{GREEN}🟢 VALID{RESET}" if valid else f"{RED}🔴 INVALID{RESET}"
     head = (f"  {dcol}{BOLD}{setup.direction}{RESET}  {setup.mode}  "
-            f"{gc}GRADE {setup.grade}{RESET}  {DIM}score {setup.score}/100{RESET}   {status}")
+            f"{gc}GRADE {setup.grade}{RESET}  {DIM}score {setup.score}/100{RESET}   {status}\n"
+            f"  {gc}{setup.advice}{RESET}")
     if not valid:
         return "\n".join([
             head,

@@ -102,7 +102,17 @@ GRADE_WEIGHTS: dict[str, float] = {
 }
 
 GRADE_BANDS = [("A+", 90.0), ("A", 80.0), ("B", 70.0), ("C", 60.0)]
-MIN_PUBLISH_GRADE = "C"      # anything below is reported as INVALID
+
+# The engine's own read on each band (spec §8). A C-grade setup is still
+# published — hiding it would hide why the engine passed — but it is published
+# with the advice to skip it, not as an invitation.
+GRADE_ADVICE = {
+    "A+": "SNIPER — full institutional alignment",
+    "A": "STRONG — one minor confluence missing",
+    "B": "TRADEABLE — second tier, size down",
+    "C": "WEAK — the engine's own advice is to skip this",
+    "INVALID": "DO NOT TRADE",
+}
 
 
 # --------------------------------------------------------------------------
@@ -138,6 +148,7 @@ class EngineConfig:
     provider: str | None = None                # force a feed, else auto-failover
     allow_delayed_feed: bool = True            # delayed feeds are labelled, not hidden
     allow_proxy_feed: bool = True              # non-broker feeds are labelled, not hidden
+    min_publish_grade: str = "C"               # grades below this are not shown at all
     min_probability_sample: int = 30           # below this we print the sample, not a %
     history_veto_pf: float = 1.0               # measured PF under this -> setup vetoed
     state_dir: str = os.environ.get("XAUSMC_STATE_DIR", "state")

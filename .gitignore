@@ -29,3 +29,11 @@ hp_bot_backtest_results.json
 
 # Cached price data (regenerable, large)
 data/
+
+# XAUUSD SMC bot runtime state (regenerated; never source)
+xauusd_smc_state.json
+xauusd_smc_state.json.tmp
+xauusd_smc_journal.jsonl
+xauusd_smc_bot.log
+news_calendar.json
+charts/

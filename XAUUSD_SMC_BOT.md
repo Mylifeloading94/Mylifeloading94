@@ -11,7 +11,7 @@ python3 xau_bot.py scan        # one full scan, printed to the terminal
 python3 xau_bot.py run         # the 60-second live scanner loop
 python3 xau_bot.py serve       # web dashboard: TradingView chart + SMC chart
 python3 xau_bot.py backtest    # rebuild the validated win-rate statistics
-python3 xau_bot.py selftest    # 81 internal consistency checks, offline
+python3 xau_bot.py selftest    # 235 internal consistency checks, offline
 ```
 
 No third-party packages. Python 3.10+ and the standard library only.
@@ -162,6 +162,12 @@ Ten weighted **market** components, totalling exactly 100:
 | Displacement | 10 | | Volatility regime | 3 |
 
 `A+ 90–100 · A 80–89 · B 70–79 · C 60–69 · INVALID below 60`
+
+Every grade is published with the engine's own read of it — *sniper*, *strong*,
+*tradeable, size down*, *weak, skip it* — so a C never appears as a bare
+"VALID". C setups stay visible rather than being suppressed, because hiding them
+would hide why the engine passed on a session; set `min_publish_grade` to `B` if
+you only want the top two bands on screen.
 
 **Hard gates** run first and produce `INVALID` whatever the score: R:R under the
 mode minimum, unsuitable volatility, conflicted HTF bias on a non-reversal

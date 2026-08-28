@@ -14,7 +14,7 @@ from __future__ import annotations
 import json
 import os
 import time
-from dataclasses import asdict, dataclass
+from dataclasses import asdict, dataclass, field
 from datetime import datetime, timezone
 
 STATES = ("PENDING", "ACTIVE", "CLOSED", "INVALIDATED")
@@ -67,6 +67,10 @@ class Record:
     last_seen_ts: float = 0.0
     invalid_reason: str = ""
     partial_taken: bool = False
+    # The SMC anchors the setup was built on (sweep, MSS, POI, HTF range).
+    # Kept so re-validation can check the ORIGINAL premise — a liquidity
+    # reclaim or an invalidated FVG cannot be detected without them.
+    anchors: dict = field(default_factory=dict)
 
     @property
     def buy(self) -> bool:
@@ -144,6 +148,7 @@ class Journal:
             tp3=setup.tp3, target_rr=setup.rr, sl_pips=setup.sl_pips, grade=setup.grade,
             score=setup.score, probability=setup.probability, sample_size=setup.sample_size,
             history_flag=setup.history_flag,
+            anchors=dict(setup.anchors),
             state="ACTIVE" if setup.entry_type == "MARKET" else "PENDING",
             fill_price=setup.entry if setup.entry_type == "MARKET" else None,
             fill_ts=setup.signal_ts if setup.entry_type == "MARKET" else None,

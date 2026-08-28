@@ -270,12 +270,17 @@ def _mode_view(m: str, ctx: Context) -> ModeView:
 
 
 def _record_to_setup(rec: Record) -> Setup:
-    """Rehydrate just enough of a Setup for the invalidation checks."""
+    """
+    Rehydrate enough of a Setup for the invalidation checks — including the
+    original SMC anchors, without which the liquidity-reclaim and FVG-invalidated
+    conditions silently never fire.
+    """
     s = Setup(id=rec.id, signal_ts=rec.signal_ts, mode=rec.mode, pattern=rec.pattern,
               direction=rec.direction, entry=rec.entry, entry_low=rec.entry_low,
               entry_high=rec.entry_high, entry_type=rec.entry_type,
               entry_state="ARMED" if rec.state == "ACTIVE" else "PENDING",
               sl=rec.sl, tp1=rec.tp1, tp2=rec.tp2, tp3=rec.tp3, grade=rec.grade)
-    s.anchors = {"poi": {"kind": "FVG", "top": rec.entry_high, "bottom": rec.entry_low},
-                 "sweep": {}, "mss": {"kind": "MSS"}}
+    s.anchors = dict(rec.anchors) or {
+        "poi": {"kind": "FVG", "top": rec.entry_high, "bottom": rec.entry_low},
+        "sweep": {}, "mss": {"kind": "MSS"}}
     return s

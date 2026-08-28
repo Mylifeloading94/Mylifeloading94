@@ -233,6 +233,9 @@ def t_journal():
                   entry=100.0, entry_low=99.5, entry_high=100.5, entry_type="LIMIT",
                   sl=95.0, tp1=105.0, tp2=110.0, rr=2.0, sl_pips=50.0, grade="A",
                   signal_ts=1_700_000_000, session="LONDON")
+        s.anchors = {"poi": {"kind": "OB", "top": 100.5, "bottom": 99.5},
+                     "sweep": {"pool": "pdl", "pool_price": 98.0, "ts": 1_699_999_100},
+                     "mss": {"kind": "MSS", "level": 101.0}}
         rec, new = j.record(s)
         check("journal/first record is new", new and rec.state == "PENDING")
         _, again = j.record(s)
@@ -251,9 +254,14 @@ def t_journal():
               abs(r.r_multiple - 0.5) < 0.01, str(r.r_multiple))
         check("journal/MFE and MAE are tracked", r.mfe_r > 0 and r.mae_r <= 0)
 
+        check("journal/keeps the SMC anchors for re-validation",
+              r.anchors.get("poi", {}).get("kind") == "OB",
+              "without anchors the liquidity-reclaim and FVG checks never fire")
+
         j.flush()
-        check("journal/survives a reload",
-              Journal(os.path.join(d, "signals.jsonl")).records["abc"].outcome == r.outcome)
+        reloaded = Journal(os.path.join(d, "signals.jsonl")).records["abc"]
+        check("journal/survives a reload", reloaded.outcome == r.outcome)
+        check("journal/anchors survive a reload", reloaded.anchors == r.anchors)
 
 
 def t_probability_honesty():

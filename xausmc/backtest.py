@@ -33,7 +33,7 @@ from .feed import historical
 from .grading import grade
 from .sessions import session_at
 from .setups import build_context, detect
-from .stats import StatsStore
+from .stats import StatsStore, validation_report
 
 GRADE_RANK = {"A+": 4, "A": 3, "B": 2, "C": 1, "INVALID": 0}
 DEFAULT_SPREAD = 0.25          # USD on XAUUSD (2.5 pips) — retail-typical
@@ -302,6 +302,7 @@ def _meta(provider, trades, spread, min_grade, per_mode, spans) -> dict:
                        "both-hit bars booked as losses, 50% off at TP1 then a "
                        "breakeven runner to TP2, time stop at the mode's hold limit"),
         "per_mode": per_mode,
+        "validation": validation_report(trades),
         "disclaimer": ("Backtested on historical proxy data. Past performance is "
                        "not a prediction and not a guarantee of future results."),
     }

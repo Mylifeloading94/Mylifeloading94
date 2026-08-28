@@ -210,7 +210,41 @@ def _stats_card(store: StatsStore) -> str:
             f'<th class="num">N</th><th class="num">Win %</th><th class="num">PF</th>'
             f'<th class="num">Avg R:R</th><th class="num">Expectancy</th>'
             f'<th class="num">Max DD</th></tr></thead><tbody>{"".join(rows)}</tbody></table>'
+            f'{_validation_block(m)}'
             f'<div class="notice">{_e(DISCLAIMER)}</div></div>')
+
+
+def _validation_block(meta: dict) -> str:
+    v = meta.get("validation") or {}
+    if not v.get("test_last_40pct"):
+        return ""
+    rows = []
+    for label, key in (("Train (first 60%)", "train_first_60pct"),
+                       ("Test (last 40%)", "test_last_40pct"),
+                       ("First half", "first_half"), ("Second half", "second_half")):
+        d = v[key]
+        pf = d["profit_factor"] or 0.0
+        cls = "target" if pf >= 1.3 else ("" if pf >= 1.0 else "stop")
+        rows.append(f'<tr><td>{label}</td><td class="num">{d["n"]}</td>'
+                    f'<td class="num">{d["win_rate"]:.1f}%</td>'
+                    f'<td class="num {cls}">{pf:.2f}</td>'
+                    f'<td class="num">{d["expectancy_r"]:+.3f}R</td>'
+                    f'<td class="num">{d["max_drawdown_r"]:+.1f}R</td></tr>')
+    for g, d in (v.get("test_by_grade") or {}).items():
+        pf = d["profit_factor"] or 0.0
+        cls = "target" if pf >= 1.3 else ("" if pf >= 1.0 else "stop")
+        rows.append(f'<tr><td class="dim">Test · grade {_e(g)}</td>'
+                    f'<td class="num">{d["n"]}</td><td class="num">{d["win_rate"]:.1f}%</td>'
+                    f'<td class="num {cls}">{pf:.2f}</td>'
+                    f'<td class="num">{d["expectancy_r"]:+.3f}R</td><td></td></tr>')
+    verdict = v.get("verdict", "")
+    cls = "ok" if "holds" in verdict else ("" if "marginal" in verdict else "bad")
+    return (f'<h2 style="margin-top:18px">Out-of-sample validation</h2>'
+            f'<div class="dim" style="margin-bottom:8px">{_e(v.get("method", ""))}</div>'
+            f'<table><thead><tr><th>Split</th><th class="num">N</th><th class="num">Win %</th>'
+            f'<th class="num">PF</th><th class="num">Expectancy</th><th class="num">Max DD</th>'
+            f'</tr></thead><tbody>{"".join(rows)}</tbody></table>'
+            f'<div class="notice {cls}"><b>{_e(verdict)}</b></div>')
 
 
 def _perf_card(rep: Report) -> str:

@@ -196,5 +196,50 @@ def apply_probability(setup, store: StatsStore, min_sample: int = 30):
     return setup
 
 
+def validation_report(trades: list[dict]) -> dict:
+    """
+    Split the backtested trades chronologically and report each part separately.
+
+    An in-sample number on its own says almost nothing: any rule tuned on a
+    period will describe that period. What matters is whether the same rule
+    still pays on data it did not shape. This repository already learned that
+    the hard way (see sniper_smc.py), so the split is reported next to the
+    headline figure rather than left for someone to ask about.
+
+    Nothing here is tuned on the result. It is published as measured.
+    """
+    ordered = sorted(trades, key=lambda t: t.get("signal_ts", 0))
+    n = len(ordered)
+    if n < 20:
+        return {"note": f"only {n} resolved trades — too few to split meaningfully"}
+
+    def part(name: str, rows: list[dict]) -> dict:
+        b = compute_bucket(name, rows)
+        return {"n": b.n, "win_rate": b.win_rate,
+                "profit_factor": None if b.profit_factor == float("inf") else b.profit_factor,
+                "expectancy_r": b.expectancy_r, "total_r": b.total_r,
+                "max_drawdown_r": b.max_drawdown_r}
+
+    cut = int(n * 0.6)
+    mid = n // 2
+    out = {
+        "method": ("chronological 60/40 train/test split and split halves; the "
+                   "engine was not tuned on either part"),
+        "train_first_60pct": part("train", ordered[:cut]),
+        "test_last_40pct": part("test", ordered[cut:]),
+        "first_half": part("h1", ordered[:mid]),
+        "second_half": part("h2", ordered[mid:]),
+        "test_by_grade": {g: part(g, [t for t in ordered[cut:] if t.get("grade") == g])
+                          for g in ("A+", "A", "B", "C")
+                          if any(t.get("grade") == g for t in ordered[cut:])},
+    }
+    tst = out["test_last_40pct"]
+    pf = tst.get("profit_factor") or 0.0
+    out["verdict"] = ("edge holds out of sample" if pf >= 1.3 else
+                      "marginal out of sample" if pf >= 1.0 else
+                      "DOES NOT HOLD out of sample — treat the in-sample figures as noise")
+    return out
+
+
 DISCLAIMER = ("Historical/backtested performance. Measured on past data only — "
               "it is not a prediction and not a guarantee of future results.")

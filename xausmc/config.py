@@ -148,7 +148,13 @@ class EngineConfig:
     provider: str | None = None                # force a feed, else auto-failover
     allow_delayed_feed: bool = True            # delayed feeds are labelled, not hidden
     allow_proxy_feed: bool = True              # non-broker feeds are labelled, not hidden
-    min_publish_grade: str = "C"               # grades below this are not shown at all
+    # B, not C. The shipped backtest measured C-grade setups at PF 0.58 and
+    # -0.27R per trade on the held-out last 40% of history (n=71), while A and B
+    # were both clearly positive there. Spec §8 already says a C is a "weak
+    # setup, prefer no trade"; the measurement agrees, so the default declines
+    # to publish that band. Set it to "C" to see them anyway — they are still
+    # detected, graded and listed under the rejected setups with their reason.
+    min_publish_grade: str = "B"               # grades below this are not published
     min_probability_sample: int = 30           # below this we print the sample, not a %
     history_veto_pf: float = 1.0               # measured PF under this -> setup vetoed
     state_dir: str = os.environ.get("XAUSMC_STATE_DIR", "state")

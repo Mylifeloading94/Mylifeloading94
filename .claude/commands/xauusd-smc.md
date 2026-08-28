@@ -71,6 +71,18 @@ components totalling 100 (HTF bias 15, liquidity 13, MSS/BOS 13, FVG 11,
 premium/discount 11, structure 10, displacement 10, order block 8, session 6,
 volatility 3). Hard gates override the score entirely.
 
+## What the shipped stats say (do not re-tune to improve these)
+
+637 resolved trades, Apr 2025 - Aug 2026, PAXGUSDT. Held-out last 40% (n=255):
+51.6% WR, PF 1.20, +0.09R. Positive in both halves; verdict "marginal out of
+sample". Test-set grades order correctly — A 1.62, B 1.51, **C 0.58** — which is
+why `min_publish_grade` defaults to **B**.
+
+The edge is thin and honest. Retuning thresholds until these numbers look better
+fits the strategy to this sample and destroys the only thing that makes them
+worth printing. If detection or grading changes, re-run the backtest and
+publish whatever comes out.
+
 ## Selectivity
 
 Target 2-3 quality setups per day; `max_setups_per_day` is a **ceiling, not a

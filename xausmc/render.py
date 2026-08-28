@@ -241,6 +241,26 @@ def stats_panel(store: StatsStore, limit: int = 12) -> str:
         out.append(f"  {b.key.replace('|', ' · ')[:44]:44} {b.n:>5} {b.win_rate:>6.1f}% "
                    f"{col}{b.profit_factor:>7.2f}{RESET} {b.target_rr:>7.2f} "
                    f"{b.expectancy_r:>+7.2f}R")
+    v = m.get("validation") or {}
+    if v.get("test_last_40pct"):
+        tr, te = v["train_first_60pct"], v["test_last_40pct"]
+        h1, h2 = v["first_half"], v["second_half"]
+        verdict = v.get("verdict", "")
+        vc = GREEN if "holds" in verdict else (YELLOW if "marginal" in verdict else RED)
+        out.append("")
+        out.append(f"  {BOLD}OUT-OF-SAMPLE VALIDATION{RESET} {DIM}(the engine was not tuned "
+                   f"on either part){RESET}")
+        for label, d in (("train (first 60%)", tr), ("test  (last 40%)", te),
+                         ("first half", h1), ("second half", h2)):
+            out.append(f"    {label:20} n={d['n']:<5} {d['win_rate']:>5.1f}%  "
+                       f"PF {d['profit_factor']:>5.2f}  {d['expectancy_r']:>+6.3f}R  "
+                       f"maxDD {d['max_drawdown_r']:>+6.1f}R")
+        for g, d in (v.get("test_by_grade") or {}).items():
+            pf = d["profit_factor"] or 0.0
+            gc = GREEN if pf >= 1.3 else (YELLOW if pf >= 1.0 else RED)
+            out.append(f"    {'test · grade ' + g:20} n={d['n']:<5} {d['win_rate']:>5.1f}%  "
+                       f"{gc}PF {pf:>5.2f}{RESET}  {d['expectancy_r']:>+6.3f}R")
+        out.append(f"    {vc}{verdict}{RESET}")
     out.append(f"  {DIM}{DISCLAIMER}{RESET}")
     return "\n".join(out)
 

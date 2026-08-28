@@ -247,6 +247,40 @@ cannot be derived from an M5 base:
 | M5 | 150,000 | ~520 days | `INTRADAY`, `SWING` |
 | M1 | 120,000 | ~83 days | `SCALP` |
 
+### What the shipped backtest actually measured
+
+637 resolved trades, 4 Apr 2025 → 27 Aug 2026, on PAXGUSDT with the fill model
+above. These are the numbers in `state/stats.json`, reported as measured.
+
+| Split | N | Win % | PF | Expectancy | Max DD |
+|-------|---|-------|----|-----------|--------|
+| Train (first 60%) | 382 | 47.5% | 1.10 | +0.049R | −13.6R |
+| **Test (last 40%)** | **255** | **51.6%** | **1.20** | **+0.091R** | −15.8R |
+| First half | 318 | 48.1% | 1.13 | +0.062R | −13.6R |
+| Second half | 319 | 50.2% | 1.15 | +0.069R | −16.7R |
+
+Positive in both halves and slightly *better* out of sample than in — which is
+weak evidence against overfitting, not evidence of a strong edge. The verdict
+the engine prints on itself is **"marginal out of sample"**, and PF 1.20 is
+below the 1.3 this repository normally requires before risking size.
+
+The useful finding is in the held-out set, broken down by grade:
+
+| Grade (test set) | N | Win % | PF | Expectancy |
+|------------------|---|-------|----|-----------|
+| A+ | 4 | 75.0% | 5.59 | +1.147R |
+| A | 64 | 63.5% | 1.62 | +0.205R |
+| B | 116 | 55.2% | 1.51 | +0.215R |
+| **C** | **71** | **33.8%** | **0.58** | **−0.274R** |
+
+The grading **discriminates in the right order** on data it never saw — that is
+the single most encouraging result here, and it is what makes the confluence
+score worth computing. It also says plainly that **C-grade setups lose money**,
+so `min_publish_grade` defaults to `B`. C setups are still detected, graded and
+listed among the rejected with their reason; they are simply not published as
+signals. The A+ row is 4 trades and means nothing yet — it is shown because
+hiding a small sample would be the same dishonesty as inflating it.
+
 ---
 
 ## 7. Invalidation (spec §12)
@@ -389,6 +423,10 @@ state/
 
 ## 13. Honest limits
 
+- **The measured edge is thin.** PF 1.20 out of sample, +0.09R per trade, on a
+  49% win rate. That is a real result rather than a flattering one, and it is
+  nowhere near the 80-90% figures this kind of bot usually advertises. Anyone
+  quoting those numbers is not measuring what this measures.
 - **The shipped statistics were measured on PAX Gold**, not on broker XAUUSD.
   PAXG tracks spot closely but trades 24/7, so weekend bars exist that XAUUSD
   does not have, and its microstructure is not a broker's. Re-run

@@ -157,7 +157,7 @@ def hard_gates(setup: Setup, cfg: StrategyConfig) -> str | None:
     return None
 
 
-def grade(setup: Setup, cfg: StrategyConfig, min_sample: int = 30) -> Setup:
+def grade(setup: Setup, cfg: StrategyConfig) -> Setup:
     """
     Score, grade and gate a setup in place, from market facts only. Identical in
     the live scanner and the backtest — that is what makes the grade buckets

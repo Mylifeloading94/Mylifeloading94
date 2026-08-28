@@ -363,8 +363,14 @@ class Setup:
         return d
 
 
-def _mk_id(mode: str, pattern: str, direction: str, ts: int, entry: float) -> str:
-    raw = f"{mode}|{pattern}|{direction}|{ts}|{entry:.2f}"
+def _mk_id(mode: str, pattern: str, direction: str, sweep_ts: int, mss_ts: int,
+           zone_mid: float) -> str:
+    """
+    Identify the SEQUENCE, never the live price. A market entry re-prices every
+    scan, so hashing the entry would mint a new setup id (and a new journal
+    record) every 60 seconds for what is one and the same opportunity.
+    """
+    raw = f"{mode}|{pattern}|{direction}|{sweep_ts}|{mss_ts}|{zone_mid:.2f}"
     return hashlib.sha1(raw.encode()).hexdigest()[:12]
 
 
@@ -446,7 +452,8 @@ def build_setup(ctx: Context, seq: Sequence, pattern: str, feed_quality: str = "
     rr = abs(tp2 - entry) / risk
 
     s = Setup(
-        id=_mk_id(mode.name, pattern, dir_label, seq.sweep.ts, entry),
+        id=_mk_id(mode.name, pattern, dir_label, seq.sweep.ts,
+                  ctx.ltf.bars[seq.mss_idx].ts, (zone_hi + zone_lo) / 2.0),
         signal_ts=ctx.ltf.bars[seq.mss_idx].ts, mode=mode.name, pattern=pattern,
         direction=dir_label, price_at_signal=round(price, 2),
         entry=round(entry, 2), entry_low=round(zone_lo, 2), entry_high=round(zone_hi, 2),

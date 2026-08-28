@@ -186,6 +186,57 @@ def t_setup_geometry():
     check("setup/detector produced something to check on synthetic data", checked > 0,
           "the geometry assertions never ran")
 
+    # A setup id must identify the SEQUENCE. If it moved with the live price, an
+    # armed market entry would mint a new journal record every single scan.
+    mode = MODES["INTRADAY"]
+    view = {tf: stack[tf] for tf in mode.timeframes}
+    base = build_context(mode, view, cfg)
+    nudged = build_context(mode, view, cfg, price=(base.price * 1.0004) if base else None)
+    if base is not None and nudged is not None:
+        a_ids = {(x.direction, x.pattern): x.id for x in detect(base)}
+        b_ids = {(x.direction, x.pattern): x.id for x in detect(nudged)}
+        shared = set(a_ids) & set(b_ids)
+        check("setup/ids are stable across a price move",
+              all(a_ids[k] == b_ids[k] for k in shared) and bool(shared or not a_ids),
+              f"{len(shared)} shared sequences changed id")
+        check("setup/ids are deterministic",
+              a_ids == {(x.direction, x.pattern): x.id for x in detect(base)})
+
+
+def t_journal():
+    """The journal must record one opportunity once, and score it like the backtest."""
+    import os
+    import tempfile
+
+    from .journal import Journal
+    with tempfile.TemporaryDirectory() as d:
+        j = Journal(os.path.join(d, "signals.jsonl"))
+        s = Setup(id="abc", mode="INTRADAY", pattern="BREAKOUT", direction="BUY",
+                  entry=100.0, entry_low=99.5, entry_high=100.5, entry_type="LIMIT",
+                  sl=95.0, tp1=105.0, tp2=110.0, rr=2.0, sl_pips=50.0, grade="A",
+                  signal_ts=1_700_000_000, session="LONDON")
+        rec, new = j.record(s)
+        check("journal/first record is new", new and rec.state == "PENDING")
+        _, again = j.record(s)
+        check("journal/re-seeing a setup does not duplicate it", not again)
+        check("journal/one record per opportunity", len(j.records) == 1)
+
+        j.track(price=99.0, high=99.4, low=98.9, ts=1_700_000_900)
+        check("journal/limit fills on the retrace", j.records["abc"].state == "ACTIVE")
+        j.track(price=106.0, high=106.0, low=99.0, ts=1_700_001_800)
+        check("journal/TP1 arms the breakeven runner", j.records["abc"].partial_taken)
+        j.track(price=100.0, high=106.0, low=99.9, ts=1_700_002_700)
+        r = j.records["abc"]
+        check("journal/runner stops at breakeven, not at the original stop",
+              r.state == "CLOSED" and r.r_multiple > 0, f"{r.outcome} r={r.r_multiple}")
+        check("journal/breakeven exit is scored on the TP1 half only",
+              abs(r.r_multiple - 0.5) < 0.01, str(r.r_multiple))
+        check("journal/MFE and MAE are tracked", r.mfe_r > 0 and r.mae_r <= 0)
+
+        j.flush()
+        check("journal/survives a reload",
+              Journal(os.path.join(d, "signals.jsonl")).records["abc"].outcome == r.outcome)
+
 
 def t_probability_honesty():
     empty = StatsStore()
@@ -335,7 +386,7 @@ def t_config():
           cfg.risk.max_setups_per_day >= cfg.risk.target_setups_per_day)
 
 
-TESTS = [t_candles, t_smc, t_grading, t_setup_geometry, t_probability_honesty,
+TESTS = [t_candles, t_smc, t_grading, t_setup_geometry, t_journal, t_probability_honesty,
          t_feed_honesty, t_invalidation, t_backtest_fills, t_config]
 
 

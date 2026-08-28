@@ -384,6 +384,6 @@ def dashboard(res: ScanResult, engine=None, chart_series: Series | None = None,
     parts.append(active_panel(res))
     parts.append(guard_panel(res))
     parts.append(rule("═"))
-    parts.append(f"  {DIM}scan {res.scan_ms} ms · next scan in 60 s · "
-                 f"probabilities are historical, not guarantees{RESET}")
+    parts.append(f"  {DIM}scan {res.scan_ms} ms · every figure above was re-derived in "
+                 f"this pass · probabilities are historical, not guarantees{RESET}")
     return "\n".join(p for p in parts if p)

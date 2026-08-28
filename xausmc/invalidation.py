@@ -9,7 +9,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from .candles import to_pips
+from .candles import tf_seconds, to_pips
 from .config import MODES, StrategyConfig
 from .setups import Context, Setup
 from .smc import PremiumDiscount
@@ -106,8 +106,7 @@ def revalidate(setup: Setup, ctx: Context, cfg: StrategyConfig, price: float,
                               f"{ctx.ltf.regime.note}")
 
     # 10. Sequence aged out
-    bars_old = max(0, (ctx.ts - setup.signal_ts) // (60 * {"M1": 1, "M5": 5, "M15": 15,
-                                                          "H1": 60, "H4": 240}[mode.ltf]))
+    bars_old = max(0, (ctx.ts - setup.signal_ts) // tf_seconds(mode.ltf))
     if setup.entry_state == "PENDING" and bars_old > mode.max_age_bars * 3:
         return Verdict(False, f"setup expired — {bars_old} {mode.ltf} bars without a fill")
 

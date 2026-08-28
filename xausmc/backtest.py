@@ -192,8 +192,7 @@ def run_mode(mode_name: str, series_by_tf: dict[str, Series], cfg: EngineConfig,
         ctx = build_context(mode, view, cfg.strategy, ts=now_ts)
         if ctx is None:
             continue
-        cands = [grade(s, cfg.strategy, min_sample=10 ** 9) for s in
-                 detect(ctx, "HISTORICAL", "backtest")]
+        cands = [grade(s, cfg.strategy) for s in detect(ctx, "HISTORICAL", "backtest")]
         cands = [s for s in cands if s.status == "VALID"
                  and GRADE_RANK[s.grade] >= GRADE_RANK[min_grade]]
         if not cands:

@@ -21,7 +21,7 @@ from __future__ import annotations
 import time
 from dataclasses import dataclass, field
 
-from .candles import to_pips
+from .candles import tf_seconds, to_pips
 from .config import MODES, EngineConfig
 from .feed import DataFeed, FeedStatus, Snapshot
 from .grading import apply_history_veto, grade
@@ -173,8 +173,7 @@ class Engine:
             return res
 
         # 2. advance the paper record against the newest completed price action
-        fast = min(snap.series, key=lambda t: {"M1": 1, "M5": 5, "M15": 15, "H1": 60,
-                                               "H4": 240}[t])
+        fast = min(snap.series, key=tf_seconds)
         recent = snap.tf(fast).bars[-3:]
         if recent:
             self.journal.track(price=snap.price, high=max(b.h for b in recent),
@@ -217,7 +216,7 @@ class Engine:
         # 6. detect, grade, price the probability
         for m, ctx in self._contexts.items():
             for s in detect(ctx, snap.status.quality, f"{snap.status.source}:{snap.status.symbol}"):
-                grade(s, self.cfg.strategy, self.cfg.min_probability_sample)
+                grade(s, self.cfg.strategy)
                 apply_probability(s, self.stats, self.cfg.min_probability_sample)
                 apply_history_veto(s, self.cfg.min_probability_sample, self.cfg.history_veto_pf)
                 if s.status == "VALID" and ctx.session.name not in self.cfg.risk.allowed_sessions:

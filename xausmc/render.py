@@ -120,6 +120,34 @@ def market_panel(res: ScanResult) -> str:
     return "\n".join(out)
 
 
+def spot_panel(setup: Setup, feed) -> str:
+    """
+    The same plan restated in true-XAUUSD terms.
+
+    A proxy feed's levels are structurally right but numerically offset, and an
+    offset level typed into a broker terminal is a wrong level. When a live spot
+    reference is available the plan is restated against it, with the basis and
+    its residual uncertainty stated rather than buried.
+    """
+    if feed is None or feed.basis is None:
+        return ""
+    c = feed.to_spot
+    tp3 = f"{GREEN}{c(setup.tp3):>10,.2f}{RESET}" if setup.tp3 else f"{GREY}{'n/a':>10}{RESET}"
+    return "\n".join([
+        rule("─", "SAME PLAN IN TRUE XAUUSD TERMS"),
+        f"  {DIM}Proxy {feed.source}:{feed.symbol} sits {feed.basis:+.2f} from XAUUSD spot "
+        f"{feed.spot_price:,.2f}. Levels below are shifted by that basis.{RESET}",
+        f"  {BLUE}● Entry{RESET}        {BLUE}{c(setup.entry):>10,.2f}{RESET}   "
+        f"{DIM}zone {c(setup.entry_low):,.2f} – {c(setup.entry_high):,.2f}{RESET}",
+        f"  {RED}● Stop Loss{RESET}    {RED}{c(setup.sl):>10,.2f}{RESET}",
+        f"  {GREEN}● Target 1{RESET}     {GREEN}{c(setup.tp1):>10,.2f}{RESET}",
+        f"  {GREEN}● Target 2{RESET}     {GREEN}{c(setup.tp2):>10,.2f}{RESET}",
+        f"  {GREEN}● Target 3{RESET}     {tp3}",
+        f"  {YELLOW}⚠{RESET} {DIM}The basis drifts. Treat these as ±1-2 USD and confirm every "
+        f"level on your own XAUUSD chart before acting.{RESET}",
+    ])
+
+
 def setup_panel(setup: Setup, lots: float | None = None, risk_usd: float | None = None) -> str:
     valid = setup.status == "VALID"
     gc = GRADE_COLOR.get(setup.grade, GREY)
@@ -388,6 +416,7 @@ def dashboard(res: ScanResult, engine=None, chart_series: Series | None = None,
         if engine is not None:
             lots, risk = engine.position_size(best)
         parts.append(setup_panel(best, lots, risk))
+        parts.append(spot_panel(best, res.feed))
         if chart_series is not None:
             parts.append("")
             parts.append(ascii_chart(chart_series, best))

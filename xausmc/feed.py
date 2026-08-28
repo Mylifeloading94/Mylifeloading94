@@ -54,6 +54,25 @@ def _http_json(url: str, headers: dict | None = None, timeout: int = 25,
         return json.loads(r.read().decode("utf-8", "replace"))
 
 
+# A spot-price-only reference used to calibrate a proxy feed back onto true
+# XAUUSD. It publishes no candles, so it cannot drive the analysis — but it can
+# say how far the proxy currently sits from spot, which turns proxy-derived
+# levels into levels you can actually put in a broker terminal.
+SPOT_REFERENCE_URL = "https://api.gold-api.com/price/XAU"
+
+
+def spot_reference(timeout: int = 10) -> tuple[float | None, str]:
+    """Live XAUUSD spot from an independent reference. (price, note)."""
+    try:
+        d = _http_json(SPOT_REFERENCE_URL, timeout=timeout)
+        px = float(d.get("price"))
+        if px <= 0:
+            return None, "spot reference returned a non-positive price"
+        return px, f"XAU spot {px:,.2f} at {d.get('updatedAt', '?')}"
+    except Exception as exc:                        # noqa: BLE001 - absence is reportable
+        return None, f"spot reference unavailable: {type(exc).__name__}: {exc}"
+
+
 def gold_market_open(ts: float | None = None) -> bool:
     """
     Spot gold trades ~22:00 UTC Sunday to ~21:00 UTC Friday, with a daily
@@ -243,6 +262,11 @@ class FeedStatus:
     kind_label: str = ""
     is_true_xauusd: bool = False
     delayed_by_sec: int = 0
+    # Live true-XAUUSD spot and the proxy's offset from it. Both None on a true
+    # XAUUSD feed (nothing to calibrate) or when the reference is unreachable.
+    spot_price: float | None = None
+    basis: float | None = None
+    basis_note: str = ""
     price: float | None = None
     price_ts: int | None = None
     age_sec: float = float("inf")
@@ -255,6 +279,10 @@ class FeedStatus:
     @property
     def delayed(self) -> bool:
         return self.delayed_by_sec > 0
+
+    def to_spot(self, level: float) -> float | None:
+        """Convert a proxy-derived price level into true XAUUSD terms."""
+        return None if self.basis is None else round(level + self.basis, 2)
 
     @property
     def quality(self) -> str:
@@ -271,7 +299,11 @@ class FeedStatus:
             tag = "LIVE MARKET DATA" if self.is_true_xauusd else "LIVE MARKET DATA (PROXY FEED)"
             if self.delayed:
                 tag += f" [DELAYED ~{self.delayed_by_sec // 60} MIN]"
-            return f"{tag} — {self.source}:{self.symbol} — last tick {self.age_sec:.0f}s ago"
+            line = f"{tag} — {self.source}:{self.symbol} — last tick {self.age_sec:.0f}s ago"
+            if self.basis is not None:
+                line += (f" — calibrated to XAUUSD spot {self.spot_price:,.2f} "
+                         f"(basis {self.basis:+.2f})")
+            return line
         if self.state == "STALE":
             return f"LIVE DATA UNAVAILABLE — {self.source}:{self.symbol} last tick {self.age_sec:.0f}s old (stale)"
         if self.state == "MARKET_CLOSED":
@@ -362,7 +394,13 @@ class DataFeed:
             state = "LIVE"
             if age > budget:
                 state = "MARKET_CLOSED" if not gold_market_open() else "STALE"
-            status = FeedStatus(state=state, source=prov.name, symbol=prov.symbol,
+            spot_px, spot_note = (None, "")
+            if state == "LIVE" and not prov.is_true_xauusd:
+                spot_px, spot_note = spot_reference()
+            basis = (round(spot_px - last.c, 2)
+                     if (spot_px is not None and last is not None) else None)
+            status = FeedStatus(spot_price=spot_px, basis=basis, basis_note=spot_note,
+                                state=state, source=prov.name, symbol=prov.symbol,
                                 kind=prov.kind, kind_label=prov.kind_label,
                                 is_true_xauusd=prov.is_true_xauusd,
                                 delayed_by_sec=prov.expected_delay_sec,

@@ -229,6 +229,17 @@ class Engine:
                     s.status, s.invalid_reason = "INVALID", (
                         f"grade {s.grade} is below the configured publish minimum "
                         f"of {self.cfg.min_publish_grade}")
+                # A sequence stays on the chart after it has been invalidated or
+                # resolved, so the detector keeps re-deriving it every scan.
+                # Re-publishing it as VALID would put a signal back on the board
+                # that this engine has already struck out — the exact thing
+                # spec §12 forbids.
+                prior = self.journal.records.get(s.id)
+                if (s.status == "VALID" and prior is not None
+                        and prior.state in ("INVALIDATED", "CLOSED")):
+                    s.status, s.grade = "INVALID", "INVALID"
+                    s.invalid_reason = (prior.invalid_reason
+                                        or f"already {prior.state.lower()} in an earlier scan")
                 (res.setups if s.status == "VALID" else res.rejected).append(s)
 
         res.setups.sort(key=lambda s: (-GRADE_RANK[s.grade], -s.score))

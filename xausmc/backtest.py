@@ -186,7 +186,7 @@ def run_mode(mode_name: str, series_by_tf: dict[str, Series], cfg: EngineConfig,
         if sess.name not in cfg.risk.allowed_sessions:
             continue
 
-        view = {tf: s.before(now_ts).tail(MODES[mode_name].bars.get(tf, 300))
+        view = {tf: s.before_tail(now_ts, MODES[mode_name].bars.get(tf, 300))
                 for tf, s in series_by_tf.items() if tf in mode.timeframes}
         if any(len(v) < 60 for v in view.values()):
             continue

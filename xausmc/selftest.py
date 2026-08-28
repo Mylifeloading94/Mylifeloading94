@@ -87,6 +87,12 @@ def t_candles():
     before = s.before(cut)
     check("candles/before is causal", all(b.ts + tf_seconds("M15") <= cut for b in before.bars))
     check("candles/before includes the just-closed bar", before.bars[-1].ts == s.bars[100].ts)
+    windowed = s.before_tail(cut, 30)
+    check("candles/before_tail matches before().tail()",
+          [b.ts for b in windowed.bars] == [b.ts for b in before.tail(30).bars],
+          "the backtest's fast path must see exactly what the slow path sees")
+    check("candles/before_tail is causal",
+          all(b.ts + tf_seconds("M15") <= cut for b in windowed.bars))
 
     check("atr/positive", atr(s.bars[-60:], 14) > 0)
     check("atr/insufficient data returns zero", atr(s.bars[:5], 14) == 0.0)

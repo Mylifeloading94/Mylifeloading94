@@ -144,6 +144,17 @@ class Series:
         idx = bisect.bisect_left(self.ts_index, ts - span + 1)
         return Series(self.tf, self.bars[:idx], self.source, self.symbol, False)
 
+    def before_tail(self, ts: int, n: int) -> "Series":
+        """
+        The last `n` bars that had closed before `ts` — `before(ts).tail(n)`
+        without materialising everything in between. The backtest calls this
+        once per timeframe per simulated bar against series of 150k bars, so
+        copying the whole prefix each time dominated its runtime.
+        """
+        span = tf_seconds(self.tf)
+        idx = bisect.bisect_left(self.ts_index, ts - span + 1)
+        return Series(self.tf, self.bars[max(0, idx - n):idx], self.source, self.symbol, False)
+
     def age_seconds(self, now: float | None = None) -> float:
         """Seconds since the last bar's period should have ended."""
         if not self.bars:

@@ -1,0 +1,126 @@
+{
+  "HIGH WIN RATE  (sl1.8 tp0.5R)": {
+    "full": {
+      "trades": 150,
+      "win_rate": 69.33,
+      "expectancy_r": 0.0582,
+      "profit_factor": 1.192,
+      "total_r": 8.72,
+      "max_dd_r": 6.68,
+      "avg_win_r": 0.52,
+      "avg_loss_r": -0.986,
+      "usd_per_1lot": 11782.3,
+      "tp": 104,
+      "sl": 43,
+      "be": 0,
+      "timeout": 3
+    },
+    "cfg": {
+      "setup": "breakout",
+      "tf": "M5",
+      "bo_len": 20,
+      "rsi_band_lo": 50,
+      "rsi_band_hi": 80,
+      "require_stack": true,
+      "sess_start": 12,
+      "sess_end": 20,
+      "stop_mode": "atr",
+      "max_bars_in_trade": 72,
+      "sl_atr": 1.8,
+      "tp_r": 0.5
+    }
+  },
+  "HIGH WIN RATE  (sl1.2 tp0.5R)": {
+    "full": {
+      "trades": 165,
+      "win_rate": 68.48,
+      "expectancy_r": 0.0468,
+      "profit_factor": 1.148,
+      "total_r": 7.72,
+      "max_dd_r": 6.94,
+      "avg_win_r": 0.531,
+      "avg_loss_r": -1.006,
+      "usd_per_1lot": 7326.1,
+      "tp": 113,
+      "sl": 51,
+      "be": 0,
+      "timeout": 1
+    },
+    "cfg": {
+      "setup": "breakout",
+      "tf": "M5",
+      "bo_len": 20,
+      "rsi_band_lo": 50,
+      "rsi_band_hi": 80,
+      "require_stack": true,
+      "sess_start": 12,
+      "sess_end": 20,
+      "stop_mode": "atr",
+      "max_bars_in_trade": 72,
+      "sl_atr": 1.2,
+      "tp_r": 0.5
+    }
+  },
+  "BALANCED       (sl1.8 tp1.5R)": {
+    "full": {
+      "trades": 122,
+      "win_rate": 49.18,
+      "expectancy_r": 0.2134,
+      "profit_factor": 1.42,
+      "total_r": 26.04,
+      "max_dd_r": 7.07,
+      "avg_win_r": 1.466,
+      "avg_loss_r": -0.999,
+      "usd_per_1lot": 30405.9,
+      "tp": 57,
+      "sl": 59,
+      "be": 0,
+      "timeout": 6
+    },
+    "cfg": {
+      "setup": "breakout",
+      "tf": "M5",
+      "bo_len": 20,
+      "rsi_band_lo": 50,
+      "rsi_band_hi": 80,
+      "require_stack": true,
+      "sess_start": 12,
+      "sess_end": 20,
+      "stop_mode": "atr",
+      "max_bars_in_trade": 72,
+      "sl_atr": 1.8,
+      "tp_r": 1.5
+    }
+  },
+  "BEST EDGE      (sl1.2 tp2.0R)": {
+    "full": {
+      "trades": 137,
+      "win_rate": 44.53,
+      "expectancy_r": 0.3402,
+      "profit_factor": 1.606,
+      "total_r": 46.61,
+      "max_dd_r": 8.29,
+      "avg_win_r": 2.025,
+      "avg_loss_r": -1.012,
+      "usd_per_1lot": 35119.5,
+      "tp": 61,
+      "sl": 75,
+      "be": 0,
+      "timeout": 1
+    },
+    "cfg": {
+      "setup": "breakout",
+      "tf": "M5",
+      "bo_len": 20,
+      "rsi_band_lo": 50,
+      "rsi_band_hi": 80,
+      "require_stack": true,
+      "sess_start": 12,
+      "sess_end": 20,
+      "stop_mode": "atr",
+      "max_bars_in_trade": 72,
+      "sl_atr": 1.2,
+      "tp_r": 2.0
+    }
+  }
+}

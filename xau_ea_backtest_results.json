@@ -1,0 +1,80 @@
+[
+  {
+    "label": "EA defaults (0.5% scalp / 1% intraday risk)",
+    "start_balance": 500.0,
+    "final_balance": 500.0,
+    "return_pct": 0.0,
+    "max_drawdown_pct": -0.0,
+    "INTRADAY": {
+      "setups": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate_pct": 0.0,
+      "net_usd": 0,
+      "profit_factor": null,
+      "avg_win_usd": 0.0,
+      "avg_loss_usd": 0.0,
+      "avg_r": 0.0,
+      "total_r": 0.0,
+      "avg_risk_usd": 0.0,
+      "signals": 43,
+      "skipped_size": 33,
+      "skipped_wide": 10
+    },
+    "SCALP": {
+      "setups": 0,
+      "wins": 0,
+      "losses": 0,
+      "win_rate_pct": 0.0,
+      "net_usd": 0,
+      "profit_factor": null,
+      "avg_win_usd": 0.0,
+      "avg_loss_usd": 0.0,
+      "avg_r": 0.0,
+      "total_r": 0.0,
+      "avg_risk_usd": 0.0,
+      "signals": 815,
+      "skipped_size": 780,
+      "skipped_wide": 35
+    }
+  },
+  {
+    "label": "$500 mode: min lot 0.01 allowed if risk <= 5%",
+    "start_balance": 500.0,
+    "final_balance": 521.97,
+    "return_pct": 4.39,
+    "max_drawdown_pct": 19.21,
+    "INTRADAY": {
+      "setups": 6,
+      "wins": 4,
+      "losses": 2,
+      "win_rate_pct": 66.7,
+      "net_usd": 59.54,
+      "profit_factor": 2.72,
+      "avg_win_usd": 23.51,
+      "avg_loss_usd": -17.26,
+      "avg_r": 0.47,
+      "total_r": 2.84,
+      "avg_risk_usd": 22.8,
+      "signals": 37,
+      "skipped_size": 23,
+      "skipped_wide": 8
+    },
+    "SCALP": {
+      "setups": 185,
+      "wins": 82,
+      "losses": 103,
+      "win_rate_pct": 44.3,
+      "net_usd": -37.57,
+      "profit_factor": 0.93,
+      "avg_win_usd": 6.09,
+      "avg_loss_usd": -5.21,
+      "avg_r": -0.07,
+      "total_r": -12.5,
+      "avg_risk_usd": 5.31,
+      "signals": 191,
+      "skipped_size": 0,
+      "skipped_wide": 6
+    }
+  }
+]

@@ -57,14 +57,24 @@ BASE = dict(
 
 
 # --------------------------------------------------------------------------- data
-def load_m1():
-    df = pd.read_csv(os.path.join(HERE, "data", "XAUUSD_M1.csv"))
+def load_csv(name):
+    df = pd.read_csv(os.path.join(HERE, "data", name))
     df["time"] = pd.to_datetime(df["time"], utc=True)
     df = df.set_index("time").sort_index()
     df = df[~df.index.duplicated(keep="first")]
     # work in broker server time (naive) so sessions / H4 candles line up like MT5
     df.index = (df.index + pd.Timedelta(hours=SERVER_UTC_OFFSET_H)).tz_localize(None)
     return df
+
+
+def load_m1():
+    return load_csv("XAUUSD_M1.csv")
+
+
+def load_h1():
+    """Dukascopy monthly H1 candles: long history for the H1/H4 EMA200 warm-up."""
+    p = os.path.join(HERE, "data", "XAUUSD_H1.csv")
+    return load_csv("XAUUSD_H1.csv") if os.path.exists(p) else None
 
 
 def resample(m1, rule):
@@ -216,13 +226,17 @@ def norm_lot(v):
     return round(v, 2) if v >= LOT_MIN else 0.0
 
 
-def run(m1, cfg, start, end, balance):
+def run(m1, cfg, start, end, balance, h1=None):
     eng_cfgs = [e for e in cfg["engines"] if e["on"]]
+
+    def src(rule):  # hourly-and-up candles come from the long H1 history when available
+        return h1 if (h1 is not None and pd.Timedelta(rule) >= pd.Timedelta("1h")) else m1
+
     tfs = {}
     for e in eng_cfgs:
-        tfs[(e["name"], "bias")] = TF(m1, e["bias_tf"], cfg, "bias")
-        tfs[(e["name"], "entry")] = TF(m1, e["entry_tf"], cfg, "entry")
-    h1_tf = TF(m1, "1h", cfg, "bias")
+        tfs[(e["name"], "bias")] = TF(src(e["bias_tf"]), e["bias_tf"], cfg, "bias")
+        tfs[(e["name"], "entry")] = TF(src(e["entry_tf"]), e["entry_tf"], cfg, "entry")
+    h1_tf = TF(src("1h"), "1h", cfg, "bias")
 
     sim = m1[(m1.index >= start) & (m1.index < end)]
     T = sim.index.values
@@ -436,6 +450,7 @@ def main():
     start = pd.Timestamp(sys.argv[1]) if len(sys.argv) > 1 else end - pd.Timedelta(days=90)
     balance = float(sys.argv[3]) if len(sys.argv) > 3 else 500.0
     m1 = load_m1()
+    h1 = load_h1()
     print(f"data {m1.index[0]} -> {m1.index[-1]} ({len(m1)} M1 bars), test {start.date()} -> {end.date()}")
 
     runs = []
@@ -449,7 +464,7 @@ def main():
     results = []
     all_setups = {}
     for label, cfg in runs:
-        setups, curve, stats, final = run(m1, cfg, start, end, balance)
+        setups, curve, stats, final = run(m1, cfg, start, end, balance, h1)
         res = summarize(setups, curve, stats, final, balance, label)
         results.append(res)
         all_setups[label] = setups

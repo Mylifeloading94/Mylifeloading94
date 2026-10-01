@@ -1,25 +1,25 @@
 {
  "edge_R": {
   "SCALP": {
-   "n": 25,
-   "win_rate": 60.0,
-   "profit_factor": 1.66,
-   "total": 6.62,
-   "avg": 0.265
+   "n": 26,
+   "win_rate": 61.5,
+   "profit_factor": 1.81,
+   "total": 8.12,
+   "avg": 0.312
   },
   "INTRADAY": {
-   "n": 29,
-   "win_rate": 65.5,
-   "profit_factor": 1.95,
-   "total": 9.08,
-   "avg": 0.313
+   "n": 31,
+   "win_rate": 64.5,
+   "profit_factor": 1.88,
+   "total": 9.65,
+   "avg": 0.311
   },
   "ALL": {
-   "n": 54,
-   "win_rate": 63.0,
-   "profit_factor": 1.8,
-   "total": 15.7,
-   "avg": 0.291
+   "n": 57,
+   "win_rate": 63.2,
+   "profit_factor": 1.85,
+   "total": 17.77,
+   "avg": 0.312
   }
  },
  "by_month_R": {
@@ -31,18 +31,18 @@
    "avg": -0.246
   },
   "2026-05": {
-   "n": 12,
-   "win_rate": 66.7,
-   "profit_factor": 2.39,
-   "total": 4.98,
-   "avg": 0.415
+   "n": 13,
+   "win_rate": 69.2,
+   "profit_factor": 2.64,
+   "total": 6.55,
+   "avg": 0.504
   },
   "2026-06": {
-   "n": 8,
-   "win_rate": 62.5,
-   "profit_factor": 1.84,
-   "total": 2.53,
-   "avg": 0.316
+   "n": 10,
+   "win_rate": 60.0,
+   "profit_factor": 1.76,
+   "total": 3.03,
+   "avg": 0.303
   },
   "2026-07": {
    "n": 18,
@@ -122,13 +122,13 @@
  },
  "account_500_full": {
   "start": "2026-04-01",
-  "final_balance": 569.06,
-  "return_pct": 13.81,
-  "max_dd_pct": 6.12,
-  "n": 26,
-  "win_rate": 57.7,
-  "profit_factor": 1.81,
-  "total": 69.03,
-  "avg": 2.655
+  "final_balance": 575.48,
+  "return_pct": 15.1,
+  "max_dd_pct": 4.99,
+  "n": 27,
+  "win_rate": 59.3,
+  "profit_factor": 1.78,
+  "total": 75.45,
+  "avg": 2.794
  }
 }

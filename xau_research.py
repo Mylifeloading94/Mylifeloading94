@@ -231,6 +231,54 @@ def ema_bias(htf, fast=50, slow=200):
     return fn
 
 
+def range_break_signals(tf, rng_hours=(0, 6), window=(6, 10), bias=None, sl_atr=1.5):
+    """Asian-range breakout: first TF close beyond the range inside `window` (UTC),
+    only in the higher-TF trend direction (a counter-trend first break ends the day)."""
+    a = atr(tf).values
+    step = tf.index[1] - tf.index[0]
+    out = []
+    for day, g in tf.groupby(tf.index.date):
+        rg = g[(g.index.hour >= rng_hours[0]) & (g.index.hour < rng_hours[1])]
+        if len(rg) < 3:
+            continue
+        hi, lo = rg["high"].max(), rg["low"].min()
+        w = g[(g.index.hour >= window[0]) & (g.index.hour < window[1])]
+        for ts, row in w.iterrows():
+            ii = tf.index.get_loc(ts)
+            d = 1 if row.close > hi else (-1 if row.close < lo else 0)
+            if d == 0:
+                continue
+            if bias and bias(ts) != d:
+                break
+            out.append(dict(time=ts + step, dir=d, entry=None, sl=row.close - d * sl_atr * a[ii],
+                            level=hi if d > 0 else lo))
+            break
+    return out
+
+
+def pdhl_break_signals(tf, bias=None, sl_atr=1.5, window=(6, 16)):
+    """Previous-day high/low breakout: first TF close beyond yesterday's extreme."""
+    a = atr(tf).values
+    step = tf.index[1] - tf.index[0]
+    out = []
+    groups = [(day, g) for day, g in tf.groupby(tf.index.date)]
+    for k in range(1, len(groups)):
+        ph, pl = groups[k - 1][1]["high"].max(), groups[k - 1][1]["low"].min()
+        for ts, row in groups[k][1].iterrows():
+            if not (window[0] <= ts.hour < window[1]):
+                continue
+            ii = tf.index.get_loc(ts)
+            d = 1 if row.close > ph else (-1 if row.close < pl else 0)
+            if d == 0:
+                continue
+            if bias and bias(ts) != d:
+                break
+            out.append(dict(time=ts + step, dir=d, entry=None, sl=row.close - d * sl_atr * a[ii],
+                            level=ph if d > 0 else pl))
+            break
+    return out
+
+
 # ------------------------------------------------------------------- runner
 def run_signals(m, sigs, tp1_r=1.0, tp2_r=2.5, tp1_frac=0.5, tstop_min=48 * 5, limit=True,
                 sl_min=None, sl_max=None, use_tgt=False):

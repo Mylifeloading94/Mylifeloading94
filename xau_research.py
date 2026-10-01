@@ -79,8 +79,15 @@ class M1:
 
 
 def sim_trade(m, i0, d, entry, sl, tp1, tp2, limit=False, expiry=None, tstop=None,
-              tp1_frac=0.5, be_lock=3 * PIP, spread=SPREAD):
-    """Return (R, fill_index, exit_index) or None if a limit never filled."""
+              tp1_frac=0.5, be_lock=3 * PIP, spread=None, intrabar="ohlc"):
+    """Return (R, fill_index, exit_index) or None if a limit never filled.
+
+    intrabar: what happens when one M1 candle touches both the stop and a target.
+      "pessimistic" -> stop first
+      "ohlc"        -> bullish candle assumed open-low-high-close, bearish open-high-low-close
+    """
+    if spread is None:
+        spread = SPREAD
     n = len(m.t)
     i = i0
     # ---- fill
@@ -118,8 +125,15 @@ def sim_trade(m, i0, d, entry, sl, tp1, tp2, limit=False, expiry=None, tstop=Non
     j = i
     while j < end:
         lo, hi = (m.l[j], m.h[j]) if d > 0 else (m.l[j] + spread, m.h[j] + spread)
-        # stop first (conservative)
-        if (d > 0 and lo <= stop) or (d < 0 and hi >= stop):
+        stop_hit = (d > 0 and lo <= stop) or (d < 0 and hi >= stop)
+        tgt = tp2 if tp1_done else tp1
+        tgt_hit = (d > 0 and hi >= tgt) or (d < 0 and lo <= tgt)
+        if stop_hit and tgt_hit and intrabar == "ohlc" and j > i:
+            low_first = m.c[j] >= m.o[j]
+            # buy: low first -> stop first; sell: high first -> stop first
+            if (d > 0 and not low_first) or (d < 0 and low_first):
+                stop_hit = False   # target reached before the stop in this candle
+        if stop_hit:
             px = stop
             if j > i:  # gap through stop at bar open
                 op = m.o[j] if d > 0 else m.o[j] + spread

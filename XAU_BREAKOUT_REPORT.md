@@ -59,3 +59,22 @@ $500 at 2% over Apr–Sep (6 months): **+$75.45 (+15.1%)**, max drawdown 5.0%, 2
 - Selective by design: about 1 trade a week on $500.
 - Backtest ≠ live: real spreads widen at the London open, and fills can slip.
 - Trend filter means it sits out when the daily trend is flat (e.g. only 3 trades in Sep).
+
+## Addendum — can it scalp 4–10 times a day at 1% risk?
+
+Constraint: 1% of $500 = $5, and 0.01 lot loses $1 per $1 move → every stop must be ≤ 50 pips.
+
+Tested on Jul–Sep (in-sample) and Apr–Jun (out-of-sample), all with the daily trend filter,
+SL 20–50 pips, simulator checked neutral (random entries at zero spread ≈ 0R):
+
+| Setup | Trades/day | Win rate | Avg per trade (3-pip spread) | Avg (1.5-pip spread) |
+|---|---|---|---|---|
+| M1 EMA pullback | 9–17 | 43% | −0.14R | −0.07R |
+| M1 previous-hour break | 7.6 | 45% | −0.11R | −0.06R |
+| M1 20–30 bar breakout | 14–23 | 43% | −0.14R | −0.09R |
+| M1 dip-buy in daily trend (best) | 7–9 | 49–52% | −0.02R to 0R | +0.02R to +0.05R |
+| M5 versions | 1–2.5 | 42–50% | −0.17R to 0R | −0.14R to +0.01R |
+
+**No high-frequency setup has a real edge after costs.** The best (M1 dip-buy) is break-even
+out-of-sample. v2 at a strict 1% takes 0 trades on $500 (its stops are 50–110 pips);
+allowing 0.01 lot up to 1.5% risk gives 10 trades / 90 days, +4.7%, DD 3.3%.

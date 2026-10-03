@@ -274,3 +274,79 @@ What improved is **trustworthiness and realism**: a verified candle-by-candle re
 sizing, shared risk code, and a quantified answer to "what happens with real lots, costs and
 drawdown". What did **not** improve is the edge. I would not trade this for income; it is a research
 baseline that is probably, but not provably, slightly positive before your broker's costs.
+
+---
+
+## Round 4 — the forex / NAS100 / SPX500 watchlist
+
+**Coverage, stated first: this screen is incomplete.** 9 FX pairs plus gold (as a reference) were
+screened. **The 2 indices (SPX500, NAS100) and 19 FX crosses were NOT**, because Dukascopy rate-limits
+this server's IP (HTTP 429, an effectively multi-hour ban after the first ~1,200 requests) and no other
+source reachable from here carries intraday indices. Nothing below says anything about NAS100 or
+SPX500. Screened: EURUSD GBPUSD USDJPY USDCHF USDCAD AUDUSD NZDUSD EURGBP EURJPY (+ XAUUSD).
+
+**To finish it from a normal connection** (about 1.5 h, resumable; indices are fetched first):
+```bash
+python3 fetch_h1.py 3                 # ~3,000 paced requests; caches per month under data/h1_raw/
+python3 screen_watchlist.py           # pre-registered screen + null control
+python3 deep_watchlist.py             # deep dive + permutation test on qualifiers
+python3 sensitivity_watchlist.py      # plateau test + cross-section
+```
+Everything reads `data/h1/` or falls back to the committed `results/h1/` (10 instruments, 21 MB).
+
+### How it was run (rules fixed before looking at results)
+- H1 bid/ask bars 2019 → 2026-09. Bid is real for every month; ask is real for June of each year and
+  **modelled** elsewhere as bid + the median spread for that (year, UTC hour). Spreads are Dukascopy's
+  feed (EURUSD 0.3–0.7 pips) and tighter than most retail brokers.
+- **10 fixed configs applied identically to every instrument — no per-instrument tuning**: fade (3.0σ/RSI20
+  and 2.5σ/RSI25, 4h and 8h holds), the same four long-only, and momentum (20-bar break + EMA stack,
+  RSI>70 / RSI>75, 8h). Stop 3 ATR, time exit.
+- Per instrument, the config best on **train (2019-22)** is chosen; it *qualifies* only if PF > 1.05 on
+  train **and** validation (2023-24). Test (2025+) is reported last.
+- **Null control:** the same procedure on randomly time-shifted signals (same frequency, no information).
+- Fidelity: on gold, the H1-bar engine matches the M1 engine at R-correlation 0.999–1.000 on matched trades
+  with PF within ~0.05 (trade counts differ by up to 9% around gaps). Fine for ranking, not for final numbers.
+  A true M1 pass was infeasible for the same rate-limit reason.
+
+### Result 1 — the screen is at chance level
+2 of 10 instruments qualified (USDJPY, USDCHF). **The null control qualifies a mean of 2.0 of 10
+(runs: 0, 5, 2, 1, 2).** The qualification rule is loose enough that ~20% of instruments pass by luck, so
+"qualified" is not evidence. No fade config qualified on any FX pair; gold did not qualify on this H1 screen.
+
+### Result 2 — USDJPY momentum is the one candidate worth a second look
+| | pre-registered (RSI>75, 8h) | neighbouring setting (RSI>80, 8h) — chosen *after* the plateau test |
+|---|---|---|
+| Trades / win rate | 426 / 49.8% | 168 / 56.5% |
+| Profit factor / t-stat | **1.35** / +2.27 | **1.84** / +2.82 |
+| train / valid / test PF | 1.29 / 1.69 / 1.16 | 1.60 / 2.27 / 2.06 (test n = 29, WR 69%) |
+| Long / short PF | 1.54 / 1.06 | **1.86 / 1.79** — profitable on both sides |
+| Max DD (risk 0.5%/trade) | 4.7% (+18.4% over 7.75y) | 2.0% (+15.4% over 7.75y) |
+| Cost ×2 (double spread) | PF 1.29 | PF 1.76 |
+| Permutation p (time-shift null) | 0.007 | 0.002–0.010 (two runs) |
+
+Why it is credible: it is a **plateau, not a spike** — all 48 neighbouring configs (RSI 65–80 × 4–24h ×
+2–4 ATR stops) are profitable, median PF 1.30, and PF rises *monotonically* with the RSI threshold
+(1.12 → 1.84), the same dose-response gold showed; 33 of 48 are profitable in train, validation **and**
+test at once; and it is robust to doubled spread, because a 3-ATR stop dwarfs FX spread.
+
+Why it is not proven:
+- **It fails the multiple-testing bar.** Bonferroni for 31 instruments needs p ≤ 0.0016; for the 10
+  actually screened, 0.005. The RSI>75 p of 0.007 misses both, and the RSI>80 p was chosen post hoc.
+- **It is the only one.** The same RSI>80 rule loses on EURGBP (PF 0.59), EURUSD (0.71) and NZDUSD (0.71)
+  and is flat on AUDUSD, EURJPY, USDCAD and gold (0.92–1.05). GBPUSD (1.34, p 0.055) and USDCHF (1.22,
+  p 0.075) are suggestive only. One instrument at p ≈ 0.01 out of ten is not unusual by chance.
+- **Small samples:** 168 trades (~22 a year); the test period is 29 trades.
+- **Regime:** 2019 PF 0.79, 2021 1.08 — weak before the 2022 yen move; USDJPY went 109 → 160.
+- USDCHF (median neighbour PF 1.04) and EURJPY (0.98) show no plateau.
+
+### What this means
+Nothing here approaches the earlier win-rate/profit-factor targets, and nothing is proven. The honest
+reading is: *USDJPY H1 momentum after an RSI>80 break is a plausible, cost-robust, two-sided effect with
+a p-value around 0.002–0.01 that would not survive a strict correction for how many things were
+tried.* It deserves an out-of-sample test on the rest of the watchlist and, above all, on **new data**
+(forward-test it on demo; it fires ~2 times a month). It is **not wired into `bot_gold.py`**: that bot is
+gold-specific (contract size, sizing). Say the word and I will generalise it per instrument.
+
+Files: `fetch_candles.py`, `fetch_h1.py`, `screen_watchlist.py`, `deep_watchlist.py`,
+`sensitivity_watchlist.py`; outputs `results/screen_watchlist.json`, `results/deep_watchlist_output.txt`,
+`results/watchlist_sensitivity.txt`, data `results/h1/`.

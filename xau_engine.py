@@ -75,7 +75,7 @@ def tf_minutes(rule):
 # --------------------------------------------------------------------------
 @njit(cache=True)
 def _sim(entry_i, direction, risk, tp_mult, hold_min, be_r,
-         tmin, bo, bh, bl, bc, ao, ah, al, ac, out_exit, out_i, out_reason):
+         tmin, bo, bh, bl, bc, ao, ah, al, ac, out_exit, out_i, out_reason, bar_min, gap_min):
     n = len(tmin)
     for k in range(len(entry_i)):
         j0 = entry_i[k]
@@ -111,9 +111,9 @@ def _sim(entry_i, direction, risk, tp_mult, hold_min, be_r,
                     ex = cur; why = 5 if be_armed else 1; break
                 if al[j] <= target:
                     ex = target; why = 2; break
-            if tmin[j] + 1 >= deadline:                     # bar j closes at deadline
+            if tmin[j] + bar_min >= deadline:               # bar j closes at deadline
                 ex = bc[j] if d == 1 else ac[j]; why = 3; break
-            if j + 1 < n and tmin[j + 1] - tmin[j] > 30:    # market about to close
+            if j + 1 < n and tmin[j + 1] - tmin[j] > gap_min:  # market about to close
                 ex = bc[j] if d == 1 else ac[j]; why = 4; break
             if be_r > 0 and not be_armed:                   # arms for NEXT bar only
                 fav = (bh[j] - entry) if d == 1 else (entry - al[j])
@@ -128,7 +128,7 @@ def _sim(entry_i, direction, risk, tp_mult, hold_min, be_r,
 
 
 def run(m1, tf_bars, tf_rule, long_sig, short_sig, risk_dist, hold_min,
-        tp_mult=0.0, be_r=0.0, cooldown_bars=1):
+        tp_mult=0.0, be_r=0.0, cooldown_bars=1, bar_min=1, gap_min=30, max_delay=15):
     """Turn TF-bar signals into a trade table.
 
     long_sig/short_sig: boolean arrays aligned to tf_bars (signal known at close).
@@ -144,7 +144,7 @@ def run(m1, tf_bars, tf_rule, long_sig, short_sig, risk_dist, hold_min,
     close_min = _min(tf_bars.index)[cand] + m
     ent = np.searchsorted(tmin_all, close_min, side="left")
     ok = (ent < len(tmin_all))
-    ok[ok] = (tmin_all[ent[ok]] - close_min[ok]) <= 15          # market was open
+    ok[ok] = (tmin_all[ent[ok]] - close_min[ok]) <= max_delay   # market was open
     ok &= np.isfinite(risk_dist[cand]) & (risk_dist[cand] > 0)
     cand, ent = cand[ok], ent[ok]
 
@@ -161,7 +161,7 @@ def run(m1, tf_bars, tf_rule, long_sig, short_sig, risk_dist, hold_min,
     r_all = np.empty(n); i_all = np.empty(n, np.int64); w_all = np.empty(n, np.int64)
     _sim(ent.astype(np.int64), sig[cand].astype(np.int64),
          risk_dist[cand].astype("float64"), float(tp_mult), int(hold_min), float(be_r),
-         tmin_all, *arr, r_all, i_all, w_all)
+         tmin_all, *arr, r_all, i_all, w_all, int(bar_min), int(gap_min))
     sel = []
     busy_until = -1
     for q in range(n):

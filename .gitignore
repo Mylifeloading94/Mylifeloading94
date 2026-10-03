@@ -46,3 +46,4 @@ meta_*.log
 account.log
 replay_check.log
 fetch365.log
+fetch_h1.log

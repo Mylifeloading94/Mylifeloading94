@@ -1,0 +1,28 @@
+
+=== USDJPY  [mom rsi75 h8]  both-sided, stop 3 ATR, 8h time exit ===
+  ALL   n= 426 WR 49.8%  PF 1.35  exp +0.081R  total  +34.3R  t=+2.27  maxDD 9.6R
+  train n= 237 PF 1.29 | valid n= 107 PF 1.69 | TEST n=  82 WR 47.6% PF 1.16 R +3.4
+  risk 0.5%/trade: return  +18.4%  maxDD 4.7%
+  risk 1.0%/trade: return  +39.4%  maxDD 9.3%
+  by year PF: {2019: np.float64(0.8), 2020: np.float64(0.86), 2021: np.float64(1.17), 2022: np.float64(2.23), 2023: np.float64(1.18), 2024: np.float64(2.64), 2025: np.float64(1.2), 2026: np.float64(1.1)}
+  long  n= 268 WR 51.1% PF 1.54 R  +31.8
+  short n= 158 WR 47.5% PF 1.06 R   +2.5
+  cost x1.5: PF 1.32  total  +32.0R
+  cost x2.0: PF 1.29  total  +29.6R
+  permutation test: observed +34.3R vs null mean -3.2R (95th pct +18.1R)  p = 0.007   -> does NOT survive Bonferroni for 10 instruments (needs p <= 0.0050)
+
+=== USDCHF  [mom rsi75 h8]  both-sided, stop 3 ATR, 8h time exit ===
+  ALL   n= 350 WR 50.3%  PF 1.14  exp +0.035R  total  +12.2R  t=+0.90  maxDD 8.1R
+  train n= 172 PF 1.11 | valid n=  88 PF 1.09 | TEST n=  90 WR 46.7% PF 1.24 R +5.2
+  risk 0.5%/trade: return   +6.1%  maxDD 4.0%
+  risk 1.0%/trade: return  +12.0%  maxDD 7.8%
+  by year PF: {2019: np.float64(1.25), 2020: np.float64(0.75), 2021: np.float64(0.81), 2022: np.float64(1.95), 2023: np.float64(1.86), 2024: np.float64(0.79), 2025: np.float64(1.29), 2026: np.float64(1.17)}
+  long  n= 160 WR 48.8% PF 0.86 R   -5.8
+  short n= 190 WR 51.6% PF 1.37 R  +18.0
+  cost x1.5: PF 1.08  total   +7.2R
+  cost x2.0: PF 1.02  total   +2.2R
+  permutation test: observed +12.2R vs null mean -13.9R (95th pct +5.9R)  p = 0.025   -> does NOT survive Bonferroni for 10 instruments (needs p <= 0.0050)
+
+=== BASKET of 2: USDJPY, USDCHF (risk 0.5% per trade, shared equity) ===
+  n=776 WR 50.0% PF 1.25 exp +0.060R t=+2.29 | return +25.6% maxDD 7.0% Sharpe 0.68
+  by year PF: {2019: np.float64(1.04), 2020: np.float64(0.81), 2021: np.float64(1.02), 2022: np.float64(2.14), 2023: np.float64(1.4), 2024: np.float64(1.35), 2025: np.float64(1.24), 2026: np.float64(1.14)}

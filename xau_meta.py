@@ -77,7 +77,7 @@ def label_all(m1, b, ent, sl_atr, tp, hold):
     for d in (1, -1):
         r = np.empty(len(idx)); xi = np.empty(len(idx), np.int64); w = np.empty(len(idx), np.int64)
         E._sim(ent[idx].astype(np.int64), np.full(len(idx), d, np.int64), (sl_atr * a[idx]).astype("float64"),
-               float(tp), int(hold), 0.0, tmin, *arr, r, xi, w)
+               float(tp), int(hold), 0.0, tmin, *arr, r, xi, w, 1, 30)
         full_r = np.full(len(b), np.nan); full_x = np.full(len(b), -1, np.int64)
         full_r[idx], full_x[idx] = r, xi
         out[d] = (full_r, full_x)

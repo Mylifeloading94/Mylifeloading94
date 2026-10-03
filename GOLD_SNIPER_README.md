@@ -1,5 +1,31 @@
 # Gold Sniper Scalper — XAUUSD M5
 
+> ## ⚠️ CORRECTION — the 90-day result below does NOT survive a full year
+>
+> The numbers in the "Headline result" section were fitted and validated on
+> 90 days. I later re-ran the **same shipped config against a full year of
+> real Dukascopy ticks (92.2M ticks, 2025-09-03 → 2026-09-03)**. It loses
+> money:
+>
+> | Period | Trades | Win rate | Profit factor | Total R |
+> |---|---|---|---|---|
+> | **Full year** | 550 | **38.7%** | **0.92** | **−27.9R** |
+> | The 9 months it had never seen | 424 | 35.6% | **0.80** | −55.0R |
+> | The 90 days it was fitted on | 126 | 49.2% | 1.42 | +27.0R |
+>
+> Month by month, the losses are concentrated and severe: Dec 2025 PF 0.61,
+> Jan 2026 PF 0.50, Feb 2026 PF 0.50. Max drawdown over the year was 64.8R.
+>
+> The 90-day "held-out 30 days" test was not enough. 30 days of hold-out on a
+> single instrument in a trending regime let an overfit config through. The
+> honest conclusion is that **this configuration has no demonstrated edge**,
+> and the parameters that looked best on 90 days (the 12:00-20:00 session
+> window in particular) were regime artifacts — over the full year that
+> session filter actively hurts.
+>
+> **Do not trade the defaults in `gold_sniper_scalper.pine` as published.**
+> See "What actually survived a year" below for what held up.
+
 A non-repainting TradingView scalping strategy for gold, plus the tick-accurate
 research harness used to validate it over 90 days of real market data.
 
@@ -85,6 +111,62 @@ win-rate version of this LOSES money."* That finding reproduced.
 4. **Costs dominate at this timeframe.** On M5 the gold spread is ~6–11% of a
    typical 1R. A broker whose gold spread is much worse than ~0.40 will erase
    this edge outright. Check your own spread before trusting any of it.
+
+---
+
+## What actually survived a year
+
+Re-running the forward-return study on the full year, and splitting it into
+halves, separates real signal from regime luck. A feature only counts if it
+holds in BOTH halves:
+
+| Signal (12-bar forward return, ATR units) | Full year | 1st half | 2nd half | Stable? |
+|---|---|---|---|---|
+| **RSI(14) > 70** | +0.417 (t +8.9) | +0.520 | +0.282 | **yes** |
+| **Close breaks 20-bar high** | +0.195 (t +4.0) | +0.218 | +0.159 | **yes** |
+| Close above EMA200 | +0.118 (t +8.7) | +0.195 | +0.017 | no — decays |
+| EMA50 > EMA200 | +0.117 (t +8.6) | +0.217 | −0.019 | no — sign flips |
+| Close below EMA200 (short bias) | −0.006 (t −0.4) | +0.131 | −0.103 | no — sign flips |
+| Sweep low + rejection (mean reversion) | −0.056 | +0.079 | −0.164 | no |
+
+Two things follow, and both contradict the shipped config:
+
+1. **The shipped RSI band of 50-80 excluded the single strongest signal.**
+   RSI > 70 is the most reliable feature in the data, and the band capped it
+   out. Raising the floor improves profit factor monotonically:
+   RSI>50 → PF 0.81, RSI>60 → 0.83, RSI>65 → 0.90, RSI>70 → 1.04.
+2. **The short side is not a real edge on gold.** Every bearish feature
+   flips sign between halves. Over the year the shipped config's longs ran
+   PF 0.81 and shorts PF 1.10 — and in the 90-day sample it was the reverse
+   (longs 0.99, shorts 2.06). That reversal is the signature of noise, not
+   of an edge.
+
+The best *consistent* configuration found so far is **long-only, RSI > 70,
+ATR trailing stop**: 420 trades, 42.6% win rate, PF 1.14 over the year, and
+stable across halves (PF 1.20 / 1.10). That is a thin, real edge — not the
+high win rate plus high profit factor this file originally advertised.
+
+### On "high win rate AND high profit factor"
+
+Across a full year of real gold ticks I could not find a configuration in this
+family that has both. The two are mechanically linked through the payoff
+ratio: raising the win rate means taking a smaller target, which shrinks the
+average win and pushes profit factor down. Every high-win-rate variant tested
+(0.5R targets, ~69% win rate) failed to make money once costs were paid.
+
+Anything advertising a high win rate *and* a high profit factor on gold
+scalping is either not paying the spread, resolving stop-vs-target on bar OHLC
+instead of ticks, or reporting an in-sample fit. This harness does none of
+those, which is why its numbers are worse and worth more.
+
+### Things that sound good and measurably are not
+
+| Idea | Result | Why |
+|---|---|---|
+| Enter on a retest of the broken level | PF 1.42 → **0.97** | Adverse selection: breakouts that come back to the level are the *failing* ones. The good ones never fill you. |
+| Anti-chase filter (cap distance from EMA) | 122 → 18 trades | A breakout is extended by definition; the filter deletes the setup. |
+| Move stop to breakeven at 1R | WR 49% → 31% | Stops out trades that would have recovered. |
+| 12:00-20:00 UTC session window | helps on 90d, hurts on 1y | Regime artifact. |
 
 ---
 

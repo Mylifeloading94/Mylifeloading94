@@ -102,15 +102,36 @@ def pullback(b, trend_ema=200, rsi_len=3, dip=15.0, sl_atr=2.0, side="both",
 # 3. Range fade: stretched move away from the mean in a NON-trending market
 # --------------------------------------------------------------------------
 def fade(b, bb_len=20, bb_k=2.5, rsi_len=7, rsi_thr=20.0, adx_max=25.0, sl_atr=2.5,
-         side="both", vol_lo=0.5, vol_hi=2.2, hours=None):
+         side="both", vol_lo=0.5, vol_hi=2.2, hours=None,
+         trend_ema=0, confirm=False, min_ratio=0.0):
+    """Buy a statistical washout (short: sell a spike).
+
+    trend_ema > 0   longs only when close is ABOVE that EMA, shorts only BELOW it
+                    (buy dips in an uptrend / sell rips in a downtrend).
+    confirm         wait one bar: the washout must have happened on the PREVIOUS
+                    bar and the current bar must close back in the trade direction.
+    min_ratio       require ATR >= min_ratio x its 500-bar median (panic volatility).
+    All defaults reproduce the original behaviour exactly.
+    """
     a = atr(b)
     m = b.close.rolling(bb_len).mean()
     sd = b.close.rolling(bb_len).std()
     r = rsi(b.close, rsi_len)
     x = adx(b)
     ok = _gate(b, a, vol_lo, vol_hi, hours) & (x < adx_max).to_numpy()
-    long_ = ok & ((b.close < m - bb_k * sd) & (r < rsi_thr)).to_numpy()
-    short_ = ok & ((b.close > m + bb_k * sd) & (r > 100 - rsi_thr)).to_numpy()
+    if min_ratio > 0:
+        ok = ok & (a >= min_ratio * a.rolling(500).median()).to_numpy()
+    lraw = (b.close < m - bb_k * sd) & (r < rsi_thr)
+    sraw = (b.close > m + bb_k * sd) & (r > 100 - rsi_thr)
+    if confirm:
+        lraw = lraw.shift(1, fill_value=False) & (b.close > b.open) & (b.close > b.close.shift(1))
+        sraw = sraw.shift(1, fill_value=False) & (b.close < b.open) & (b.close < b.close.shift(1))
+    if trend_ema:
+        es = ema(b.close, trend_ema)
+        lraw &= (b.close > es)
+        sraw &= (b.close < es)
+    long_ = ok & lraw.to_numpy()
+    short_ = ok & sraw.to_numpy()
     long_, short_ = _side(long_, short_, side)
     return long_, short_, (sl_atr * a).to_numpy()
 

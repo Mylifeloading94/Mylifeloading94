@@ -200,3 +200,77 @@ move from public price data. The strongest edge found anywhere in this project i
 Code: `xau_meta.py`, `run_meta.py` (`results/meta_{5min,15min,1h}.jsonl`). Run
 `OMP_NUM_THREADS=1 python3 run_meta.py 15min` — set the thread count, or the workers
 thrash and a one-minute job takes twenty.
+
+---
+
+## Round 3 — candle-by-candle replay and a "better bot" attempt
+
+**Result: the replay engine is a real upgrade and it proves the backtest is honest. The strategy
+itself did not get better — no tweak survived — and the account-level numbers are modest.**
+
+### 1. The replay engine (`replay_engine.py`)
+
+Walks M1 candles one at a time and does only what a live bot can: builds signal bars as candles
+arrive, calls `bot_gold.latest_signal()` (the live function) on a trailing 900-bar window, fills at
+the next candle's open (ask/bid), manages stop / target / time-exit per candle (stop wins a tie,
+gaps fill at the open, flat before any market closure), sizes in **real 0.01-lot steps from
+compounding equity**, charges commission and slippage, and marks equity to market every candle.
+
+```bash
+python3 replay_engine.py --config configs/gold_intraday.json --start 2025-01-01 --end 2025-07-01 \
+    --risk 1.0 --out results/replay/h1_2025        # -> trades csv + equity/drawdown chart
+```
+
+**Integrity check — does it reproduce the vectorised backtest trade for trade?**
+544 of 546 trades identical (entry time, direction); worst R difference 5e-5; **0 trades the
+vectorised engine lacks.** Every year 2020–2026 matches perfectly. The 2 exceptions are the first
+two trades in the dataset (Jan 2019), which fire before 800 bars of history exist; the replay
+refuses to trade without a full window, as the live bot does. (A first run showed 7 misses: the
+replay's lead-in was measured in wall-clock time and weekends have no bars. Fixed.)
+
+### 2. Improvement study (`improve_gold.py`)
+
+21 single-change variants, each motivated by the diagnosis: trend alignment (3 lengths), confirmation
+bar, panic-volatility floor, hold length, stop width, band width, RSI threshold, and a trend-gated
+short side. A change was accepted only if it improved PF on **both** train (2019-22) and validation
+(2023-24) with a usable sample. **0 of 21 were accepted.** Variants that looked good in one period
+flipped in the other (`trend_ema=1000`: train PF 0.88 → validation 1.61); the ones that improved both
+did so on 30–69 trades. The base configuration is a local optimum within noise, so it is unchanged.
+Full table: `results/improve_gold_output.txt`.
+
+### 3. Win rate vs profit factor — the frontier on the same signal
+
+| Exit | Win rate | PF (all years) | avg win / avg loss |
+|---|---|---|---|
+| target 0.1R | **83.0%** | 0.82 | +0.10 / −0.59 |
+| target 0.2R | 72.7% | 1.03 | +0.20 / −0.51 |
+| target 0.3R | 64.2% | 1.05 | +0.27 / −0.46 |
+| 1R / time exit (shipped) | 53.1% | **1.11** | +0.43 / −0.44 |
+
+Raising the win rate only converts big winners into small ones. This is why "win rate above 60%"
+and "profit factor above 4" cannot both be bought with exit tweaks.
+
+### 4. Account-level replay, 2019 → 2026-10-02 ($10,000, real lots, compounding, MTM drawdown)
+
+| Scenario | Trades | PF ($) | Net | CAGR | Max DD | Sharpe |
+|---|---|---|---|---|---|---|
+| **0.5% risk** | 469 | 1.11 | +$494 | 0.62% | **4.3%** | 0.28 |
+| **1.0% risk** | 533 | 1.10 | +$1,063 | 1.31% | **9.3%** | 0.28 |
+| 1.0% + drawdown brake + daily-loss cap | 530 | 1.04 | +$362 | 0.46% | 8.5% | 0.12 |
+| 1.0% + commission $7/lot + $0.10 slippage | 531 | 1.02 | +$227 | 0.29% | 11.0% | 0.08 |
+
+- **The risk controls hurt.** A drawdown brake on a small mean-reverting edge cuts size right as the
+  bounce arrives. They are implemented (`risk_controls()`, shared by bot and replay, unit-tested) and
+  **off by default**.
+- **Costs decide it.** Ordinary commission plus a little slippage takes PF from 1.10 to 1.02.
+- **Lot granularity matters at $10k.** At 0.5% risk, 87 signals were too small for the 0.01-lot
+  minimum and were skipped. Use ≥ $20k or 1% risk.
+- **Real return is small:** about +1.3% a year at ~9% drawdown, Sharpe 0.28. A quarter can lose
+  (Q1 2025: PF 0.84).
+
+### Bottom line
+
+What improved is **trustworthiness and realism**: a verified candle-by-candle replay, real account
+sizing, shared risk code, and a quantified answer to "what happens with real lots, costs and
+drawdown". What did **not** improve is the edge. I would not trade this for income; it is a research
+baseline that is probably, but not provably, slightly positive before your broker's costs.

@@ -43,3 +43,6 @@ ladder.log
 fetch_m1.log
 research_*.log
 meta_*.log
+account.log
+replay_check.log
+fetch365.log

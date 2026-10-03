@@ -1,0 +1,46 @@
+21 single-change variants. BASE: train n=262 WR 53.4 PF 1.06 R   +3.6 | valid n=143 WR 51.7 PF 1.16 R   +4.7
+
+variant              |          train 2019-22           |          valid 2023-24           | accepted
+trend_ema=200        | n= 38 WR 55.3 PF 1.35 R   +2.0   | n= 30 WR 53.3 PF 1.27 R   +1.5   | no
+trend_ema=1000       | n=102 WR 50.0 PF 0.88 R   -3.0   | n= 64 WR 53.1 PF 1.61 R   +6.3   | no
+trend_ema=4800       | n=130 WR 46.9 PF 0.76 R   -8.2   | n=101 WR 50.5 PF 1.11 R   +2.3   | no
+confirm              | n=168 WR 48.2 PF 0.92 R   -3.0   | n= 92 WR 45.7 PF 1.01 R   +0.2   | no
+min_ratio=0.8        | n=219 WR 52.5 PF 1.03 R   +1.7   | n=120 WR 50.0 PF 1.14 R   +3.7   | no
+min_ratio=1.0        | n=176 WR 51.7 PF 0.96 R   -1.7   | n= 90 WR 45.6 PF 0.90 R   -2.2   | no
+min_ratio=1.3        | n=107 WR 50.5 PF 0.76 R   -6.5   | n= 52 WR 38.5 PF 0.63 R   -5.7   | no
+hold=120             | n=262 WR 51.5 PF 0.89 R   -5.6   | n=143 WR 51.0 PF 1.06 R   +1.5   | no
+hold=180             | n=262 WR 52.7 PF 1.02 R   +0.9   | n=143 WR 53.1 PF 1.09 R   +2.4   | no
+hold=360             | n=262 WR 55.0 PF 1.27 R  +16.7   | n=139 WR 50.4 PF 1.13 R   +4.7   | no
+hold=480             | n=259 WR 50.6 PF 1.17 R  +12.8   | n=138 WR 48.6 PF 1.00 R   -0.1   | no
+sl_atr=3.0           | n=275 WR 45.8 PF 0.87 R  -16.2   | n=152 WR 51.3 PF 1.26 R  +14.8   | no
+sl_atr=4.0           | n=268 WR 50.0 PF 0.95 R   -4.8   | n=146 WR 50.0 PF 1.23 R   +9.6   | no
+sl_atr=10.0          | n=261 WR 53.6 PF 1.02 R   +0.7   | n=142 WR 52.1 PF 1.16 R   +3.0   | no
+sl3,tp1.0            | n=275 WR 48.0 PF 0.79 R  -24.6   | n=152 WR 53.3 PF 1.10 R   +5.4   | no
+bb_k=2.5             | n=573 WR 53.1 PF 0.97 R   -3.1   | n=290 WR 50.0 PF 1.07 R   +4.1   | no
+bb_k=3.5             | n= 69 WR 55.1 PF 1.44 R   +6.2   | n= 44 WR 50.0 PF 1.20 R   +2.0   | no
+rsi_thr=15.0         | n=138 WR 50.0 PF 1.08 R   +2.6   | n= 81 WR 51.9 PF 1.13 R   +2.3   | no
+rsi_thr=25.0         | n=370 WR 50.8 PF 0.91 R   -7.3   | n=186 WR 48.4 PF 0.91 R   -3.8   | no
+both+trend1000       | n=167 WR 47.9 PF 0.87 R   -5.4   | n=111 WR 52.3 PF 1.23 R   +4.3   | no
+both+trend4800       | n=219 WR 47.0 PF 0.81 R  -10.4   | n=131 WR 48.9 PF 0.99 R   -0.4   | no
+
+0 accepted of 21
+
+FINAL COMBINATION: BASE (nothing improved both periods)
+{
+ "tf": "15min",
+ "hold": 240,
+ "tp": 2.0,
+ "p": {
+  "bb_k": 3.0,
+  "rsi_thr": 20.0,
+  "adx_max": 99.0,
+  "sl_atr": 6.0,
+  "side": "long"
+ }
+}
+  train n=262 WR 53.4 PF 1.06 R   +3.6
+  valid n=143 WR 51.7 PF 1.16 R   +4.7
+  TEST  n=141 WR 53.9 PF 1.18 R   +4.2   <- scored once
+  ALL   n=546 WR 53.1 PF 1.11 R  +12.5
+  BASE test for reference: n=141 WR 53.9 PF 1.18 R   +4.2
+  by year PF: {2019: np.float64(1.01), 2020: np.float64(1.01), 2021: np.float64(0.79), 2022: np.float64(1.62), 2023: np.float64(1.05), 2024: np.float64(1.32), 2025: np.float64(1.32), 2026: np.float64(1.05)}

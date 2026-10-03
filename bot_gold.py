@@ -43,6 +43,8 @@ def load_config(path):
     c.setdefault("validated", False)
     c.setdefault("symbol", "XAUUSD")
     c.setdefault("max_lots", 1.0)
+    c.setdefault("dd_brake", None)            # e.g. [5.0, 0.5]
+    c.setdefault("daily_loss_pct", None)      # e.g. 2.0
     return c
 
 
@@ -68,6 +70,24 @@ def size_lots(equity, risk_pct, risk_dist, max_lots):
     lots = usd / (risk_dist * CONTRACT_OZ)
     lots = math.floor(lots / LOT_STEP) * LOT_STEP
     return round(min(max(lots, 0.0), max_lots), 2)
+
+
+def risk_controls(equity, peak, day_start_equity, dd_brake=None, daily_loss_pct=None):
+    """Shared by the live bot AND the replay so they cannot diverge.
+
+    dd_brake=(dd_pct, scale): while drawdown from the equity peak >= dd_pct, trade
+        `scale` x the normal risk (e.g. (5.0, 0.5) halves risk in a 5% drawdown).
+    daily_loss_pct: block new entries for the rest of the UTC day once the day is
+        down this % of the day's starting equity.
+    Returns (risk_scale, blocked).
+    """
+    scale, blocked = 1.0, False
+    if dd_brake and peak > 0 and (peak - equity) / peak * 100.0 >= dd_brake[0]:
+        scale = float(dd_brake[1])
+    if daily_loss_pct and day_start_equity > 0 and \
+            (equity - day_start_equity) / day_start_equity * 100.0 <= -daily_loss_pct:
+        blocked = True
+    return scale, blocked
 
 
 def drop_unfinished(bars, tf, now=None):
@@ -130,6 +150,10 @@ def main():
     iid = api.get_instrument_id_from_symbol_name(cfg["symbol"])
     entries = {}                      # position_id -> entry timestamp (this process)
     last_bar = None
+    st = {"peak": 0.0, "day": None, "day_start": 0.0}
+    state_path = os.environ.get("BOT_STATE", "bot_state.json")
+    if os.path.exists(state_path):
+        st.update(json.load(open(state_path)))
     while True:
         try:
             now = pd.Timestamp.now(tz="UTC")
@@ -152,7 +176,17 @@ def main():
                     sl = px - d * risk
                     tp = px + d * cfg["tp"] * risk if cfg["tp"] > 0 else None
                     eq = float(api.get_account_state().get("balance", 0))
-                    lots = size_lots(eq, cfg["risk_pct"], risk, cfg["max_lots"])
+                    today = str(now.date())
+                    if st["day"] != today:
+                        st["day"], st["day_start"] = today, eq
+                    st["peak"] = max(st["peak"], eq)
+                    json.dump(st, open(state_path, "w"))
+                    scale, blocked = risk_controls(eq, st["peak"], st["day_start"],
+                                                   cfg["dd_brake"], cfg["daily_loss_pct"])
+                    if blocked:
+                        log.warning("daily loss limit reached; skipping signal")
+                        continue
+                    lots = size_lots(eq, cfg["risk_pct"] * scale, risk, cfg["max_lots"])
                     log.info("SIGNAL %s bar=%s px=%.2f sl=%.2f tp=%s lots=%.2f (equity %.0f)",
                              "BUY" if d == 1 else "SELL", last_bar, px, sl,
                              f"{tp:.2f}" if tp else "-", lots, eq)

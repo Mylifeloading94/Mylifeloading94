@@ -1,0 +1,10 @@
+        2019: vectorised   66 | replay   64 | same entry   64 | only-vec  2 | only-replay  0 | max |dR| on matches 5.23e-05
+        2020: vectorised   68 | replay   68 | same entry   68 | only-vec  0 | only-replay  0 | max |dR| on matches 1.08e-05
+        2021: vectorised   73 | replay   73 | same entry   73 | only-vec  0 | only-replay  0 | max |dR| on matches 9.87e-06
+        2022: vectorised   55 | replay   55 | same entry   55 | only-vec  0 | only-replay  0 | max |dR| on matches 1.25e-05
+        2023: vectorised   76 | replay   76 | same entry   76 | only-vec  0 | only-replay  0 | max |dR| on matches 1.63e-05
+        2024: vectorised   67 | replay   67 | same entry   67 | only-vec  0 | only-replay  0 | max |dR| on matches 1.96e-05
+        2025: vectorised   71 | replay   71 | same entry   71 | only-vec  0 | only-replay  0 | max |dR| on matches 5.90e-06
+        2026: vectorised   70 | replay   70 | same entry   70 | only-vec  0 | only-replay  0 | max |dR| on matches 9.49e-06
+
+TOTAL vectorised 546 | replay 544 | identical entries 544 | only-vec 2 | only-replay 0 | worst |dR| 5.23e-05

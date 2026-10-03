@@ -16,5 +16,8 @@
   "max_lots": 1.0,
   "validated": true,
   "warning": "Thin edge: PF 1.11, t=+0.93 (not significant), long-only in a gold bull market, dies at ~+$0.25/oz extra cost. Paper-trade first.",
-  "targets_met": false
+  "targets_met": false,
+  "dd_brake": null,
+  "daily_loss_pct": null,
+  "account_replay": "2019-2026, $10k, real lots: risk 0.5% -> +0.62%/yr, maxDD 4.3%; risk 1.0% -> +1.31%/yr, maxDD 9.3%; +commission/slippage -> PF 1.02. Risk controls tested and made it worse (off)."
 }

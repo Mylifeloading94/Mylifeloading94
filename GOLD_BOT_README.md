@@ -140,3 +140,63 @@ python3 check_replay.py                    # live signal path == backtest signal
 3. If you want profit factor near 3, the honest route is a different kind of edge than these
    price-pattern families: it would need information outside the price series, not a better
    threshold.
+
+---
+
+## Round 2 — pushing for win rate > 60% and profit factor > 4
+
+**Result: not reachable. I could not get there, and the evidence below shows why, not just that I failed.**
+
+### What the target requires
+
+PF = (WR × avg win) ÷ ((1 − WR) × avg loss). So WR > 60% with PF > 4 needs
+winners **≥ 2.7× the size of losers** while hitting 60% of the time. Equivalent
+requirements: WR 70% → winners ≥ 1.7× losers; WR 80% → ≥ 1.0×. That is a trader who is
+right most of the time *and* wins big — i.e. very strong predictability of gold's next
+move from public price data. The strongest edge found anywhere in this project is about
+0.05R per trade; this target needs about 0.5R.
+
+### What I tried (all walk-forward or train/validation/test, real bid/ask costs)
+
+| Approach | Best honest result | Verdict |
+|---|---|---|
+| Hand-written families: momentum, pullback, Bollinger fade, session breakout (4,500 configs) | WR 53%, PF 1.11–1.18 | no config reaches WR>60 **and** PF>4 even **in-sample**, at any sample size |
+| Meta-labelling: gradient-boosted model on 33 features scoring every bar, M15, take top 0.5–10% | selection PF **0.94**, OOS rank-IC 0.00–0.05 | no predictive power |
+| Meta-labelling, M5 (scalp holds ≤ 15 min) | all 24 settings PF **< 1** | spread beats the signal |
+| Meta-labelling, H1 with 4–24 h holds | best selection PF 1.23, then 0.76 on 2025–26 | still ≈ 1 |
+| Win-rate-first search: configs with WR > 60% on both train and validation | **0 found** (so none to test for profit) | high WR only appears with PF < 1 |
+| Cost-aware gating (skip trades where spread is a large share of the stop) | PF 1.11 → 0.97–1.11, no consistent gain | rejected |
+
+### Why — the diagnosis
+
+1. **The directional edge is tiny; the cost is the same size.** Top-1% model signals earn
+   about +0.0 to +0.12R gross, against a spread cost of 0.05–0.11R per trade (2021–24).
+   Net ≈ 0. The M5 model's high rank-IC (0.10–0.18) is mostly it *predicting trade cost*
+   (spread/ATR is a feature), not direction; add the spread back and the edge collapses.
+2. **Costs have fallen, which is why 2025–26 looks good everywhere.** Spread cost per trade
+   dropped from 0.11R (2021) to 0.03R (2026) because gold's dollar volatility grew far
+   faster than its spread. Every strategy improves in that regime. That is a feature of the
+   market, not a property of any strategy, and it may not persist.
+3. **The intraday fade is a time-exit strategy in disguise.** Its 2R target sits 12 ATR
+   away and fired 4 times in 546 trades; 84% of trades exit on the clock. Its reported
+   win rate and PF depend on the (arbitrary) 6-ATR stop width.
+4. **No hidden pocket exists.** If the target were reachable with a high-conviction, low-
+   frequency setup, an in-sample search would at least find overfit candidates. It found
+   none, at any minimum trade count.
+
+### What this means for you
+
+- Treat **WR 53%, PF ≈ 1.1** (the intraday option) as the realistic ceiling for rule-based
+  gold trading from price data on these horizons, before costs that depend on your broker.
+- A published backtest showing WR > 60% **and** PF > 4 on gold would normally be explained
+  by one of: unpaid or fixed-low spread, stop-vs-target resolved on bar OHLC, in-sample
+  fitting, a single bullish regime, or survivorship in which configs were reported.
+  This harness removes all of those, which is why its numbers are smaller.
+- To change the answer you would need information that is **not** in the price series
+  (order flow / depth, positioning, scheduled-news reaction data), or a different
+  execution setup (lower-cost venue, limit-order entries with real queue modelling).
+  Neither can be tested with the data available here.
+
+Code: `xau_meta.py`, `run_meta.py` (`results/meta_{5min,15min,1h}.jsonl`). Run
+`OMP_NUM_THREADS=1 python3 run_meta.py 15min` — set the thread count, or the workers
+thrash and a one-minute job takes twenty.

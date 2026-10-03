@@ -1,0 +1,13 @@
+A) RSI ladder, ALL with the SHIPPED exit (18-bar hold, 10xATR stop):
+   RSI>50                    n= 778 WR  49.6%  PF  0.96  R   -4.15  DD 13.10  t-0.42 | H1 1.08 H2 0.83
+   RSI>60                    n= 744 WR  49.7%  PF  0.97  R   -3.18  DD 11.94  t-0.33 | H1 1.09 H2 0.83
+   RSI>65                    n= 596 WR  49.5%  PF  1.01  R   +0.75  DD  9.69  t+0.09 | H1 1.12 H2 0.90
+   RSI>70                    n= 389 WR  50.9%  PF  1.20  R   +9.15  DD  4.21  t+1.28 | H1 1.28 H2 1.11
+   RSI>75                    n= 215 WR  53.0%  PF  1.52  R  +11.31  DD  3.35  t+2.19 | H1 1.51 H2 1.54
+   RSI>80                    n= 102 WR  55.9%  PF  1.87  R   +8.17  DD  1.17  t+2.26 | H1 2.12 H2 1.65
+
+B) Exit comparison, ALL with the SHIPPED signal (RSI>75):
+   0.5R target, 1.8xATR stop n= 277 WR  63.2%  PF  0.87  R  -13.08  DD 22.72  t-1.06 | H1 1.04 H2 0.71
+   1.5R target, 1.8xATR stop n= 241 WR  41.1%  PF  1.02  R   +2.72  DD 17.31  t+0.14 | H1 1.16 H2 0.88
+   2.0xATR trail (bar-sync)  n= 221 WR  42.5%  PF  1.12  R  +14.00  DD 14.04  t+0.66 | H1 1.33 H2 0.93
+   18-bar time exit (SHIPPED) n= 215 WR  53.0%  PF  1.52  R  +11.31  DD  3.35  t+2.19 | H1 1.51 H2 1.54

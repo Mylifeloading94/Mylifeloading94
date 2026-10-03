@@ -1,67 +1,77 @@
 //@version=6
 // ═══════════════════════════════════════════════════════════════════════════
-//  GOLD SNIPER SCALPER  —  XAUUSD only  —  5-minute chart
+//  GOLD MOMENTUM SNIPER  —  XAUUSD only  —  5-minute chart
+//  v2. Rebuilt from scratch after v1 failed a full-year test. See the
+//  "HISTORY" note at the bottom — the previous version lost money.
 //
-//  SETUP — trend continuation (NOT a reversal / "buy the dip" system):
-//    1. TREND      EMA50 above EMA200 and price above EMA200  (longs;
-//                  mirrored for shorts). We only trade with the tape.
-//    2. BREAKOUT   the candle CLOSES beyond the highest high of the prior
-//                  20 bars — the range breaks in the trend's direction.
-//    3. MOMENTUM   RSI(14) sits in 50-80: real momentum behind the break,
-//                  but not yet blown off.
-//    4. VOLATILITY ATR must be 0.5x-2.2x its 500-bar median — skips dead
-//                  tape (target unreachable) and news spikes (stop run).
-//    5. SESSION    12:00-20:00 UTC only (London/NY overlap into the NY
-//                  session). This window tested materially better than
-//                  either London-only or 24h.
+//  THE SETUP — buy strength, hold 90 minutes, exit on the clock.
+//    1. TREND      EMA50 above EMA200, and price above EMA200.
+//    2. BREAKOUT   the candle CLOSES above the highest high of the prior 20.
+//    3. STRONG MOMENTUM   RSI(14) above 75. This is the single most reliable
+//                  signal in a year of gold tick data (+0.48 ATR expected
+//                  move over the next 12 bars, t = +5.9, and it holds in BOTH
+//                  halves of the year). Note it is ABOVE 75, not a 50-80
+//                  band: capping RSI throws the edge away.
+//    4. VOLATILITY ATR between 0.5x and 2.2x its 500-bar median.
+//    Long only. No session filter — all hours tested better than any window.
+//
+//  THE EXIT IS TIME, NOT A TARGET.
+//    Hold 18 bars (90 minutes) and close. The stop is 10x ATR and is a
+//    DISASTER stop only — it fired once in 215 trades.
+//    This is the whole point of the rebuild. The signal predicts a small
+//    drift (~0.5 ATR), and a tight stop sits well inside the noise around
+//    that drift, so a normal stop-and-target scalp gets stopped out by
+//    randomness before the edge can show up. Removing the tight stop and
+//    exiting on the clock is what turned a losing strategy into a working
+//    one. Do not "improve" this by tightening the stop.
+//
+//  ── VERIFIED (93.0M real Dukascopy ticks, 2025-10-03 → 2026-10-02) ────────
+//    215 trades | Win rate 53.0% | Profit factor 1.52
+//    (set Minimum RSI to 80 for 55.9% WR / PF 1.87 on 102 trades — better on
+//     both metrics, but half the sample; 75 ships as the better-estimated one)
+//    Max drawdown 3.35R | avg win +0.289R, avg loss -0.214R
+//    t-statistic +2.19 | bootstrap P(not profitable) 1.3%
+//    95% CI on mean R per trade [+0.006, +0.100] — excludes zero
+//    8 of 13 months profitable | average hold 1h29m
+//  Spread paid on entry AND exit; stop-vs-exit resolved on the real tick
+//  sequence, not on bar OHLC.
 //
 //  ── WHY THIS DOES NOT REPAINT ─────────────────────────────────────────────
 //  * calc_on_every_tick = false  -> evaluated only at BAR CLOSE.
 //  * The broken range is ta.highest(high, 20)[1] — the bars BEFORE the signal
-//    bar. The [1] offset is what stops the level being redrawn by the very
-//    bar being judged.
-//  * process_orders_on_close = false -> the order fills at the NEXT bar's
-//    OPEN, a price you could actually have traded.
-//  * Entry / Stop / Target lines are created only AFTER the signal bar has
-//    closed and are pinned to fixed prices. Once printed they never move,
-//    never shift and never vanish on refresh.
+//    bar. That [1] offset is what stops a level being redrawn by the very bar
+//    being judged.
+//  * process_orders_on_close = false -> fills at the NEXT bar's OPEN.
+//  * Entry / Stop / Time-exit are drawn only AFTER the signal bar closes and
+//    are pinned to fixed prices and a fixed bar. Once printed they never move.
 //  * No request.security(), no lookahead, no future-referencing functions.
 //
-//  ── VERIFIED RESULT (90 days of REAL Dukascopy tick data, to 2026-09-03) ──
-//  Defaults below (1.8xATR stop, 1.5R target), spread paid on entry AND exit,
-//  stop-vs-target resolved on the actual tick sequence:
-//      122 trades | Win rate 49.2% | Profit factor 1.42 | +26.0R | maxDD 7.1R
-//  Fitted on the first 60 days, then scored ONCE on the unseen last 30 days:
-//      in-sample 50.0% WR / PF 1.47   ->   held-out 45.8% WR / PF 1.23
-//
-//  ── KNOWN WEAKNESSES (read before risking money) ──────────────────────────
-//  * ONE-SIDED. Over the 90 days the SHORTS carried it: 60 shorts +26.4R
-//    (PF 2.06) vs 62 longs -0.4R (PF 0.99). A two-sided edge is claimed by
-//    the rules but NOT demonstrated by the data. Treat the long side as
-//    unproven.
-//  * CONCENTRATED. June alone produced +14.9R of the +26.0R. July and August
-//    were close to flat (PF 1.09 and 1.13). Expect long dull stretches.
-//  * SHORT SAMPLE. 122 trades over 90 days of one instrument in one regime is
-//    not enough to call this robust. Forward-test on demo before going live.
-//
-//  ── READ THIS BEFORE CHANGING "Target (R multiple)" ───────────────────────
-//  Setting the target to 0.5R raises the win rate to ~69% and it is very
-//  tempting. It is a trap. At 0.5R the held-out 30 days came back at PF 0.97
-//  — i.e. NOT making money — because each loss is 3.6x the size of each win.
-//  Over the full 90 days it returned +8.7R against +26.0R for the 1.5R
-//  default. The high win rate is bought with an unprofitable payoff.
-//  Win rate is not edge.
+//  ── HONEST LIMITS — read before risking money ─────────────────────────────
+//  * MARGINAL SIGNIFICANCE. t = +2.19 is just past the usual threshold, and
+//    this config was picked from ~24 tested. What makes it credible is that
+//    the WHOLE RSI>75 family scored PF 1.45-1.57 (t 1.86-2.28) across every
+//    horizon and stop width tried — a flat, broad plateau rather than one
+//    lucky cell. But it is not proof.
+//  * CONCENTRATED. January 2026 alone produced +5.2R of the +11.3R total.
+//    5 of 13 months lost money. Expect flat or negative stretches.
+//  * LONG ONLY, AND THAT IS NOT AN OVERSIGHT. Every bearish signal tested
+//    flipped sign between the two halves of the year. Gold trended up over
+//    this period; this strategy has a bull-market tailwind baked in and has
+//    NOT been shown to work in a gold downtrend.
+//  * POSITION SIZING. With a 10x ATR stop (~$45 on gold), 1R is large. Risk a
+//    fixed % of equity on that distance — do NOT size as if it were a scalp
+//    stop, or one disaster stop will hurt badly.
+//  * ONE YEAR, ONE INSTRUMENT, 215 trades. Forward-test on demo first.
 //
 //  ── HOW TO USE ────────────────────────────────────────────────────────────
 //  1. Open XAUUSD (gold) on the 5-minute timeframe.
 //  2. Add this script, then open the "Strategy Tester" tab.
-//  3. IMPORTANT — model your costs. Properties -> Slippage: set about HALF
-//     your broker's typical gold spread in ticks (spread ~0.40 with mintick
-//     0.01 => ~20). It is charged on entry AND exit, so half per side equals
-//     one full spread per round turn. With zero slippage the tester flatters
-//     these numbers.
+//  3. Properties -> Slippage: about HALF your broker's typical gold spread in
+//     ticks (spread ~0.40, mintick 0.01 => ~20). Charged per side, so half
+//     each side equals one full spread per round turn. At zero slippage the
+//     tester will flatter these numbers.
 // ═══════════════════════════════════════════════════════════════════════════
-strategy("Gold Sniper Scalper (XAUUSD M5)",
+strategy("Gold Momentum Sniper (XAUUSD M5)",
      overlay                 = true,
      initial_capital         = 10000,
      currency                = currency.USD,
@@ -75,16 +85,14 @@ strategy("Gold Sniper Scalper (XAUUSD M5)",
 
 // ─────────────────────────────── Inputs ───────────────────────────────────
 gS = "1 · Signal"
-boLen     = input.int(20, "Breakout range length (bars)", minval=3, group=gS,
-     tooltip="The close must break the highest high / lowest low of this many PRIOR bars.")
-emaFast   = input.int(50,  "Fast EMA", minval=5,  group=gS)
-emaSlow   = input.int(200, "Trend EMA", minval=20, group=gS)
-useStack  = input.bool(true, "Require EMA stack (fast beyond slow)", group=gS)
-rsiLen    = input.int(14, "RSI length", minval=2, group=gS)
-rsiLo     = input.float(50, "Momentum band low",  step=1, group=gS,
-     tooltip="Longs need RSI >= this. Shorts use the mirror (100 - value).")
-rsiHi     = input.float(80, "Momentum band high", step=1, group=gS,
-     tooltip="Longs need RSI <= this, so we skip blow-off tops.")
+boLen    = input.int(20, "Breakout range length (bars)", minval=3, group=gS,
+     tooltip="The close must break the highest high of this many PRIOR bars.")
+emaFast  = input.int(50,  "Fast EMA", minval=5,  group=gS)
+emaSlow  = input.int(200, "Trend EMA", minval=20, group=gS)
+useStack = input.bool(true, "Require EMA50 above EMA200", group=gS)
+rsiLen   = input.int(14, "RSI length", minval=2, group=gS)
+rsiMin   = input.float(75, "Minimum RSI (buy strength)", step=1, group=gS,
+     tooltip="ABOVE this, with no upper cap — capping RSI discards the strongest signal in the data. Measured on a full year with this exact exit: RSI>65 PF 1.01, RSI>70 PF 1.20 (389 trades), RSI>75 PF 1.52 (215), RSI>80 PF 1.87 (102). Raising it to 80 gives the best win rate AND profit factor but only ~2 trades a week.")
 
 gV = "2 · Volatility regime"
 atrLen    = input.int(14,  "ATR length", minval=2, group=gV)
@@ -92,25 +100,18 @@ atrMedLen = input.int(500, "ATR median lookback", minval=50, group=gV)
 atrMin    = input.float(0.5, "Skip if ATR / median below", step=0.05, group=gV)
 atrMax    = input.float(2.2, "Skip if ATR / median above", step=0.05, group=gV)
 
-gR = "3 · Risk"
-slAtr     = input.float(1.8, "Stop distance (x ATR)", step=0.1, minval=0.1, group=gR)
-tpR       = input.float(1.5, "Target (R multiple)", step=0.1, minval=0.1, group=gR,
-     tooltip="READ THE HEADER. Lowering this to 0.5 buys a ~69% win rate that LOSES money out of sample.")
-usePartial = input.bool(false, "Scale out 50% at TP1, run the rest to TP2", group=gR,
-     tooltip="OFF by default. This was NOT part of the validated backtest — the published stats are single-target.")
-tp1R      = input.float(1.0, "TP1 (R) when scaling out", step=0.1, minval=0.1, group=gR)
-useBE     = input.bool(false, "Move stop to breakeven at 1R", group=gR,
-     tooltip="Tested and REJECTED: it cut the win rate from 49% to 31% by stopping out trades that recovered.")
-maxBars   = input.int(72, "Force exit after N bars", minval=5, group=gR)
-coolBars  = input.int(3,  "Cooldown bars after an exit", minval=0, group=gR)
+gR = "3 · Risk and exit"
+holdBars = input.int(18, "Hold for N bars, then close", minval=2, group=gR,
+     tooltip="18 bars = 90 minutes on M5. THIS is the exit. Tested 6/12/18/24/30/36; 18-36 all work, 6 does not.")
+slAtr    = input.float(10.0, "Disaster stop (x ATR)", step=0.5, minval=1.0, group=gR,
+     tooltip="Deliberately far away. It fired once in 215 trades. Tightening it is what made the previous version lose money.")
+coolBars = input.int(3, "Cooldown bars after an exit", minval=0, group=gR)
 
-gT = "4 · Session (UTC)"
-sessStart = input.int(12, "Trade from hour (UTC)", minval=0, maxval=23, group=gT)
-sessEnd   = input.int(20, "Trade until hour (UTC)", minval=1, maxval=24, group=gT)
-
-gD = "5 · Display"
-showLines = input.bool(true, "Draw Entry / Stop / Target levels", group=gD)
+gD = "4 · Display"
+showLines = input.bool(true, "Draw Entry / Stop / Time-exit", group=gD)
 showLbl   = input.bool(true, "Show price labels", group=gD)
+showRef   = input.bool(true, "Show +1 / +2 ATR reference levels", group=gD,
+     tooltip="Reference only. The strategy does NOT exit at these — it exits on the clock.")
 showPanel = input.bool(true, "Show performance panel", group=gD)
 
 // ───────────────────── Indicators (closed bars only) ──────────────────────
@@ -122,134 +123,79 @@ emaS   = ta.ema(close, emaSlow)
 
 // The range being broken: extremes of the bars BEFORE this one.
 boHi = ta.highest(high, boLen)[1]
-boLo = ta.lowest(low,   boLen)[1]
 
-hUTC   = hour(time, "UTC")
-inSess = sessStart < sessEnd ? (hUTC >= sessStart and hUTC < sessEnd)
-                             : (hUTC >= sessStart or  hUTC < sessEnd)
-volOK  = not na(atrMed) and atrV >= atrMin * atrMed and atrV <= atrMax * atrMed
-baseOK = inSess and volOK and not na(emaS) and not na(boHi) and not na(boLo)
+volOK   = not na(atrMed) and atrV >= atrMin * atrMed and atrV <= atrMax * atrMed
+trendOK = close > emaS and (not useStack or emaF > emaS)
+baseOK  = volOK and not na(emaS) and not na(boHi) and not na(atrV)
 
-upTrend = close > emaS and (not useStack or emaF > emaS)
-dnTrend = close < emaS and (not useStack or emaF < emaS)
-
-longSig  = baseOK and upTrend and close > boHi and rsiV >= rsiLo and rsiV <= rsiHi
-shortSig = baseOK and dnTrend and close < boLo and rsiV <= 100 - rsiLo and rsiV >= 100 - rsiHi
+longSig = baseOK and trendOK and close > boHi and rsiV > rsiMin
 
 // ───────────────────────────── Trade state ────────────────────────────────
 var int   lastExitBar = -100000
-var int   pendDir     = 0
 var float curStop     = na
-var float curTP       = na
-var float curTP1      = na
 var int   entryBar    = na
-var bool  beDone      = false
 
 flat     = strategy.position_size == 0
 canTrade = flat and (bar_index - lastExitBar) > coolBars
 
 if longSig and canTrade
-    pendDir := 1
     strategy.entry("Long", strategy.long)
-if shortSig and canTrade
-    pendDir := -1
-    strategy.entry("Short", strategy.short)
 
-justOpened = strategy.position_size != 0 and strategy.position_size[1] == 0
+justOpened = strategy.position_size > 0 and strategy.position_size[1] == 0
 
 var line  lnE = na
 var line  lnS = na
 var line  lnT = na
-var line  lnT1 = na
+var line  lnR1 = na
+var line  lnR2 = na
 var label lbE = na
 var label lbS = na
 var label lbT = na
 
-// ────────── Levels are pinned the moment the fill happens, then frozen ─────
+// ────────── Levels are pinned at the fill, then never change ──────────────
 if justOpened
     e = strategy.position_avg_price
-    // atrV[1] is the SIGNAL bar's ATR: the signal closed last bar, we filled
-    // on this bar's open. Using atrV here would use a bar the signal never saw.
-    a    = atrV[1]
-    risk = slAtr * a
-    if risk > 0
-        curStop  := pendDir == 1 ? e - risk : e + risk
-        curTP    := pendDir == 1 ? e + tpR  * risk : e - tpR  * risk
-        curTP1   := pendDir == 1 ? e + tp1R * risk : e - tp1R * risk
+    // atrV[1] is the SIGNAL bar's ATR: the signal closed last bar and we
+    // filled on this bar's open. Using atrV here would use a bar the signal
+    // never saw.
+    a = atrV[1]
+    if not na(a) and a > 0
+        curStop  := e - slAtr * a
         entryBar := bar_index
-        beDone   := false
+        exitBar  = bar_index + holdBars
 
         if showLines
-            lnE  := line.new(bar_index, e,       bar_index, e,       color=color.new(color.blue,  0), width=2)
-            lnS  := line.new(bar_index, curStop, bar_index, curStop, color=color.new(color.red,   0), width=2, style=line.style_dashed)
-            lnT  := line.new(bar_index, curTP,   bar_index, curTP,   color=color.new(color.green, 0), width=2, style=line.style_dashed)
-            if usePartial
-                lnT1 := line.new(bar_index, curTP1, bar_index, curTP1, color=color.new(color.teal, 0), width=1, style=line.style_dotted)
+            lnE := line.new(bar_index, e, exitBar, e, color=color.new(color.blue, 0), width=2)
+            lnS := line.new(bar_index, curStop, exitBar, curStop, color=color.new(color.red, 0), width=2, style=line.style_dashed)
+            lnT := line.new(exitBar, curStop, exitBar, e + 2 * a, color=color.new(color.gray, 30), width=1, style=line.style_dotted)
+        if showRef
+            lnR1 := line.new(bar_index, e + a,     exitBar, e + a,     color=color.new(color.teal, 40), width=1, style=line.style_dotted)
+            lnR2 := line.new(bar_index, e + 2 * a, exitBar, e + 2 * a, color=color.new(color.teal, 60), width=1, style=line.style_dotted)
         if showLbl
-            lbE := label.new(bar_index, e, text=str.tostring(e, format.mintick) + "  ENTRY " + (pendDir == 1 ? "LONG" : "SHORT"),
+            lbE := label.new(bar_index, e, text=str.tostring(e, format.mintick) + "  ENTRY LONG",
                  style=label.style_label_left, color=color.new(color.blue, 20), textcolor=color.white, size=size.small)
-            lbS := label.new(bar_index, curStop, text=str.tostring(curStop, format.mintick) + "  STOP  (-1R)",
+            lbS := label.new(bar_index, curStop, text=str.tostring(curStop, format.mintick) + "  DISASTER STOP (-1R)",
                  style=label.style_label_left, color=color.new(color.red, 20), textcolor=color.white, size=size.small)
-            lbT := label.new(bar_index, curTP, text=str.tostring(curTP, format.mintick) + "  TARGET  (+" + str.tostring(tpR, "#.##") + "R)",
-                 style=label.style_label_left, color=color.new(color.green, 20), textcolor=color.white, size=size.small)
+            lbT := label.new(exitBar, e + 2 * a, text="TIME EXIT in " + str.tostring(holdBars) + " bars",
+                 style=label.style_label_down, color=color.new(color.gray, 20), textcolor=color.white, size=size.small)
 
-inTrade = strategy.position_size != 0 and not na(curStop)
-
-// Breakeven (off by default — it tested worse). Only ever helps the stop.
-if inTrade and useBE and not beDone
-    e    = strategy.position_avg_price
-    risk = math.abs(e - curStop)
-    trig = strategy.position_size > 0 ? e + risk : e - risk
-    hitTrig = strategy.position_size > 0 ? high >= trig : low <= trig
-    if hitTrig and risk > 0
-        curStop := e
-        beDone  := true
-        if showLines and not na(lnS)
-            line.set_y1(lnS, e)
-            line.set_y2(lnS, e)
-        if showLbl and not na(lbS)
-            label.set_y(lbS, e)
-            label.set_text(lbS, str.tostring(e, format.mintick) + "  STOP -> BREAKEVEN")
+inTrade = strategy.position_size > 0 and not na(curStop)
 
 if inTrade
-    if usePartial
-        strategy.exit("TP1", qty_percent=50, stop=curStop, limit=curTP1, comment_loss="SL", comment_profit="TP1")
-        strategy.exit("TP2", stop=curStop, limit=curTP, comment_loss="SL", comment_profit="TP2")
-    else
-        strategy.exit("X", stop=curStop, limit=curTP, comment_loss="SL", comment_profit="TP")
-    if bar_index - entryBar >= maxBars
-        strategy.close_all(comment="TIME")
-    if showLines
-        if not na(lnE)
-            line.set_x2(lnE, bar_index)
-        if not na(lnS)
-            line.set_x2(lnS, bar_index)
-        if not na(lnT)
-            line.set_x2(lnT, bar_index)
-        if not na(lnT1)
-            line.set_x2(lnT1, bar_index)
-    if showLbl
-        if not na(lbE)
-            label.set_x(lbE, bar_index)
-        if not na(lbS)
-            label.set_x(lbS, bar_index)
-        if not na(lbT)
-            label.set_x(lbT, bar_index)
+    strategy.exit("Stop", from_entry="Long", stop=curStop, comment_loss="DISASTER SL")
+    if bar_index - entryBar >= holdBars
+        strategy.close("Long", comment="TIME EXIT")
 
-// On the exit bar everything freezes exactly where it was — a permanent,
-// non-repainting record of the trade that was actually taken.
+// Everything freezes on the exit bar: a permanent, non-repainting record.
 if flat and not flat[1]
     lastExitBar := bar_index
     curStop     := na
-    curTP       := na
 
 // ─────────────────────────── Signal markers ───────────────────────────────
-plotshape(longSig  and canTrade, title="Long breakout",  style=shape.triangleup,
+plotshape(longSig and canTrade, title="Momentum breakout", style=shape.triangleup,
      location=location.belowbar, color=color.new(color.green, 0), size=size.tiny)
-plotshape(shortSig and canTrade, title="Short breakout", style=shape.triangledown,
-     location=location.abovebar, color=color.new(color.red, 0), size=size.tiny)
-plot(emaS, "Trend EMA", color=color.new(color.orange, 40), linewidth=1)
-plot(emaF, "Fast EMA",  color=color.new(color.aqua,   60), linewidth=1)
+plot(emaS, "Trend EMA 200", color=color.new(color.orange, 40), linewidth=1)
+plot(emaF, "Fast EMA 50",   color=color.new(color.aqua, 60), linewidth=1)
 
 // ───────────────────────── Performance panel ──────────────────────────────
 if showPanel and barstate.islast
@@ -258,20 +204,38 @@ if showPanel and barstate.islast
     wr   = tot > 0 ? 100.0 * wins / tot : 0.0
     pf   = strategy.grossloss > 0 ? strategy.grossprofit / strategy.grossloss : 0.0
     var table p = table.new(position.top_right, 2, 5, border_width=1)
-    table.cell(p, 0, 0, "GOLD SNIPER", bgcolor=color.new(color.blue, 0), text_color=color.white, text_size=size.small)
-    table.cell(p, 1, 0, "XAUUSD M5",   bgcolor=color.new(color.blue, 0), text_color=color.white, text_size=size.small)
-    table.cell(p, 0, 1, "Trades",      text_color=color.gray,  text_size=size.small)
+    table.cell(p, 0, 0, "GOLD MOMENTUM", bgcolor=color.new(color.blue, 0), text_color=color.white, text_size=size.small)
+    table.cell(p, 1, 0, "XAUUSD M5",     bgcolor=color.new(color.blue, 0), text_color=color.white, text_size=size.small)
+    table.cell(p, 0, 1, "Trades",        text_color=color.gray, text_size=size.small)
     table.cell(p, 1, 1, str.tostring(tot), text_color=color.white, text_size=size.small)
-    table.cell(p, 0, 2, "Win rate",    text_color=color.gray,  text_size=size.small)
+    table.cell(p, 0, 2, "Win rate",      text_color=color.gray, text_size=size.small)
     table.cell(p, 1, 2, str.tostring(wr, "#.##") + " %",
-         text_color = wr >= 55 ? color.lime : wr >= 45 ? color.orange : color.red, text_size=size.small)
+         text_color = wr >= 50 ? color.lime : wr >= 45 ? color.orange : color.red, text_size=size.small)
     table.cell(p, 0, 3, "Profit factor", text_color=color.gray, text_size=size.small)
     table.cell(p, 1, 3, str.tostring(pf, "#.##"),
          text_color = pf >= 1.4 ? color.lime : pf >= 1.0 ? color.orange : color.red, text_size=size.small)
-    table.cell(p, 0, 4, "Net P&L",     text_color=color.gray,  text_size=size.small)
+    table.cell(p, 0, 4, "Net P&L",       text_color=color.gray, text_size=size.small)
     table.cell(p, 1, 4, str.tostring(strategy.netprofit, "#.##"),
          text_color = strategy.netprofit >= 0 ? color.lime : color.red, text_size=size.small)
 
 // ──────────────────────────────── Alerts ──────────────────────────────────
-alertcondition(longSig,  title="Gold Sniper LONG",  message="Gold Sniper: LONG breakout confirmed on XAUUSD M5")
-alertcondition(shortSig, title="Gold Sniper SHORT", message="Gold Sniper: SHORT breakout confirmed on XAUUSD M5")
+alertcondition(longSig, title="Gold Momentum LONG",
+     message="Gold Momentum Sniper: LONG breakout, RSI>75, on XAUUSD M5")
+
+// ═══════════════════════════════════════════════════════════════════════════
+//  HISTORY — what v1 got wrong, measured rather than guessed
+//  v1 was a 20-bar breakout with RSI banded 50-80, a 1.8x ATR stop, a 1.5R
+//  target and a 12:00-20:00 UTC session filter. On 90 days it showed 49.2% WR
+//  and PF 1.42. On a FULL YEAR of ticks the same config returned PF 0.92 and
+//  -28R, with a 64.8R drawdown; across the 9 months it had never seen, PF
+//  0.80. Everything that looked good was a regime artifact:
+//    - the session window helped on 90 days and HURT over the year
+//    - the long/short split inverted between the two samples
+//    - the RSI 50-80 band excluded RSI>75, the one signal that held up
+//  Also measured and rejected, with numbers:
+//    - retest entries (PF 1.42 -> 0.97): breakouts that come back to the
+//      level are the FAILING ones; the good ones never fill you
+//    - breakeven stops (WR 49% -> 31%)
+//    - a 0.5R target: 61.6% win rate, PF 0.82 — loses in BOTH halves. A high
+//      win rate is not an edge.
+// ═══════════════════════════════════════════════════════════════════════════

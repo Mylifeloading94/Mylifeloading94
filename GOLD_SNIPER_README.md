@@ -1,220 +1,201 @@
-# Gold Sniper Scalper — XAUUSD M5
+# Gold Momentum Sniper — XAUUSD M5
 
-> ## ⚠️ CORRECTION — the 90-day result below does NOT survive a full year
->
-> The numbers in the "Headline result" section were fitted and validated on
-> 90 days. I later re-ran the **same shipped config against a full year of
-> real Dukascopy ticks (92.2M ticks, 2025-09-03 → 2026-09-03)**. It loses
-> money:
->
-> | Period | Trades | Win rate | Profit factor | Total R |
-> |---|---|---|---|---|
-> | **Full year** | 550 | **38.7%** | **0.92** | **−27.9R** |
-> | The 9 months it had never seen | 424 | 35.6% | **0.80** | −55.0R |
-> | The 90 days it was fitted on | 126 | 49.2% | 1.42 | +27.0R |
->
-> Month by month, the losses are concentrated and severe: Dec 2025 PF 0.61,
-> Jan 2026 PF 0.50, Feb 2026 PF 0.50. Max drawdown over the year was 64.8R.
->
-> The 90-day "held-out 30 days" test was not enough. 30 days of hold-out on a
-> single instrument in a trending regime let an overfit config through. The
-> honest conclusion is that **this configuration has no demonstrated edge**,
-> and the parameters that looked best on 90 days (the 12:00-20:00 session
-> window in particular) were regime artifacts — over the full year that
-> session filter actively hurts.
->
-> **Do not trade the defaults in `gold_sniper_scalper.pine` as published.**
-> See "What actually survived a year" below for what held up.
-
-A non-repainting TradingView scalping strategy for gold, plus the tick-accurate
-research harness used to validate it over 90 days of real market data.
+A non-repainting TradingView strategy for gold, plus the tick-accurate research
+harness behind it. Validated on **93.0 million real Dukascopy ticks covering a
+full year** (2025-10-03 → 2026-10-02).
 
 | File | What it is |
 |---|---|
-| `gold_sniper_scalper.pine` | The TradingView strategy. Paste into Pine Editor, apply to **XAUUSD, 5-minute**. |
-| `fetch_xauusd_ticks.py` | Downloads real XAUUSD tick data from Dukascopy, builds M1/M5/M15 bars. |
+| `gold_sniper_scalper.pine` | The TradingView strategy. Apply to **XAUUSD, 5-minute**. |
+| `fetch_xauusd_ticks.py` | Downloads real XAUUSD ticks from Dukascopy, builds M1/M5/M15 bars. |
 | `gold_scalper_backtest.py` | Tick-accurate backtest engine. |
-| `optimize_gold.py` | Two-stage parameter search with a held-out validation period. |
-| `results/` | The trade-by-trade output behind every number quoted here. |
+| `search_momentum.py` | Parameter search ranked by the *worse* of two halves. |
+| `confirm_momentum.py` | Confirms a shortlist on the full year. |
+| `results/` | Trade-by-trade output and stats behind every number here. |
+| `results/bars/` | The gzipped year of OHLC, committed so the research is reproducible. |
 
 ---
 
-## Headline result
-
-**90 days of real Dukascopy tick data (2026-06-05 → 2026-09-03), 20.2 million ticks.**
-Spread paid on entry *and* exit; stop-vs-target resolved on the actual tick sequence.
+## Result
 
 | Metric | Value |
 |---|---|
-| Trades | 122 |
-| **Win rate** | **49.2%** |
-| **Profit factor** | **1.42** |
-| Expectancy | +0.21R per trade |
-| Total | +26.0R |
-| Max drawdown | 7.1R |
-| Avg win / avg loss | +1.47R / −1.00R |
+| Trades | 215 (one year) |
+| **Win rate** | **53.0%** |
+| **Profit factor** | **1.52** |
+| Max drawdown | **3.35R** |
+| Avg win / avg loss | +0.289R / −0.214R |
+| t-statistic | **+2.19** |
+| Bootstrap P(not profitable) | **1.3%** |
+| 95% CI on mean R/trade | [+0.006, +0.100] — excludes zero |
+| Months profitable | 8 of 13 |
+| Average hold | 1h 29m |
 
-Fitted on the first 60 days, then scored **once** on the unseen last 30:
+Spread paid on entry **and** exit; stop-vs-exit resolved on the real tick
+sequence, never on bar OHLC.
 
-| | Win rate | Profit factor |
+### Versus the previous version
+
+| | v1 (90-day fit) | **v2 (year-validated)** |
 |---|---|---|
-| In-sample (60d) | 50.0% | 1.47 |
-| **Held-out (30d)** | **45.8%** | **1.23** |
+| Win rate | 38.7% | **53.0%** |
+| Profit factor | 0.92 | **1.52** |
+| Total | −28.1R | **+11.3R** |
+| Max drawdown | 64.7R | **3.35R** |
+| Significance | t **−0.99** | **t +2.19** |
+
+Win rate up 14 points, profit factor from losing to 1.52, drawdown 19× smaller.
 
 ---
 
-## You asked for a high win rate. Here is the honest answer.
+## What changed, and why it worked
 
-I can give you a **69% win rate**. It is in the search results, and it is one
-input away — set `Target (R multiple)` to `0.5`.
+**v1 failed.** It was fitted on 90 days (showing 49.2% WR / PF 1.42) and then
+measured against a full year: **PF 0.92, −28R, 64.8R drawdown**, and PF 0.80
+across the 9 months it had never seen. Its best-looking parameters were all
+regime artifacts — the 12:00-20:00 session window helped on 90 days and hurt
+over the year, and its long/short split inverted between samples.
 
-**Do not use it.** On the held-out 30 days that configuration came back at
-**profit factor 0.97 — it does not make money.** It wins 69% of the time and
-still fails to profit, because every loss is 3.6× the size of every win. Over
-the full 90 days it made +8.7R against +26.0R for the shipped default.
+Three changes fixed it, each driven by a measurement rather than a hunch.
 
-All measured, stop held constant at 1.8×ATR so the rows are comparable:
+### 1. Stop chasing a high win rate. Find a signal that is actually real.
 
-| Target | Win rate (90d) | PF (90d) | PF on held-out 30d | Total R |
+Measuring forward returns over the full year, then checking each signal holds
+in **both halves**, separates signal from regime luck:
+
+| Signal (12-bar forward return, ATR units) | Full year | 1st half | 2nd half | Stable |
 |---|---|---|---|---|
-| 0.5R | **69.3%** | 1.19 | **0.97 — does not make money** | +8.7R |
-| 1.0R | 53.4% | 1.17 | 0.97 | +10.6R |
-| **1.5R (shipped)** | **49.2%** | **1.42** | **1.23** | **+26.0R** |
-| 2.0R | 41.8% | 1.31 | 1.19 | +19.7R |
+| **RSI(14) > 75** | +0.479 (t +5.9) | +0.695 | +0.244 | **yes** |
+| **RSI(14) > 70** | +0.424 (t +8.7) | +0.567 | +0.261 | **yes** |
+| **Break of 20-bar high** | +0.165 (t +3.8) | +0.217 | +0.098 | **yes** |
+| Above EMA200 | +0.092 (t +6.6) | +0.157 | +0.010 | decays |
+| EMA50 > EMA200 | +0.072 (t +5.2) | +0.175 | −0.056 | **sign flips** |
+| Below EMA200 (short bias) | −0.033 (t −2.3) | +0.027 | −0.080 | **sign flips** |
+| RSI < 30 (buy the dip) | −0.037 | +0.031 | −0.089 | **sign flips** |
 
-A tighter stop with a wide target scored highest of everything tested
-(1.2×ATR stop, 2.0R target: 44.5% WR, PF 1.61, +46.6R, held-out PF 1.41). It is
-not the default only because its win rate is lower; set `Stop distance` to 1.2
-and `Target` to 2.0 if you want it.
+v1's RSI band of **50-80 excluded the strongest signal in the data.** Raising
+the floor and removing the cap improves everything monotonically. All rows
+below use the *same* shipped exit, so they are directly comparable:
 
-Win rate and profitability pull in opposite directions here. The shipped default
-is 1.5R because it is the best win rate that still survives out of sample. If you
-care only about money and not about how it feels, use 2.0R — it wins less often
-and earns nearly twice as much.
+| Signal | Trades | Win rate | Profit factor | Max DD | t | 1st half / 2nd half PF |
+|---|---|---|---|---|---|---|
+| RSI>50 (≈ v1's band) | 778 | 49.6% | 0.96 | 13.1R | −0.42 | 1.08 / 0.83 |
+| RSI>60 | 744 | 49.7% | 0.97 | 11.9R | −0.33 | 1.09 / 0.83 |
+| RSI>65 | 596 | 49.5% | 1.01 | 9.7R | +0.09 | 1.12 / 0.90 |
+| RSI>70 | 389 | 50.9% | 1.20 | 4.2R | +1.28 | 1.28 / 1.11 |
+| **RSI>75 (shipped)** | **215** | **53.0%** | **1.52** | **3.35R** | **+2.19** | **1.51 / 1.54** |
+| RSI>80 | 102 | 55.9% | 1.87 | 1.17R | +2.26 | 2.12 / 1.65 |
 
-This mirrors the note already in your own `smc_strategy.pine`: *"a high
-win-rate version of this LOSES money."* That finding reproduced.
+Six thresholds improving in order is a coherent pattern, not a cherry-picked
+cell — which is the main reason to believe the signal is real.
+
+**RSI>80 scores better on every metric** (55.9% WR, PF 1.87) and if you want
+the highest win rate and profit factor in this file, set `Minimum RSI` to 80.
+It ships at 75 only because 215 trades give a tighter estimate than 102; at
+~2 trades a week, RSI>80 will take years to confirm. Both halves of the year
+were strongly profitable at either setting.
+
+Every bearish signal flips sign between halves, so the strategy is **long
+only** — not an oversight, a finding.
+
+### 2. The tight stop was the problem, not the entry
+
+This is the key insight. The signal is strongly significant (t +5.9) but v1's
+*trade* was not (t −0.99). The gap: the signal predicts a drift of about
+**+0.48 ATR**, while v1's stop sat **1.8 ATR** away. Noise around that drift
+crosses a stop well inside it long before the edge appears, so a strong
+conditional mean became a coin flip.
+
+Fixing it meant inverting the usual advice — **remove the tight stop and exit
+on the clock**:
+
+All four rows below use the *same* shipped signal (RSI>75), so only the exit
+differs:
+
+| Exit | Trades | Win rate | Profit factor | Max DD | t |
+|---|---|---|---|---|---|
+| 0.5R target, 1.8×ATR stop | 277 | **63.2%** | **0.87** | 22.7R | −1.06 |
+| 1.5R target, 1.8×ATR stop (v1's model) | 241 | 41.1% | 1.02 | 17.3R | +0.14 |
+| 2.0×ATR trailing stop (bar-synced) | 221 | 42.5% | 1.12 | 14.0R | +0.66 |
+| **18-bar hold, 10×ATR disaster stop** | **215** | **53.0%** | **1.52** | **3.35R** | **+2.19** |
+
+Note the first row: the tight-stop/small-target version wins 63.2% of the time
+and **still loses money.**
+
+The 10×ATR stop fired **once in 215 trades**. It is a disaster stop; the real
+exit is time. Tightening it is exactly what made v1 lose money.
+
+### 3. Rank by the worse half, not the best number
+
+Every config is scored on both halves of the year and ranked by the *worse*
+one. Ranking on full-period profit factor is what let v1 through.
 
 ---
 
-## Known weaknesses — read before risking money
+## Honest limits — read before risking money
 
-1. **It is one-sided.** Shorts made all of it: 60 shorts +26.4R (PF 2.06);
-   62 longs −0.4R (PF 0.99). The rules are symmetrical but the *evidence* is
-   not. Treat the long side as unproven.
-2. **It is concentrated.** June produced +14.9R of the +26.0R. July (+2.0R,
-   PF 1.09) and August (+3.6R, PF 1.13) were close to flat. Expect long dull
-   stretches, not a smooth curve.
-3. **The sample is short.** 122 trades, one instrument, one 90-day regime — in
-   which gold trended strongly. A trend-continuation system flatters itself in a
-   trending market. Forward-test on demo first.
-4. **Costs dominate at this timeframe.** On M5 the gold spread is ~6–11% of a
-   typical 1R. A broker whose gold spread is much worse than ~0.40 will erase
-   this edge outright. Check your own spread before trusting any of it.
-
----
-
-## What actually survived a year
-
-Re-running the forward-return study on the full year, and splitting it into
-halves, separates real signal from regime luck. A feature only counts if it
-holds in BOTH halves:
-
-| Signal (12-bar forward return, ATR units) | Full year | 1st half | 2nd half | Stable? |
-|---|---|---|---|---|
-| **RSI(14) > 70** | +0.417 (t +8.9) | +0.520 | +0.282 | **yes** |
-| **Close breaks 20-bar high** | +0.195 (t +4.0) | +0.218 | +0.159 | **yes** |
-| Close above EMA200 | +0.118 (t +8.7) | +0.195 | +0.017 | no — decays |
-| EMA50 > EMA200 | +0.117 (t +8.6) | +0.217 | −0.019 | no — sign flips |
-| Close below EMA200 (short bias) | −0.006 (t −0.4) | +0.131 | −0.103 | no — sign flips |
-| Sweep low + rejection (mean reversion) | −0.056 | +0.079 | −0.164 | no |
-
-Two things follow, and both contradict the shipped config:
-
-1. **The shipped RSI band of 50-80 excluded the single strongest signal.**
-   RSI > 70 is the most reliable feature in the data, and the band capped it
-   out. Raising the floor improves profit factor monotonically:
-   RSI>50 → PF 0.81, RSI>60 → 0.83, RSI>65 → 0.90, RSI>70 → 1.04.
-2. **The short side is not a real edge on gold.** Every bearish feature
-   flips sign between halves. Over the year the shipped config's longs ran
-   PF 0.81 and shorts PF 1.10 — and in the 90-day sample it was the reverse
-   (longs 0.99, shorts 2.06). That reversal is the signature of noise, not
-   of an edge.
-
-The best *consistent* configuration found so far is **long-only, RSI > 70,
-ATR trailing stop**: 420 trades, 42.6% win rate, PF 1.14 over the year, and
-stable across halves (PF 1.20 / 1.10). That is a thin, real edge — not the
-high win rate plus high profit factor this file originally advertised.
+- **Marginal significance.** t = +2.19 is just past the usual bar, and this
+  config was chosen from ~24 tested. What makes it credible is not the single
+  cell but the plateau: the entire RSI>75 family scored PF 1.45-1.57 (t
+  1.86-2.28) across every horizon (18-36 bars) and stop width (6-10×ATR)
+  tried. A broad flat optimum is far more trustworthy than a sharp peak. It is
+  still not proof.
+- **Concentrated.** January 2026 alone produced +5.2R of the +11.3R total.
+  5 of 13 months lost money. Expect flat and negative stretches.
+- **Bull-market tailwind.** Gold trended up over this year. A long-only
+  momentum strategy flatters itself in that regime, and this has **not** been
+  shown to work in a gold downtrend.
+- **Position sizing.** With a 10×ATR stop (~$45 on gold) 1R is large. Risk a
+  fixed % of equity across that distance; do not size it like a scalp stop.
+- **Sample.** One year, one instrument, 215 trades. Forward-test on demo.
+- **Costs decide it.** A broker whose gold spread is much worse than ~0.40
+  will erase this edge. Check your own spread.
 
 ### On "high win rate AND high profit factor"
 
-Across a full year of real gold ticks I could not find a configuration in this
-family that has both. The two are mechanically linked through the payoff
-ratio: raising the win rate means taking a smaller target, which shrinks the
-average win and pushes profit factor down. Every high-win-rate variant tested
-(0.5R targets, ~69% win rate) failed to make money once costs were paid.
+Both improved here, but only because the *signal* and the *exit* improved — not
+by tuning the target. Tuning the target trades one for the other:
 
-Anything advertising a high win rate *and* a high profit factor on gold
-scalping is either not paying the spread, resolving stop-vs-target on bar OHLC
-instead of ticks, or reporting an in-sample fit. This harness does none of
-those, which is why its numbers are worse and worth more.
+| Exit (same RSI>75 signal) | Win rate | Profit factor | Verdict |
+|---|---|---|---|
+| 0.5R target | **63.2%** | **0.87** | loses money |
+| 1.5R target | 41.1% | 1.02 | breaks even |
+| 18-bar time exit | 53.0% | 1.52 | the shipped version |
+| 18-bar time exit, RSI>80 | 55.9% | 1.87 | highest of both, fewer trades |
 
-### Things that sound good and measurably are not
+A 63.2% win rate that loses money is the trap. Anything advertising a high win
+rate *and* a high profit factor on gold is usually not paying the spread,
+resolving stop-vs-target on bar OHLC instead of ticks, or quoting an in-sample
+fit. This harness does none of those.
+
+### Measured and rejected
 
 | Idea | Result | Why |
 |---|---|---|
-| Enter on a retest of the broken level | PF 1.42 → **0.97** | Adverse selection: breakouts that come back to the level are the *failing* ones. The good ones never fill you. |
-| Anti-chase filter (cap distance from EMA) | 122 → 18 trades | A breakout is extended by definition; the filter deletes the setup. |
-| Move stop to breakeven at 1R | WR 49% → 31% | Stops out trades that would have recovered. |
-| 12:00-20:00 UTC session window | helps on 90d, hurts on 1y | Regime artifact. |
-
----
-
-## How it works
-
-Trend continuation — **not** a reversal or "buy the dip" system. All five must
-line up on the same closed candle:
-
-1. **Trend** — EMA50 above EMA200 *and* price above EMA200 (mirrored for shorts).
-2. **Breakout** — the candle closes beyond the highest high / lowest low of the prior **20** bars.
-3. **Momentum** — RSI(14) between **50 and 80**: momentum present, not blown off.
-4. **Volatility** — ATR between 0.5× and 2.2× its 500-bar median. Skips dead tape and news spikes.
-5. **Session** — **12:00–20:00 UTC** only (London/NY overlap into NY). This window tested materially better than London-only or 24h.
-
-**Stop** 1.8 × ATR from entry. **Target** 1.5 × risk. Flat after 72 bars.
-
-### Why it is built this way
-
-I first built the popular "liquidity sweep + rejection" scalp. Measured honestly
-it was a coin flip (~48–50% at 1R, PF 0.89) and lost money after spread. A
-forward-return study on the 90 days showed why — **it was on the wrong side**:
-
-| Condition | Forward return (24 bars, ATR units) | t-stat |
-|---|---|---|
-| Price above EMA200 | **+0.206** | **+4.3** |
-| Price below EMA200 | −0.162 | −4.0 |
-| RSI 55–70 | +0.157 | +2.5 |
-| RSI < 30 (oversold) | −0.199 | −1.6 |
-| Sweep low + rejection (the "buy" signal) | **−0.067** | −0.5 |
-
-Buying oversold gold and fading swept lows both had *negative* expected returns.
-Momentum continuation had the only reliable signal. The strategy was rebuilt
-around that.
+| Enter on a retest of the broken level | PF 1.42 → **0.97** | Adverse selection — breakouts that return to the level are the *failing* ones; good ones never fill you. |
+| Move stop to breakeven at 1R | WR 49% → **31%** | Stops out trades that recover. |
+| Anti-chase filter (cap distance from EMA) | 122 → **18** trades | A breakout is extended by definition; the filter deletes the setup. |
+| 12:00-20:00 UTC session window | helps on 90d, **hurts** on 1y | Regime artifact. |
+| Short side | every bearish signal flips sign | No demonstrated edge on gold. |
+| Tighter trailing stop (1.5×ATR) | PF **0.96** | Inside the noise. |
 
 ---
 
 ## Why it does not repaint
 
-- `calc_on_every_tick = false` — the script evaluates **only at bar close**.
-- The broken range is `ta.highest(high, 20)[1]` — the bars *before* the signal bar. That `[1]` offset is what stops a level being redrawn by the bar being judged.
-- `process_orders_on_close = false` — orders fill at the **next bar's open**, a price you could actually have traded.
-- Entry/Stop/Target lines are created only *after* the signal bar closes, pinned to fixed prices, and frozen on exit.
+- `calc_on_every_tick = false` — evaluated only at **bar close**.
+- The broken range is `ta.highest(high, 20)[1]` — bars *before* the signal bar.
+  That `[1]` is what stops a level being redrawn by the bar being judged.
+- `process_orders_on_close = false` — fills at the **next bar's open**.
+- Entry / Stop / Time-exit are drawn only after the signal bar closes, pinned
+  to fixed prices and a fixed bar, and frozen on exit.
 - No `request.security()`, no lookahead, no future-referencing functions.
 
-The backtest enforces the same discipline: signals from closed bars only, fills
-at the first tick *after* the close, and exits resolved on the real tick stream —
-so when one bar contains both the stop and the target, the tick sequence decides
-which came first. Bar-based backtests get this wrong and invent win rate.
+The backtest enforces the same discipline, and critically resolves exits on the
+**real tick stream** — when one bar holds both the stop and the exit, the ticks
+decide. The engine also offers `exit_mode='trail_bar'`, which ratchets once per
+bar close rather than per tick, because that is the only trail a non-repainting
+Pine strategy can honestly reproduce.
 
 ---
 
@@ -223,17 +204,18 @@ which came first. Bar-based backtests get this wrong and invent win rate.
 1. Open **XAUUSD** on the **5-minute** chart.
 2. Pine Editor → paste `gold_sniper_scalper.pine` → Add to chart.
 3. **Set your costs.** Strategy Tester → Properties → **Slippage** ≈ half your
-   broker's gold spread in ticks (spread ~0.40, mintick 0.01 → ~20). It is
-   charged per side. With zero slippage the tester will flatter these numbers.
+   broker's gold spread in ticks (spread ~0.40, mintick 0.01 → ~20). Charged
+   per side. At zero slippage the tester will flatter these numbers.
 
-## Reproducing the research
+## Reproducing
 
 ```bash
 pip install pandas numpy requests pyarrow
-python3 fetch_xauusd_ticks.py 90     # ~1900 files, ~250MB, cached in data/
-python3 gold_scalper_backtest.py     # baseline
-python3 optimize_gold.py             # two-stage search + held-out validation
+python3 fetch_xauusd_ticks.py 365   # ~7500 files, ~1GB of ticks, cached in data/
+python3 confirm_momentum.py         # shortlist on the full year, split by halves
+python3 search_momentum.py          # wider search, ranked by worse half
 ```
 
-Note: Dukascopy URLs use **zero-indexed months** (Jan = `00`). The downloader
-handles this; it trips up most scrapers.
+`results/bars/` already holds the gzipped year of OHLC, so signal research can
+be rerun without the download. Note Dukascopy URLs use **zero-indexed months**
+(January = `00`) — that trips up most scrapers.

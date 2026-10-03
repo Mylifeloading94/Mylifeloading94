@@ -33,3 +33,10 @@ data/
 # Fetch log (regenerated)
 fetch365.log
 search_mom.log
+confirm.log
+refine.log
+trailbar.log
+horizon.log
+horizon2.log
+final.log
+ladder.log

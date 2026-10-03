@@ -1,0 +1,21 @@
+{
+  "v1": {
+    "stats": {
+      "trades": 543,
+      "win_rate": 38.67,
+      "expectancy_r": -0.0518,
+      "profit_factor": 0.916,
+      "total_r": -28.11,
+      "max_dd_r": 64.7,
+      "avg_win_r": 1.462,
+      "avg_loss_r": -1.006,
+      "usd_per_1lot": -42569.21,
+      "tp": 198,
+      "sl": 323,
+      "be": 0,
+      "trail": 0,
+      "timeout": 22
+    },
+    "t": -0.989487046007923
+  }
+}

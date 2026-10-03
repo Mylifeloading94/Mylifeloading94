@@ -88,7 +88,12 @@ class Config:
     be_at_r: float = 0.0
 
     # exit
-    exit_mode: str = "fixed"      # 'fixed' | 'trail'
+    exit_mode: str = "fixed"      # 'fixed' | 'trail' | 'trail_bar'
+                                  # 'trail'     ratchets on every TICK.
+                                  # 'trail_bar' ratchets once per BAR CLOSE,
+                                  #   which is what Pine's strategy.exit can
+                                  #   actually do. Use trail_bar for anything
+                                  #   the .pine file has to reproduce.
     trail_atr: float = 2.0
     trail_start_r: float = 1.0
 
@@ -225,6 +230,7 @@ def simulate(bars, ticks, c: Config):
     atrs = x.atr.to_numpy()
     sg_hi, sg_lo = x.sg_hi.to_numpy(), x.sg_lo.to_numpy()
     bo_hi, bo_lo = x.bo_hi.to_numpy(), x.bo_lo.to_numpy()
+    highs_a, lows_a = x.high.to_numpy(), x.low.to_numpy()
     bar_sec = {"M1": 60, "M5": 300, "M15": 900}[c.tf]
     bar_ns = np.timedelta64(bar_sec, "s")
 
@@ -286,6 +292,62 @@ def simulate(bars, ticks, c: Config):
         deadline = idx[i] + bar_ns * (c.max_bars_in_trade + 1)
         j_end = min(int(np.searchsorted(tick_ts, deadline, side="left")), len(tick_ts))
         if j_end <= j_fill + 1:
+            continue
+
+        if c.exit_mode == "trail_bar":
+            # Walk bar by bar. Within each bar the stop is frozen at the value
+            # set by the PREVIOUS bar's close, and ticks decide whether it is
+            # hit. This is the only trail a non-repainting Pine strategy can
+            # honestly claim, so it is what we measure.
+            exch = (bid if d == 1 else ask)
+            cur = stop
+            run = entry
+            b_last = min(i + c.max_bars_in_trade, len(idx) - 1)
+            exit_px = exit_ts = None
+            reason = "timeout"
+            jb = j_fill + 1
+            for b in range(i + 1, b_last + 1):
+                b_close_ts = idx[b] + bar_ns
+                jb_end = min(int(np.searchsorted(tick_ts, b_close_ts, side="left")),
+                             j_end)
+                if jb_end > jb:
+                    w = exch[jb:jb_end]
+                    h_sl = (w <= cur) if d == 1 else (w >= cur)
+                    h_tp = (w >= target) if d == 1 else (w <= target)
+                    k_sl = int(np.argmax(h_sl)) if h_sl.any() else 10**9
+                    k_tp = int(np.argmax(h_tp)) if h_tp.any() else 10**9
+                    if min(k_sl, k_tp) < 10**9:
+                        if k_sl <= k_tp:
+                            kk = jb + k_sl
+                            exit_px, reason = float(w[k_sl]), "trail"
+                        else:
+                            kk = jb + k_tp
+                            exit_px, reason = float(w[k_tp]), "tp"
+                        exit_ts = tick_ts[kk]
+                        break
+                jb = jb_end
+                # bar has closed: ratchet on its extreme
+                run = max(run, highs_a[b]) if d == 1 else min(run, lows_a[b])
+                reached = (run >= entry + c.trail_start_r * risk) if d == 1 \
+                    else (run <= entry - c.trail_start_r * risk)
+                if reached:
+                    nt = (run - c.trail_atr * a_i) if d == 1 else (run + c.trail_atr * a_i)
+                    cur = max(cur, nt) if d == 1 else min(cur, nt)
+                if jb >= j_end:
+                    break
+            if exit_px is None:
+                kk = max(min(jb, j_end) - 1, j_fill + 1)
+                exit_px = float(exch[kk])
+                exit_ts = tick_ts[kk]
+            pnl = (exit_px - entry) if d == 1 else (entry - exit_px)
+            trades.append(dict(dir="long" if d == 1 else "short",
+                               signal_time=str(idx[i]),
+                               entry_time=str(tick_ts[j_fill]),
+                               exit_time=str(exit_ts), entry=entry, stop=stop,
+                               target=target, exit=exit_px, risk=risk,
+                               r=pnl / risk, usd=pnl, reason=reason))
+            exit_bar = int(np.searchsorted(idx, exit_ts, side="right")) - 1
+            i_cool = max(int(i), exit_bar) + c.cooldown_bars
             continue
 
         px = (bid if d == 1 else ask)[j_fill + 1:j_end]   # exits cross the spread

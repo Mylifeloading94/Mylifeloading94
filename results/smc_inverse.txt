@@ -1,0 +1,5 @@
+inverse of M5 SMC setups: market entry, time exit, 6-ATR stop
+session  3h | train n= 929 WR 47.5 PF 0.95 R  -15.0 | valid n= 421 WR 47.3 PF 1.14 R  +18.9 | test n= 321 WR 52.3 PF 1.04 R   +3.6
+session  6h | train n= 835 WR 44.0 PF 0.98 R   -7.4 | valid n= 390 WR 45.4 PF 1.05 R   +7.8 | test n= 293 WR 50.2 PF 1.16 R  +18.5
+swing    3h | train n= 485 WR 53.2 PF 1.24 R  +32.9 | valid n= 223 WR 52.0 PF 1.52 R  +33.9 | test n= 182 WR 46.2 PF 0.90 R   -6.4
+swing    6h | train n= 459 WR 48.4 PF 1.20 R  +37.3 | valid n= 210 WR 50.5 PF 1.28 R  +23.0 | test n= 170 WR 43.5 PF 0.93 R   -5.7

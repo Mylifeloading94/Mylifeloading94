@@ -417,3 +417,51 @@ and exactly the kind you should not trust: it was selected after the data was se
 **roughly 2-5% a year at a 5-9% drawdown**, with a plausible worst case of ~15% at the 2% budget. It is
 a thin edge, not a high-profit one, and only the gold leg is wired into `bot_gold.py`
 (`configs/best_portfolio.json`).
+
+---
+
+## SMC + kill zones (gold) — a fresh start, no earlier strategy reused
+
+**Result: no edge. 0 of 48 configurations qualify, and the pattern shows no directional information.**
+Win rate 35–46%, median profit factor ~0.8. I would not trade it, and I have not written a Pine/bot for it.
+
+**What was built** (`smc.py`, `smc_exec.py`, all causal — nothing repaints): kill zones in New York time
+(London 02:00–05:00 ET, NY AM 07:00–10:00 ET, so daylight saving is right); liquidity pools (Asian range,
+London range, previous-day high/low, or rolling swing points); a **sweep with reclaim**, then a
+**displacement candle that breaks structure (MSS)** leaving a **fair value gap**; limit entry at the gap
+midpoint or near edge; stop beyond the sweep extreme; optional higher-timeframe bias. Fills are
+pessimistic: a limit fills only if ask/bid trades through it, a bar that also reaches the stop is a loss,
+the fill bar's target is not credited, gaps fill at the open.
+
+**Pre-registered grid, real M1 bid/ask, 2019 → 2026-10:** TF {M5, M15} × liquidity {session, swing} ×
+entry {FVG mid, edge} × HTF bias {off, on} × reward:risk {1, 2, 3} = 48. Ranked on train (2019-22);
+qualify only if PF > 1.05 on train **and** validation (2023-24).
+
+| | Result |
+|---|---|
+| Qualifiers | **0 of 48** |
+| Best train PF | 1.02 (then 0.84 on validation) |
+| Median PF, train / validation | 0.78–0.82 / 0.69 |
+| Win rate by reward:risk 1 / 2 / 3 | 44.0% / 36.7% / 35.1% — the usual trade-off: a higher win rate costs payoff, and neither pays |
+| London KZ vs NY AM KZ | PF 0.75 vs 0.79 — both lose |
+| Long vs short | PF 0.80 vs 0.78 — both lose |
+
+**Is it my fill model?** No. (1) Entering **at market** instead of with a limit: 24 configs, 0 qualify,
+median PF 0.82 / 0.76 (limit entries suffer adverse selection, but that is not the cause).
+(2) Trading the **mirror** of every signal also loses (PF 0.86–0.90): the pattern is not anti-predictive
+either, costs eat both sides. (3) With **no exits or fills at all**, the signed move after the signal is
+inside the random band on M15 at every horizon (1h/3h/6h, t between −0.75 and +0.87).
+
+**What kill zones do have is movement, not direction:** mean bar range is 1.21 ATR (London) and 1.47 (NY)
+versus 0.90 outside. That is why traders like them; it does not tell you which way price goes.
+
+**One loose thread (exploratory, post-hoc, contaminated):** on **M5** the signed move after a setup is
+*negative* (t −2 to −3 pooled): price tends to reverse the setup — a mean-reversion effect, consistent with
+the gold fade found earlier, not an SMC edge. Trading the inverse gives PF 1.20–1.52 on train/validation for
+the swing variant but **0.90–0.93 on the 2025+ test**; the session variant is 0.98 / 1.05 / 1.16. It does
+not hold across all three periods and the effect is the same size as the spread (~0.044R/trade).
+`smc_inverse.py` reproduces it.
+
+Files: `smc.py`, `smc_exec.py`, `run_smc.py`, `smc_market_diag.py`, `smc_info_test.py`, `smc_inverse.py`;
+outputs `results/smc_grid.json`, `results/smc_market_diag.json`, `results/smc_info_test.txt`,
+`results/smc_inverse.txt`.

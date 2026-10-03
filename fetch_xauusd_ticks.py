@@ -125,7 +125,7 @@ def main():
 
     print(f"XAUUSD ticks {start} -> {end}: {len(jobs)} hour-files", flush=True)
     done = failed = 0
-    with ThreadPoolExecutor(max_workers=4) as ex:
+    with ThreadPoolExecutor(max_workers=10) as ex:
         for ok, _cached in ex.map(fetch_hour, jobs):
             done += 1
             failed += (not ok)

@@ -16,7 +16,7 @@ import sys, os, itertools, json
 import numpy as np
 import pandas as pd
 
-DATA = os.path.join(os.path.dirname(__file__), "data", "GC_D1.csv")
+DATA = os.environ.get("XAU_DATA", os.path.join(os.path.dirname(__file__), "data", "GC_D1.csv"))
 SPREAD = 0.50          # $/oz round-trip cost (spread + slippage), conservative for gold
 START_EQ = 100_000.0
 

@@ -1,0 +1,20 @@
+{
+  "name": "gold_scalp",
+  "fam": "fade",
+  "tf": "5min",
+  "hold": 10,
+  "tp": 0.5,
+  "p": {
+    "bb_k": 3.0,
+    "rsi_thr": 15.0,
+    "adx_max": 99.0,
+    "sl_atr": 2.0,
+    "side": "long"
+  },
+  "risk_pct": 0.25,
+  "symbol": "XAUUSD",
+  "max_lots": 1.0,
+  "validated": false,
+  "warning": "NO EDGE FOUND. 0 of 1,890 scalp configs were profitable on both train and validation; this least-bad one is significantly NEGATIVE over 2019-today (PF 0.75, t=-3.21). Shipped only so the option exists; do not trade it.",
+  "targets_met": false
+}

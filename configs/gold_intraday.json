@@ -1,0 +1,20 @@
+{
+  "name": "gold_intraday",
+  "fam": "fade",
+  "tf": "15min",
+  "hold": 240,
+  "tp": 2.0,
+  "p": {
+    "bb_k": 3.0,
+    "rsi_thr": 20.0,
+    "adx_max": 99.0,
+    "sl_atr": 6.0,
+    "side": "long"
+  },
+  "risk_pct": 0.5,
+  "symbol": "XAUUSD",
+  "max_lots": 1.0,
+  "validated": true,
+  "warning": "Thin edge: PF 1.11, t=+0.93 (not significant), long-only in a gold bull market, dies at ~+$0.25/oz extra cost. Paper-trade first.",
+  "targets_met": false
+}

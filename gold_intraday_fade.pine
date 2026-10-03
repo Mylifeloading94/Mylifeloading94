@@ -1,0 +1,106 @@
+//@version=6
+// ═══════════════════════════════════════════════════════════════════════════
+//  GOLD INTRADAY FADE  —  XAUUSD  —  15-minute chart  —  LONG ONLY
+//  Pine port of configs/gold_intraday.json (fade, M15, 4-hour hold).
+//
+//  SETUP: buy an extreme washout.
+//    close < SMA(20) - 3 x stdev(20)   AND   RSI(7) < 20
+//    AND ATR(14) between 0.5x and 2.2x its 500-bar median (no dead tape / news)
+//  EXIT:  stop 6 x ATR | target 2R | otherwise close after 4 hours.
+//
+//  ── HONEST RESULTS (Dukascopy bid/ask M1, 2019-01-01 -> 2026-10-02) ───────
+//    546 trades | WR 53.1% | PF 1.11 | +12.5R | t-stat +0.93 | max DD 10.2R
+//    Chosen on 2019-22, checked on 2023-24, scored once on 2025+:
+//      train PF 1.06  ->  validation PF 1.16  ->  test PF 1.18
+//    Profitable in 7 of 8 calendar years (2021: PF 0.79).
+//    Beats 98% of random long entries with the same stop and hold.
+//
+//  ── WHAT IT IS NOT ────────────────────────────────────────────────────────
+//  * NOT "PF 3, 55-90% win rate, <10% drawdown". Nothing tested reached that:
+//    0 of 4,500 configs hit WR>=55% and PF>=3 on train OR validation.
+//  * NOT statistically significant (t +0.93). The edge may be noise.
+//  * VERY COST SENSITIVE. +$0.25/oz extra cost cuts PF to 1.03; +$0.50 makes it
+//    lose. Gold's spread in this data rose from ~$0.29 (2019) to ~$0.73 (2026).
+//  * LONG ONLY in a gold bull market (+4.4x over the period). Unproven in a
+//    downtrend. Short side tested and rejected.
+//  * Average trade ~ +0.02R. At 1% risk per trade the whole 7.75 years returned
+//    about +12% (DD 9.9%). That is a thin, slow edge, not "highly profitable".
+//
+//  Set Properties -> Slippage to about half your broker's gold spread in ticks.
+//  TradingView's feed and fills differ from the research data, and this port was
+//  not compiled against TradingView by the author; expect numbers to differ.
+// ═══════════════════════════════════════════════════════════════════════════
+strategy("Gold Intraday Fade (XAUUSD M15, long-only)",
+     overlay=true, initial_capital=10000, currency=currency.USD,
+     default_qty_type=strategy.fixed, default_qty_value=1,
+     calc_on_every_tick=false, process_orders_on_close=false,
+     max_labels_count=500, max_lines_count=500)
+
+gS = "Signal"
+bbLen  = input.int(20, "Bollinger length", minval=5, group=gS)
+bbK    = input.float(3.0, "Bollinger width (stdev)", step=0.1, group=gS)
+rsiLen = input.int(7, "RSI length", minval=2, group=gS)
+rsiMax = input.float(20.0, "RSI must be below", step=1, group=gS)
+atrLen = input.int(14, "ATR length", minval=2, group=gS)
+atrMin = input.float(0.5, "Skip if ATR / median below", step=0.05, group=gS)
+atrMax = input.float(2.2, "Skip if ATR / median above", step=0.05, group=gS)
+gR = "Risk and exit"
+slAtr   = input.float(6.0, "Stop (x ATR)", step=0.5, minval=0.5, group=gR)
+tpR     = input.float(2.0, "Target (R)", step=0.5, minval=0.5, group=gR)
+holdMin = input.int(240, "Close after N minutes", minval=15, group=gR)
+flatHr  = input.int(21, "Flatten from hour (UTC) = daily break", minval=0, maxval=23, group=gR,
+     tooltip="The research flattened before every market closure. Entries are not blocked, but positions are closed from this hour at :45.")
+showLines = input.bool(true, "Draw entry / stop / target", group="Display")
+
+atrV   = ta.atr(atrLen)
+atrMed = ta.median(atrV, 500)
+mid    = ta.sma(close, bbLen)
+// research used the SAMPLE stdev; Pine's default is the population stdev
+sd     = ta.stdev(close, bbLen) * math.sqrt(bbLen / (bbLen - 1.0))
+rsiV   = ta.rsi(close, rsiLen)
+
+volOK = not na(atrMed) and atrV >= atrMin * atrMed and atrV <= atrMax * atrMed
+longSig = volOK and close < mid - bbK * sd and rsiV < rsiMax
+
+holdBars = math.round(holdMin / (timeframe.in_seconds() / 60.0))
+flat = strategy.position_size == 0
+var int entryBar = na
+var float curStop = na
+var float curTP = na
+var int lastExit = -100000
+
+if longSig and flat and (bar_index - lastExit) > 1
+    strategy.entry("Long", strategy.long)
+
+justOpened = strategy.position_size > 0 and strategy.position_size[1] == 0
+if justOpened
+    e = strategy.position_avg_price
+    a = atrV[1]               // the SIGNAL bar's ATR, not the fill bar's
+    if not na(a) and a > 0
+        curStop  := e - slAtr * a
+        curTP    := e + tpR * slAtr * a
+        entryBar := bar_index
+        if showLines
+            line.new(bar_index, e, bar_index + holdBars, e, color=color.blue, width=2)
+            line.new(bar_index, curStop, bar_index + holdBars, curStop, color=color.red, style=line.style_dashed)
+            line.new(bar_index, curTP, bar_index + holdBars, curTP, color=color.green, style=line.style_dashed)
+            label.new(bar_index, e, "ENTRY " + str.tostring(e, format.mintick), style=label.style_label_left, color=color.blue, textcolor=color.white, size=size.small)
+            label.new(bar_index, curStop, "STOP " + str.tostring(curStop, format.mintick), style=label.style_label_left, color=color.red, textcolor=color.white, size=size.small)
+            label.new(bar_index, curTP, "TARGET " + str.tostring(curTP, format.mintick), style=label.style_label_left, color=color.green, textcolor=color.white, size=size.small)
+
+if strategy.position_size > 0 and not na(curStop)
+    strategy.exit("X", from_entry="Long", stop=curStop, limit=curTP)
+    // the research exits at the CLOSE of the bar that ends the hold window
+    if bar_index - entryBar >= holdBars - 1
+        strategy.close("Long", comment="TIME", immediately=true)
+    else if hour(time, "UTC") == flatHr and minute(time) >= 45
+        strategy.close("Long", comment="BREAK", immediately=true)
+
+if flat and not flat[1]
+    lastExit := bar_index
+    curStop := na
+    curTP := na
+
+plotshape(longSig and flat, "Washout", shape.triangleup, location.belowbar, color.green, size=size.tiny)
+plot(mid - bbK * sd, "Lower band", color.new(color.gray, 50))
+alertcondition(longSig, "Gold fade LONG", "Gold Intraday Fade: oversold washout on XAUUSD M15")

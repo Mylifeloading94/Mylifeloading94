@@ -1,3 +1,14 @@
+> ## ⚠️ SECOND CORRECTION — v2 only worked in 2025-26
+>
+> Everything below was validated on **one year** (2025-10 → 2026-10). Tested on
+> the full **2019 → 2026** bid/ask history, v2 returns **PF 0.98, t −0.34**, and
+> before October 2025 it **loses** (n=1,286, WR 45.3%, PF 0.90, t −1.36).
+> By-year PF: 2019 1.05 · 2020 0.96 · 2021 0.54 · 2022 0.85 · 2023 0.93 ·
+> 2024 0.67 · **2025 1.44 · 2026 1.79**. 2025 was gold's strongest momentum year
+> (+65%), and a long-only RSI-momentum rule simply rode it. A single year cannot
+> distinguish an edge from a regime — that is the lesson. The current research is
+> in **GOLD_BOT_README.md**.
+
 # Gold Momentum Sniper — XAUUSD M5
 
 A non-repainting TradingView strategy for gold, plus the tick-accurate research

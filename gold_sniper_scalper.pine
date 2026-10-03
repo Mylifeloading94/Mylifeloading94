@@ -1,4 +1,15 @@
 //@version=6
+// ┌─────────────────────────────────────────────────────────────────────────┐
+// │ ⚠ CORRECTION (full 2019-2026 test): THIS STRATEGY ONLY WORKED IN 2025-26 │
+// │ On 7.75 years of bid/ask data it returns PF 0.98 (t -0.34). Before        │
+// │ 2025-10-03 it LOSES: n=1286, WR 45.3%, PF 0.90, t -1.36. The figures      │
+// │ below were validated on one year (2025-10 -> 2026-10), which turned out   │
+// │ to be gold's strongest momentum regime (+65% in 2025). By year PF:        │
+// │ 2019 1.05 | 2020 0.96 | 2021 0.54 | 2022 0.85 | 2023 0.93 | 2024 0.67 |   │
+// │ 2025 1.44 | 2026 1.79. Do not trade it as a general-purpose strategy.     │
+// │ See GOLD_BOT_README.md and gold_intraday_fade.pine for the 2019-today      │
+// │ research.                                                                │
+// └─────────────────────────────────────────────────────────────────────────┘
 // ═══════════════════════════════════════════════════════════════════════════
 //  GOLD MOMENTUM SNIPER  —  XAUUSD only  —  5-minute chart
 //  v2. Rebuilt from scratch after v1 failed a full-year test. See the

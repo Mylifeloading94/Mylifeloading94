@@ -350,3 +350,28 @@ gold-specific (contract size, sizing). Say the word and I will generalise it per
 Files: `fetch_candles.py`, `fetch_h1.py`, `screen_watchlist.py`, `deep_watchlist.py`,
 `sensitivity_watchlist.py`; outputs `results/screen_watchlist.json`, `results/deep_watchlist_output.txt`,
 `results/watchlist_sensitivity.txt`, data `results/h1/`.
+
+---
+
+## 90-day backtest (2026-07-02 → 2026-09-30; gold bot to 2026-10-02)
+
+Run with `python3 backtest_90d.py`; full output in `results/backtest_90d.txt`. Covers the 9 FX pairs
+and gold only — **SPX500, NAS100 and 19 crosses are still unavailable** (data source throttled).
+Indicators use full history; only trades *entered* in the window count.
+
+**Read this first:** 90 days is 5–40 trades per strategy. These numbers cannot confirm or refute
+anything; the lesson of the very first 90-day result in this project (PF 1.42 that collapsed to 0.92
+over a year) still applies. Intervals are shown for that reason.
+
+| Strategy | Trades | Win rate | PF | Total | Verdict |
+|---|---|---|---|---|---|
+| **USDJPY momentum RSI>75, 8h** (pre-registered) | **8** | 62.5% | **4.90** | +4.1R | looks great, means little: 95% CI on mean R [−0.07, +1.15], time-shift null p = 0.10. Full-history PF is 1.35. |
+| USDJPY momentum RSI>80, 8h (post-hoc) | 5 | 80.0% | 4.21 | +3.2R | 5 trades. p = 0.05. |
+| Momentum RSI>75, all 10 instruments pooled | 107 | 48.6% | 1.25 | +6.3R | the only config positive in aggregate; CI [−0.08, +0.21] spans zero |
+| Fade configs, pooled | 50–336 each | 34–50% | 0.39–0.95 | negative | **fade 3.0σ long-only 8h is significantly negative** (CI [−0.45, −0.08]). Gold's M15 fade edge does not transfer to FX hourly bars. |
+| **Gold bot** (M15 fade, long-only, vectorised, M1 fills) | 18 | 50.0% | 1.49 | +1.6R | CI [−0.19, +0.36] |
+| Gold bot, candle-by-candle replay, $10k, risk 1.0% | 18 | 50.0% | 1.48 | **+$135 (+1.35%)**, maxDD 1.40% | |
+| Gold bot, candle-by-candle replay, $10k, risk 0.5% | 6 | 50.0% | 2.13 | +$78 (+0.78%), maxDD 0.67% | 13 signals skipped: too small for the 0.01-lot minimum at $10k |
+
+Single-instrument cells such as EURJPY momentum "PF 7.81" are 6 trades and are noise; the permutation
+null on USDJPY shows even its 8-trade PF 4.90 has p = 0.10.

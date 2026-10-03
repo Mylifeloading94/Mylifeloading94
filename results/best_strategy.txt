@@ -1,0 +1,37 @@
+=== 1. candidates on a common footing (R-based, spread paid) ===
+strategy                                 trades | train PF valid PF  test PF | all PF   tot R  incl
+GOLD M15 fade (long)                        546 |     1.06     1.16     1.18 |   1.11   +12.5   YES
+USDJPY H1 momentum RSI>75                   426 |     1.29     1.69     1.16 |   1.35   +34.3   YES
+USDJPY H1 momentum RSI>80 (post-hoc)        168 |     1.60     2.27     2.06 |   1.84   +29.0    no
+USDCHF H1 momentum RSI>75                   350 |     1.11     1.09     1.24 |   1.14   +12.2   YES
+GOLD M5 momentum RSI>75 (v2)               1510 |     0.85     0.79     1.57 |   0.98    -5.0    no
+
+(post-hoc variants are shown but never eligible: they were picked after seeing results)
+
+INCLUDED by the pre-registered rule: ['GOLD M15 fade (long)', 'USDJPY H1 momentum RSI>75', 'USDCHF H1 momentum RSI>75']
+
+=== 2. diversification: do the included edges move together? (daily R, correlation) ===
+                           GOLD M15 fade (long)  USDJPY H1 momentum RSI>75  USDCHF H1 momentum RSI>75
+GOLD M15 fade (long)                       1.00                      -0.01                      -0.06
+USDJPY H1 momentum RSI>75                 -0.01                       1.00                       0.08
+USDCHF H1 momentum RSI>75                 -0.06                       0.08                       1.00
+
+=== 3. sizing on the DESIGN period (2019-24); then 2025+ held out and scored once ===
+risk budget | design ret design DD |  TEST ret  TEST DD |  full ret  full DD   CAGR Sharpe |  bootstrap DD med/95th
+      0.25% |      +3.9%      1.2% |     +1.1%     1.0% |     +5.0%     1.2%   0.6%   0.72 |       1.2% /   2.0%
+      0.50% |      +7.9%      2.3% |     +2.1%     2.0% |    +10.2%     2.3%   1.3%   0.72 |       2.3% /   4.0%
+      1.00% |     +16.3%      4.6% |     +4.3%     3.9% |    +21.3%     4.6%   2.5%   0.72 |       4.6% /   7.9%
+      1.50% |     +25.3%      6.9% |     +6.5%     5.8% |    +33.3%     6.9%   3.8%   0.72 |       6.9% /  11.7%
+      2.00% |     +34.7%      9.1% |     +8.6%     7.6% |    +46.3%     9.1%   5.0%   0.72 |       9.1% /  15.4%
+      3.00% |     +55.1%     13.5% |    +12.9%    11.2% |    +75.2%    13.5%   7.5%   0.72 |      13.4% /  22.4%
+
+largest risk with design-period DD <= 5% (leaves headroom: live DD is usually worse): 1.0%
+(risk budget is split equally across the included strategies; each trade risks budget/3 of equity)
+
+=== 4. the same, strategy by strategy, at risk sized to the same 5% design-DD budget ===
+strategy                                   risk | design ret  TEST ret  TEST DD |  full ret  full DD Sharpe
+GOLD M15 fade (long)                       0.4% |      +3.2%     +1.7%     1.8% |     +5.0%     4.0%   0.27
+USDJPY H1 momentum RSI>75                  0.5% |     +16.4%     +1.7%     2.4% |    +18.4%     4.7%   0.70
+USDCHF H1 momentum RSI>75                  0.7% |      +4.7%     +3.6%     3.0% |     +8.4%     5.5%   0.29
+PORTFOLIO (equal risk split)               1.0% |     +16.3%     +4.3%     3.9% |    +21.3%     4.6%   0.72
+HINDSIGHT: USDJPY RSI>80 (post-hoc, NOT eligible)   1.2% |     +30.2%     +7.9%     2.9% |    +40.5%     4.7%   0.81

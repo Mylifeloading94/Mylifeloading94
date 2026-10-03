@@ -1,0 +1,47 @@
+{
+  "name": "best_portfolio_preregistered",
+  "status": "research baseline - NOT wired into bot_gold.py except the gold leg; forward-test on demo first",
+  "selection_rule": "PF>1.05 on train (2019-22) AND validation (2023-24); post-hoc variants excluded",
+  "risk_budget_pct": 1.0,
+  "risk_budget_note": "split equally; each trade risks budget/3 of realised equity. 2.0% = ~5%/yr with design DD 9.1%, bootstrap 95th-pct DD 15.4%",
+  "legs": [
+    {
+      "name": "GOLD M15 fade (long-only, 4h hold)",
+      "config": "configs/gold_intraday.json",
+      "wired_in_bot": true
+    },
+    {
+      "name": "USDJPY H1 momentum (20-bar break + EMA stack, RSI>75, 8h hold, 3 ATR stop, both sides)",
+      "wired_in_bot": false
+    },
+    {
+      "name": "USDCHF H1 momentum (same rule)",
+      "wired_in_bot": false
+    }
+  ],
+  "results_full_2019_2026": {
+    "at_1pct": {
+      "ret_pct": 21.3,
+      "max_dd_pct": 4.6,
+      "cagr_pct": 2.5,
+      "sharpe": 0.72
+    },
+    "at_2pct": {
+      "ret_pct": 46.3,
+      "max_dd_pct": 9.1,
+      "cagr_pct": 5.0,
+      "sharpe": 0.72
+    }
+  },
+  "held_out_test_2025_on": {
+    "at_1pct": {
+      "ret_pct": 4.3,
+      "max_dd_pct": 3.9
+    },
+    "at_2pct": {
+      "ret_pct": 8.6,
+      "max_dd_pct": 7.6
+    }
+  },
+  "correlation_of_daily_R": "-0.06 .. +0.08"
+}

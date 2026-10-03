@@ -375,3 +375,45 @@ over a year) still applies. Intervals are shown for that reason.
 
 Single-instrument cells such as EURJPY momentum "PF 7.81" are 6 trades and are noise; the permutation
 null on USDJPY shows even its 8-trade PF 4.90 has p = 0.10.
+
+---
+
+## Best strategy / highest profit
+
+`python3 best_strategy.py` → `results/best_strategy.txt`. "Highest profit" depends on risk taken, so the
+comparison was set up to avoid rewarding a bigger bet or a lucky pick: only strategies already
+identified in earlier rounds, included only if **PF > 1.05 on both train (2019-22) and validation
+(2023-24)**, risk sized on the **2019-24 design period only** to a drawdown budget, and **2025+ held out
+and scored once**. Post-hoc variants are shown but ineligible.
+
+| Strategy | Train / valid / test PF | Included? |
+|---|---|---|
+| Gold M15 fade (long-only) | 1.06 / 1.16 / 1.18 | yes |
+| USDJPY H1 momentum RSI>75 | 1.29 / 1.69 / 1.16 | yes |
+| USDCHF H1 momentum RSI>75 | 1.11 / 1.09 / 1.24 | yes |
+| USDJPY RSI>80 | 1.60 / 2.27 / 2.06 | **no — chosen after seeing results** |
+| Gold M5 momentum RSI>75 ("v2") | 0.85 / 0.79 / 1.57 | no — loses in 6 of 8 years |
+
+**The three included edges are uncorrelated** (daily-R correlation −0.06 to +0.08), which is the one
+legitimate way to raise profit without raising drawdown.
+
+Equal-risk portfolio, event-driven shared equity (drawdown on realised equity; bootstrap = same trades
+reshuffled, since one historical path understates drawdown risk):
+
+| Risk budget | Full 2019-26 | Max DD (hist / bootstrap 95th) | **Held-out 2025+** | CAGR | Sharpe |
+|---|---|---|---|---|---|
+| 1.0% | +21.3% | 4.6% / 7.9% | **+4.3%** (DD 3.9%) | 2.5% | 0.72 |
+| 2.0% | +46.3% | 9.1% / 15.4% | **+8.6%** (DD 7.6%) | 5.0% | 0.72 |
+| 3.0% | +75.2% | 13.5% / 22.4% | +12.9% (DD 11.2%) | 7.5% | 0.72 |
+
+Sharpe is the same at every size — profit scales with risk and so does drawdown; sizing does not create edge.
+
+Strategy by strategy at a 5% design-DD budget: gold fade +5.0%, USDJPY +18.4% (held-out only +1.7%: most
+of it was earned in 2022-24), USDCHF +8.4%, **portfolio +21.3% (held-out +4.3%, best of the group out of
+sample)**. The hindsight pick, USDJPY RSI>80, shows +40.5% (Sharpe 0.81) — the biggest number available,
+and exactly the kind you should not trust: it was selected after the data was seen.
+
+**Honest answer:** the best strategy is the *portfolio*, not any single rule; realistic expectation is
+**roughly 2-5% a year at a 5-9% drawdown**, with a plausible worst case of ~15% at the 2% budget. It is
+a thin edge, not a high-profit one, and only the gold leg is wired into `bot_gold.py`
+(`configs/best_portfolio.json`).

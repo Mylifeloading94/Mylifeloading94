@@ -13,9 +13,10 @@ are legitimate: weekends and market-closed hours.
 
 Usage:  python3 fetch_xauusd_ticks.py [days_back]
 """
-import os, sys, lzma, struct, datetime as dt
+import os, sys, lzma, datetime as dt
 from concurrent.futures import ThreadPoolExecutor
 
+import numpy as np
 import pandas as pd
 import requests
 from requests.adapters import HTTPAdapter
@@ -80,21 +81,33 @@ def fetch_hour(args):
     return False, False
 
 
+_REC = np.dtype([("ms", ">u4"), ("ask", ">u4"), ("bid", ">u4"),
+                 ("av", ">f4"), ("bv", ">f4")])
+
+
 def decode_hour(day: dt.date, hour: int):
-    """Yield (timestamp_ms, bid, ask) for a cached hour file."""
+    """Return (ms int64, bid f32, ask f32) arrays for one cached hour file.
+
+    Vectorised with np.frombuffer: a per-tick struct.unpack loop is far too
+    slow at ~90M ticks. The .bi5 payload is a packed big-endian record array.
+    """
     path = hour_path(day, hour)
     if not os.path.exists(path) or os.path.getsize(path) == 0:
-        return
-    blob = open(path, "rb").read()
+        return None
     try:
-        raw = lzma.LZMADecompressor(format=lzma.FORMAT_AUTO).decompress(blob)
+        raw = lzma.LZMADecompressor(format=lzma.FORMAT_AUTO).decompress(
+            open(path, "rb").read())
     except Exception:
-        return
+        return None
+    n = len(raw) // 20
+    if n == 0:
+        return None
+    a = np.frombuffer(raw[:n * 20], dtype=_REC)
     base = dt.datetime.combine(day, dt.time(hour), tzinfo=dt.timezone.utc)
     base_ms = int(base.timestamp() * 1000)
-    for i in range(len(raw) // 20):
-        ms, ask, bid, _av, _bv = struct.unpack(">IIIff", raw[i * 20:(i + 1) * 20])
-        yield base_ms + ms, bid / POINT, ask / POINT
+    return (base_ms + a["ms"].astype(np.int64),
+            a["bid"].astype(np.float32) / POINT,
+            a["ask"].astype(np.float32) / POINT)
 
 
 def main():
@@ -121,17 +134,31 @@ def main():
     print(f"download complete: {done} files, {failed} failed", flush=True)
 
     print("decoding ticks -> bars", flush=True)
-    rows = []
-    for day, hour, _ in jobs:
-        rows.extend(decode_hour(day, hour))
-    if not rows:
+    parts = []
+    for k, (day, hour, _) in enumerate(jobs):
+        d = decode_hour(day, hour)
+        if d is not None:
+            parts.append(d)
+        if k % 2000 == 0:
+            print(f"  decoded {k}/{len(jobs)} hours", flush=True)
+    if not parts:
         raise SystemExit("no ticks decoded - aborting rather than emit fake data")
 
-    df = pd.DataFrame(rows, columns=["ms", "bid", "ask"])
-    df = df.drop_duplicates("ms").sort_values("ms")
-    df["time"] = pd.to_datetime(df["ms"], unit="ms", utc=True)
-    df["mid"] = (df.bid + df.ask) / 2.0
-    df = df.set_index("time")
+    ms = np.concatenate([p[0] for p in parts])
+    bid = np.concatenate([p[1] for p in parts])
+    ask = np.concatenate([p[2] for p in parts])
+    del parts
+    order = np.argsort(ms, kind="stable")
+    ms, bid, ask = ms[order], bid[order], ask[order]
+    keep = np.empty(len(ms), bool)
+    keep[0] = True
+    np.not_equal(ms[1:], ms[:-1], out=keep[1:])
+    ms, bid, ask = ms[keep], bid[keep], ask[keep]
+
+    df = pd.DataFrame({"bid": bid, "ask": ask},
+                      index=pd.to_datetime(ms, unit="ms", utc=True))
+    df.index.name = "time"
+    df["mid"] = ((df.bid + df.ask) / 2.0).astype(np.float32)
     print(f"  {len(df):,} ticks  {df.index[0]} -> {df.index[-1]}", flush=True)
 
     # raw ticks (mid/bid/ask) for exact intrabar fill simulation
@@ -143,7 +170,14 @@ def main():
         bars["ticks"] = df["mid"].resample(rule).count().reindex(bars.index)
         out = os.path.join(OUT_DIR, f"XAUUSD_{label}.csv")
         bars.to_csv(out, index_label="time")
-        print(f"  {label}: {len(bars):,} bars -> {out}", flush=True)
+        # Also write a gzipped copy under results/, which IS committed. The
+        # tick cache is too big for git and a container reclaim wipes data/;
+        # these bars let the research be rerun without a 70-minute refetch.
+        keep_dir = os.path.join(HERE, "results", "bars")
+        os.makedirs(keep_dir, exist_ok=True)
+        bars.to_csv(os.path.join(keep_dir, f"XAUUSD_{label}.csv.gz"),
+                    index_label="time", compression="gzip")
+        print(f"  {label}: {len(bars):,} bars -> {out} (+ results/bars)", flush=True)
 
 
 if __name__ == "__main__":

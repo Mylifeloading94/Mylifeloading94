@@ -29,3 +29,6 @@ hp_bot_backtest_results.json
 
 # Cached price data (regenerable, large)
 data/
+
+# Fetch log (regenerated)
+fetch365.log

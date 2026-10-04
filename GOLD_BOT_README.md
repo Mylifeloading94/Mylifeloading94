@@ -574,3 +574,7 @@ on risk. Staying under it means risking ≤ 0.25% per trade, and then the strate
 Files: `run_liq2.py`, `liq_info_test.py`, `account_sim.py`, `run_account_liq.py`; outputs `results/liq_improve_output.txt`,
 `results/liq_improve.json`, `results/liq_info_test.txt`, `results/liq_account_output.txt`, `results/liq_account.json`,
 `results/liq_account_periods.txt`, `results/liq_account_equity.png`.
+
+**Full profit statistics** (every version × risk level, with and without the breaker, yearly P&L, streaks, drawdown
+durations, direction/exit breakdowns): `python3 full_profit_stats.py` → `results/full_profit_stats.txt`,
+`results/full_stats/summary.csv`, and trade-by-trade ledgers in `results/full_stats/`.

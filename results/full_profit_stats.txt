@@ -1,0 +1,49 @@
+FULL PROFIT STATISTICS  |  gold (XAUUSD)  |  Brad-Gold liquidity scalping  |  $25,000 start  |  2019-01 -> 2026-10
+real M1 bid/ask, spread paid, 0.01-lot steps, no commission; drawdown is mark-to-market (worst adverse excursion per M1 bar)
+'breaker' = trading halts permanently when drawdown reaches $1,250 (5% of the account)
+
+best improved config: {'entry': 'E1', 'buf': 0.1, 'min_risk': 1.5, 'tp_min_r': 1.0, 'kz': False, 'aligned': False}
+
+--- E1 (as written): ledger of 650 trades | WR 58.9% | PF(R) 0.67 | mean R -0.132 (95% CI -0.193..-0.067) | t = -4.04 | avg win +0.46R avg loss -0.97R
+--- E2 (as written): ledger of 74 trades | WR 70.3% | PF(R) 0.90 | mean R -0.026 (95% CI -0.160..+0.104) | t = -0.37 | avg win +0.32R avg loss -0.85R
+--- Best improved: ledger of 188 trades | WR 47.3% | PF(R) 1.01 | mean R +0.005 (95% CI -0.150..+0.165) | t = +0.07 | avg win +1.05R avg loss -0.94R
+
+=== A. WITH the $1,250 breaker (what the account actually does) ===
+version           risk trades   WR%    net $  return  PF($)  avg win  avg loss exp $/tr max DD $   span breaker
+E1 (as written)  0.25%    183  60.1    -1115  -4.46%   0.73      +28       -57     -6.1     1250   2.3y HIT 2021-04-12
+E1 (as written)  0.50%     32  53.1     -976  -3.91%   0.43      +43      -113    -30.5     1250   0.4y HIT 2019-05-28
+E1 (as written)  1.00%     17  58.8     -710  -2.84%   0.58     +100      -244    -41.8     1250   0.2y HIT 2019-03-15
+E2 (as written)  0.25%     74  70.3     -129  -0.51%   0.88      +19       -51     -1.7      481   7.5y not hit
+E2 (as written)  0.50%     74  70.3     -260  -1.04%   0.89      +39      -103     -3.5      989   7.5y not hit
+E2 (as written)  1.00%     31  64.5     -821  -3.28%   0.67      +82      -223    -26.5     1250   2.5y HIT 2021-09-08
+Best improved    0.25%    188  47.3      +59  +0.24%   1.01      +62       -55     +0.3     1166   7.7y not hit
+Best improved    0.50%     30  30.0    -1123  -4.49%   0.51     +131      -110    -37.4     1250   0.9y HIT 2019-12-02
+Best improved    1.00%     19  36.8     -996  -3.98%   0.61     +221      -212    -52.4     1250   0.7y HIT 2019-09-17
+
+=== B. WITHOUT the breaker (full 7.75-year history, shows what the breaker prevented) ===
+version           risk trades   WR%     net $   return   CAGR  PF($)  max DD $   DD % DD days Sharpe   final $
+E1 (as written)  0.25%    649  58.9     -4703  -18.81%  -2.7%   0.67      4951  19.8%    2813  -1.17     20297
+E1 (as written)  0.50%    650  58.9     -8713  -34.85%  -5.4%   0.66      9153  36.6%    2813  -1.18     16287
+E1 (as written)  1.00%    650  58.9    -14544  -58.18% -10.7%   0.66     15286  61.1%    2813  -1.18     10456
+E2 (as written)  0.25%     74  70.3      -129   -0.51%  -0.1%   0.88       481   1.9%    2186  -0.11     24871
+E2 (as written)  0.50%     74  70.3      -260   -1.04%  -0.1%   0.89       989   4.0%    2186  -0.10     24740
+E2 (as written)  1.00%     74  70.3      -519   -2.08%  -0.3%   0.89      1992   8.0%    2186  -0.10     24481
+Best improved    0.25%    188  47.3       +59   +0.24%   0.0%   1.01      1166   4.7%    1770   0.02     25059
+Best improved    0.50%    188  47.3       -17   -0.07%  -0.0%   1.00      2353   9.4%    1819   0.00     24983
+Best improved    1.00%    188  47.3       -81   -0.32%  -0.0%   1.00      4560  18.2%    1819   0.01     24919
+
+=== C. detail at 0.5% risk, no breaker ===
+E1 (as written)  gross profit $+17,145 | gross loss $-25,858 | avg win $+45 / avg loss $-97 | best $+431 worst $-124 | max win streak 12 / loss streak 7 | avg lots 0.45 | avg hold 0 days 00:28:24 | longest drawdown 2813 days
+E2 (as written)  gross profit $+2,015 | gross loss $-2,275 | avg win $+39 / avg loss $-103 | best $+133 worst $-124 | max win streak 8 / loss streak 3 | avg lots 0.31 | avg hold 0 days 01:12:04 | longest drawdown 2186 days
+Best improved    gross profit $+11,019 | gross loss $-11,036 | avg win $+124 / avg loss $-111 | best $+500 worst $-126 | max win streak 9 / loss streak 9 | avg lots 0.29 | avg hold 0 days 02:04:52 | longest drawdown 1819 days
+
+=== D. net P&L by calendar year ($), 0.5% risk, no breaker ===
+exit_time        2019  2020  2021  2022  2023  2024  2025  2026
+E1 (as written) -1186  -297 -2381  -814 -1291  -886 -1172  -687
+E2 (as written)   -49    42  -313  -188   198  -329   194   185
+Best improved   -1223  -373   -95   508  1206  -203   313  -149
+
+=== E. by direction and exit reason (R-based ledger, full history) ===
+E1 (as written)  long n=361 PF 0.75 | short n=289 PF 0.58 | exits (count, mean R): {'stop': (257, np.float64(-1.0)), 'target': (376, np.float64(0.45)), 'closure': (17, np.float64(0.12))}
+E2 (as written)  long n=41 PF 0.60 | short n=33 PF 1.51 | exits (count, mean R): {'stop': (15, np.float64(-1.0)), 'target': (51, np.float64(0.32)), 'time': (3, np.float64(-0.22)), 'closure': (5, np.float64(-0.51))}
+Best improved    long n=108 PF 0.81 | short n=80 PF 1.36 | exits (count, mean R): {'stop': (89, np.float64(-1.0)), 'target': (66, np.float64(1.18)), 'time': (24, np.float64(0.49)), 'closure': (9, np.float64(0.03))}

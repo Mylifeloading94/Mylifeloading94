@@ -1,0 +1,49 @@
+config                           |        train 2019-22         |        valid 2023-24         | sigs
+E1 swing1h minRR1 1H+15M         | n= 160 WR 35.0 PF 0.95 R   -5.1 | n=  86 WR 23.3 PF 0.54 R  -29.6 | 333
+E1 swing15 minRR1 1H+15M         | n=  85 WR 36.5 PF 0.84 R   -8.2 | n=  42 WR 38.1 PF 0.86 R   -3.5 | 174
+E1 swing1h minRR0 1H+15M         | n= 320 WR 49.7 PF 0.82 R  -28.4 | n= 158 WR 43.0 PF 0.53 R  -41.7 | 677
+E1 swing1h minRR1 15M            | n= 466 WR 32.2 PF 0.81 R  -59.4 | n= 250 WR 28.0 PF 0.67 R  -58.6 | 992
+E2 swing1h minRR0 1H+15M         | n=  35 WR 60.0 PF 0.77 R   -3.0 | n=  16 WR 50.0 PF 0.71 R   -2.0 | 67
+E1 swing1h minRR0 15M            | n= 862 WR 46.1 PF 0.71 R -133.5 | n= 465 WR 47.3 PF 0.67 R  -79.9 | 1959
+E2 swing15 minRR0 1H+15M         | n=  44 WR 65.9 PF 0.70 R   -4.1 | n=  17 WR 70.6 PF 0.73 R   -1.2 | 82
+E1 swing15 minRR0 1H+15M         | n= 324 WR 60.2 PF 0.67 R  -41.3 | n= 164 WR 59.1 PF 0.66 R  -22.3 | 744
+E1 swing15 minRR1 15M            | n= 238 WR 34.0 PF 0.65 R  -54.2 | n= 119 WR 40.3 PF 0.92 R   -5.9 | 487
+E2 swing1h minRR0 15M            | n= 106 WR 60.4 PF 0.64 R  -14.8 | n=  59 WR 45.8 PF 0.39 R  -17.5 | 226
+E1 swing15 minRR0 15M            | n= 861 WR 58.0 PF 0.58 R -152.0 | n= 471 WR 59.4 PF 0.65 R  -66.6 | 2078
+E2 swing15 minRR0 15M            | n=  99 WR 66.7 PF 0.55 R  -14.1 | n=  60 WR 63.3 PF 0.41 R  -12.1 | 247
+E3 swing15 minRR0 15M            | n=  97 WR 60.8 PF 0.44 R  -20.9 | n=  69 WR 59.4 PF 0.38 R  -17.2 | 687
+E3 swing1h minRR0 15M            | n=  92 WR 50.0 PF 0.40 R  -26.6 | n=  62 WR 48.4 PF 0.52 R  -15.0 | 652
+E3 swing15 minRR0 1H+15M         | n=  30 WR 53.3 PF 0.35 R   -9.0 | n=  14 WR 71.4 PF 0.73 R   -1.1 | 237
+E2 swing15 minRR1 1H+15M         | n=   3 WR 33.3 PF 0.54 R   -0.9 | n=   0 WR  0.0 PF 0.00 R   +0.0 | 4
+E2 swing15 minRR1 15M            | n=   6 WR 33.3 PF 0.53 R   -1.9 | n=   5 WR  0.0 PF 0.00 R   -5.0 | 16
+E2 swing1h minRR1 1H+15M         | n=   8 WR 37.5 PF 0.87 R   -0.7 | n=   7 WR 28.6 PF 0.83 R   -0.7 | 18
+E2 swing1h minRR1 15M            | n=  25 WR 28.0 PF 0.45 R   -9.9 | n=  19 WR 21.1 PF 0.46 R   -6.8 | 63
+E3 swing15 minRR1 1H+15M         | n=   7 WR 28.6 PF 0.20 R   -4.0 | n=   1 WR  0.0 PF 0.00 R   -1.0 | 28
+E3 swing15 minRR1 15M            | n=  16 WR 25.0 PF 0.25 R   -8.3 | n=   6 WR 16.7 PF 0.20 R   -4.0 | 78
+E3 swing1h minRR0 1H+15M         | n=  27 WR 51.9 PF 0.53 R   -6.1 | n=  10 WR 60.0 PF 0.46 R   -2.1 | 224
+E3 swing1h minRR1 1H+15M         | n=   7 WR 42.9 PF 0.77 R   -0.9 | n=   5 WR  0.0 PF 0.00 R   -4.1 | 66
+E3 swing1h minRR1 15M            | n=  28 WR 25.0 PF 0.33 R  -13.7 | n=  27 WR 29.6 PF 0.65 R   -6.1 | 220
+
+QUALIFIERS (PF > 1.05 on train AND validation, n>=40/20): 0 of 24
+
+=== the strategy AS WRITTEN (1H+15M aligned, nearest 15M swing, no RR filter), full history, by entry model ===
+  E1: n= 650 WR 58.9 PF 0.67 R  -85.7 | avg win +0.46R avg loss -0.97R | median planned RR 0.51 | mean R -0.132 CI [-0.194,-0.066] t=-4.04
+       by year PF: {2019: np.float64(0.69), 2020: np.float64(0.92), 2021: np.float64(0.44), 2022: np.float64(0.7), 2023: np.float64(0.53), 2024: np.float64(0.75), 2025: np.float64(0.66), 2026: np.float64(0.72)}
+  E2: n=  74 WR 70.3 PF 0.90 R   -1.9 | avg win +0.32R avg loss -0.85R | median planned RR 0.37 | mean R -0.026 CI [-0.163,+0.108] t=-0.37
+       by year PF: {2019: np.float64(0.79), 2020: np.float64(1.12), 2021: np.float64(0.57), 2022: np.float64(0.5), 2023: np.float64(2.96), 2024: np.float64(0.21), 2025: np.float64(4.21), 2026: inf}
+  E3: n=  63 WR 58.7 PF 0.41 R  -15.3 | avg win +0.29R avg loss -1.00R | median planned RR 0.32 | mean R -0.242 CI [-0.406,-0.077] t=-2.84
+       by year PF: {2019: np.float64(0.22), 2020: np.float64(0.53), 2021: np.float64(0.97), 2022: np.float64(0.05), 2023: np.float64(1.75), 2024: np.float64(0.39), 2025: np.float64(0.03), 2026: np.float64(1.32)}
+
+=== does the '1H and 15M must agree' rule help? (same entry/target/RR, aligned vs 15M-only), full history ===
+  E1 swing15 minRR0: aligned PF 0.67 (n= 650) | 15M-only PF 0.64 (n=1757)
+  E1 swing15 minRR1: aligned PF 0.91 (n= 172) | 15M-only PF 0.81 (n= 478)
+  E1 swing1h minRR0: aligned PF 0.72 (n= 621) | 15M-only PF 0.74 (n=1718)
+  E1 swing1h minRR1: aligned PF 0.82 (n= 326) | 15M-only PF 0.81 (n= 935)
+  E2 swing15 minRR0: aligned PF 0.90 (n=  74) | 15M-only PF 0.68 (n= 206)
+  E2 swing15 minRR1: aligned PF 0.50 (n=   4) | 15M-only PF 0.48 (n=  15)
+  E2 swing1h minRR0: aligned PF 0.80 (n=  65) | 15M-only PF 0.72 (n= 217)
+  E2 swing1h minRR1: aligned PF 0.68 (n=  18) | 15M-only PF 0.74 (n=  63)
+  E3 swing15 minRR0: aligned PF 0.41 (n=  63) | 15M-only PF 0.47 (n= 214)
+  E3 swing15 minRR1: aligned PF 0.14 (n=   9) | 15M-only PF 0.26 (n=  26)
+  E3 swing1h minRR0: aligned PF 0.45 (n=  55) | 15M-only PF 0.58 (n= 200)
+  E3 swing1h minRR1: aligned PF 0.35 (n=  17) | 15M-only PF 0.67 (n=  71)

@@ -1,0 +1,14 @@
+economics of the strategy as written (aligned, nearest 15M swing, no RR filter, full history)
+  E1: n= 651 | win rate 58.8% vs BREAK-EVEN 68.2% (avg win +0.46R, avg loss -0.97R) | spread 0.182R per round trip = 40% of an average win | median stop $2.5
+       planned RR 0.0-0.5: n=320 WR 74.1% PF 0.44 meanR -0.144
+       planned RR 0.5-1.0: n=160 WR 50.0% PF 0.59 meanR -0.201
+       planned RR 1.0-99.0: n=171 WR 38.6% PF 0.92 meanR -0.049
+       net of spread (as backtested)               : PF 0.67  mean R -0.133
+       ZERO-SPREAD world (spread added back once)  : PF 1.15  mean R +0.049
+  E2: n=  74 | win rate 70.3% vs BREAK-EVEN 72.5% (avg win +0.32R, avg loss -0.85R) | spread 0.097R per round trip = 30% of an average win | median stop $4.6
+       planned RR 0.0-0.5: n= 46 WR 80.4% PF 0.77 meanR -0.041
+       planned RR 0.5-1.0: n= 24 WR 58.3% PF 1.12 meanR +0.042
+       net of spread (as backtested)               : PF 0.90  mean R -0.026
+       ZERO-SPREAD world (spread added back once)  : PF 1.32  mean R +0.071
+  E3: n=  63 | win rate 58.7% vs BREAK-EVEN 77.5% (avg win +0.29R, avg loss -1.00R) | spread 0.142R per round trip = 49% of an average win | median stop $3.2
+       planned RR 0.0-0.5: n= 41 WR 70.7% PF 0.39 meanR -0.178

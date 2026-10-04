@@ -1,0 +1,12 @@
+
+=== E1 as written (651 trades, median planned RR 0.51) ===
+  strategy        : n= 651 WR 58.8% PF 0.67 mean R -0.133
+  random entries (ATR-matched): WR 50.3% (95% band 47.0-54.1)  PF 0.57 (band 0.48-0.68)  mean R -0.204
+  mirror (reverse): n= 744 WR 55.0% PF 0.55 mean R -0.199
+  strategy mean R vs random-entry distribution: z = +2.17
+
+=== E2 as written (74 trades, median planned RR 0.37) ===
+  strategy        : n=  74 WR 70.3% PF 0.90 mean R -0.026
+  random entries (ATR-matched): WR 61.6% (95% band 52.7-71.6)  PF 0.69 (band 0.43-1.17)  mean R -0.111
+  mirror (reverse): n=  82 WR 65.9% PF 0.63 mean R -0.117
+  strategy mean R vs random-entry distribution: z = +1.17

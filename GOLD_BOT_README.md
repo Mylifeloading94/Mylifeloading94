@@ -465,3 +465,57 @@ not hold across all three periods and the effect is the same size as the spread 
 Files: `smc.py`, `smc_exec.py`, `run_smc.py`, `smc_market_diag.py`, `smc_info_test.py`, `smc_inverse.py`;
 outputs `results/smc_grid.json`, `results/smc_market_diag.json`, `results/smc_info_test.txt`,
 `results/smc_inverse.txt`.
+
+---
+
+## Brad Gold liquidity-scalping strategy (supplied spec) — backtested on gold, 2019 → 2026-10
+
+Spec saved in `strategy_specs/brad_gold_liquidity_scalping.md`; implemented in `liq_scalp.py` (signals) and
+`liq_exec.py` (execution) on **real M1 bid/ask**, every rule causal.
+
+**Result: no profit. 0 of 24 pre-registered configs qualify. The high win rate is real, but it is below the
+break-even win rate, and the spread is the reason.**
+
+How the subjective parts became rules (fixed before testing): trend per timeframe = last two *confirmed* swing
+highs and lows both rising/falling (2-bar fractals); POIs = order block and FVG left by a displacement candle
+that breaks structure; sweep = a bar that trades through the latest confirmed swing low (high) and closes back
+beyond it while tapping the zone; entries **E1** aggressive, **E2** Brad's extra confirming candle, **E3**
+conservative (15M market shift, then a limit into the zone); stop just beyond the sweep extreme (+0.1 ATR);
+target = nearest confirmed 15M swing (alternative: 1H swing); 6h max hold; the spec's suggested risk rules
+(max 3 trades/day, stop the day at −2R). Fills pessimistic: stop wins ties, limits fill only if price trades through.
+
+**As written** (1H+15M aligned, nearest 15M swing target, no RR filter), full history:
+
+| Entry | Trades | Win rate | **Break-even win rate** | Profit factor | Mean R/trade (95% CI) |
+|---|---|---|---|---|---|
+| E1 aggressive | 651 | **58.8%** | 68.2% | **0.67** | −0.133 [−0.19, −0.07] — significantly negative |
+| E2 Brad (extra candle) | 74 | **70.3%** | 72.5% | **0.90** | −0.026 [−0.16, +0.11] — inconclusive |
+| E3 conservative | 63 (of 237 signals; limits rarely fill) | 58.7% | 77.5% | 0.41 | −0.242 [−0.41, −0.08] |
+
+The grid (entry model × target × minimum reward:risk × alignment rule) has **0 of 24** configs with PF > 1.05 on
+both train (2019-22) and validation (2023-24); best train PF 0.95. E1 loses in all 8 calendar years.
+
+**Why it loses — the mechanism.** "Stop just beyond the sweep extreme" on gold is a very tight stop (median **$2.50**
+for E1), and "target the nearest swing" pays about 0.5R. Gold's spread (~$0.45) then costs **0.18R per round trip =
+40% of an average win**. Trades with planned RR below 0.5 win 74% of the time and still lose (PF 0.44). With the
+spread added back once (a zero-spread world), E1 would be PF **1.15** and E2 PF **1.32** — a small real edge that the
+spread more than erases.
+
+**Does the setup carry information?** Some. Against **random entries with identical ATR-scaled stop/target
+distances** (same executor, same costs): strategy −0.133R vs random −0.204R (z = +2.17; win rate 58.8% vs 50.3%);
+the **mirror** trade is −0.199R, no better than random. So sweeps at POIs are followed by moves in the expected
+direction slightly more often than chance, but the effect (~0.07R) is smaller than the cost of the geometry.
+
+**Spec claims checked:**
+- *"Only trade when 1H and 15M agree."* Not supported: requiring alignment is no better than 15M-trend-only in 10 of
+  12 matched comparisons (E1: PF 0.67 aligned vs 0.64 unaligned) and it cuts trades by ~3×.
+- *"High win rate scalping."* Confirmed (59–70%) — and not sufficient, because the payoff is ~0.3–0.5R per win.
+- The **video's profit figure is unverified** (the spec says so); nothing here supports it on gold with real spreads.
+
+**What would have to change** (none tested, each would be a new hypothesis needing its own train/validation/test):
+a wider stop or a target of ≥ 1R (E1 trades with planned RR ≥ 1: PF 0.92, WR 38.6%, n = 171 — the closest, still
+negative); a lower-spread venue (the edge exists only before costs); or many more E2 samples (74 trades in 7.75 years
+cannot distinguish −0.03R from +0.07R). I did not tune toward any of these.
+
+Files: `liq_scalp.py`, `liq_exec.py`, `run_liq.py`, `liq_baseline.py`, `liq_economics.py`; outputs
+`results/liq_grid_output.txt`, `results/liq_grid.json`, `results/liq_baseline.txt`, `results/liq_economics.txt`.

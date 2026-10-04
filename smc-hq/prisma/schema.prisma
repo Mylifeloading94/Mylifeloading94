@@ -1,0 +1,128 @@
+// PostgreSQL schema for SMC Trading HQ.
+// Set DATABASE_URL, then: npm run db:generate && npm run db:push && npm run db:seed
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum SignalStatus {
+  PENDING
+  ACTIVE
+  TP1
+  TP2
+  TP3
+  STOPPED
+  EXPIRED
+  CANCELLED
+}
+
+model Signal {
+  id                  String       @id @default(cuid())
+  signalId            String       @unique @map("signal_id")
+  dataMode            String       @map("data_mode") // LIVE | DEMO — never mixed in statistics
+  pair                String
+  direction           String
+  entry               Float
+  entryLow            Float        @map("entry_low")
+  entryHigh           Float        @map("entry_high")
+  stopLoss            Float        @map("stop_loss")
+  takeProfit1         Float        @map("take_profit_1")
+  takeProfit2         Float        @map("take_profit_2")
+  takeProfit3         Float        @map("take_profit_3")
+  confidenceScore     Float        @map("confidence_score")
+  grade               String
+  riskReward          Float        @map("risk_reward")
+  setupType           String       @map("setup_type")
+  session             String
+  newsRisk            String       @map("news_risk")
+  confirmations       Json
+  scoreBreakdown      Json         @map("score_breakdown")
+  technicalReasoning  String       @map("technical_reasoning")
+  newsReasoning       String       @map("news_reasoning")
+  fingerprint         String
+  timestamp           DateTime
+  status              SignalStatus @default(PENDING)
+  result              String?
+  resultR             Float?       @map("result_r")
+  closedAt            DateTime?    @map("closed_at")
+  telegramState       String       @default("NOT_SENT") @map("telegram_state")
+  telegramMessageId   Int?         @map("telegram_message_id")
+
+  @@index([pair, timestamp])
+  @@index([dataMode, timestamp])
+  @@index([fingerprint])
+  @@map("signals")
+}
+
+model MarketAnalysisRecord {
+  id        String   @id @default(cuid())
+  pair      String
+  dataMode  String   @map("data_mode")
+  bias      String
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([pair, createdAt])
+  @@map("market_analyses")
+}
+
+model NewsEvent {
+  id        String   @id @default(cuid())
+  dataMode  String   @map("data_mode")
+  headline  String
+  impact    String
+  currency  String
+  payload   Json
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@map("news_events")
+}
+
+model AgentActivity {
+  id        String   @id @default(cuid())
+  agent     String
+  level     String
+  message   String
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([agent, createdAt])
+  @@map("agent_activity")
+}
+
+model SetupScore {
+  id         String   @id @default(cuid())
+  pair       String
+  dataMode   String   @map("data_mode")
+  score      Float
+  grade      String
+  approved   Boolean
+  payload    Json
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([pair, createdAt])
+  @@map("setup_scores")
+}
+
+model TelegramMessage {
+  id         String   @id @default(cuid())
+  signalId   String?  @map("signal_id")
+  direction  String   // outbound | inbound
+  ok         Boolean
+  messageId  Int?     @map("message_id")
+  text       String
+  error      String?
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@map("telegram_messages")
+}
+
+model Setting {
+  key   String @id
+  value Json
+
+  @@map("settings")
+}

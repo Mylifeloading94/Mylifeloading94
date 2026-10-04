@@ -62,7 +62,9 @@ function reducer(s: LiveState, a: Action): LiveState {
   if (a.type === 'event') return reduce(s, a.e);
   if (a.type === 'dismissPreview') return { ...s, preview: null };
   const now = Date.now();
-  return { ...s, fx: s.fx.filter((f) => now - f.at < 2200), packets: s.packets.filter((p) => now - p.at < 6000) };
+  const fx = s.fx.filter((f) => now - f.at < 2200), packets = s.packets.filter((p) => now - p.at < 6000);
+  if (fx.length === s.fx.length && packets.length === s.packets.length) return s; // nothing to prune: keep identity so React skips the render
+  return { ...s, fx, packets };
 }
 
 /** Snapshot polling + SSE. The server is the source of truth; events add the animation layer. */

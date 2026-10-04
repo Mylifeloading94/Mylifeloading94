@@ -8,7 +8,7 @@ import type { LiveState, Snapshot } from '../world-types';
 import { Operator, LOOKS } from './Characters';
 import { makeWindowTexture } from './City';
 import { AnalystHolo, ConfidenceMeter, NewsHolo, pickPair } from './Holos';
-import { BUILDINGS, Block, INK, PODIUM_H, strokedText, useCanvasTexture } from './common';
+import { BUILDINGS, Block, INK, PODIUM_H, strokedText, useCanvasTexture, useQuality } from './common';
 
 const STATUS_COLOR: Record<string, string> = { idle: '#2bff88', working: '#ffd426', error: '#ff2b2b', paused: '#ff8a1f', offline: '#666' };
 
@@ -31,7 +31,6 @@ function Sign({ id }: { id: AgentId }) {
       <mesh position={[0, 0, 0.1]}><planeGeometry args={[w, w / 4]} /><meshBasicMaterial map={tex} toneMapped={false} /></mesh>
       <mesh position={[0, 0, -0.1]}><boxGeometry args={[w + 0.5, w / 4 + 0.5, 0.3]} /><meshBasicMaterial color={INK} /></mesh>
       {[-1, 1].map((s) => <mesh key={s} position={[s * (w / 2 - 1), -w / 8 - 0.9, -0.1]}><cylinderGeometry args={[0.12, 0.12, 1.8, 6]} /><meshBasicMaterial color={INK} /></mesh>)}
-      <pointLight position={[0, 0, 3]} color={b.accent} intensity={2.5} distance={22} />
     </group>
   );
 }
@@ -124,6 +123,7 @@ export function AgentBuilding({ id, snap, live, onSelect, selected }: { id: Agen
   const tex = useMemo(() => makeWindowTexture(b.dark, id.length * 13, Math.ceil(b.w / 3), Math.ceil(b.towerH / 4)), [b, id]);
   const look = LOOKS[id === 'market_analyst' ? 'analyst' : id === 'news_intelligence' ? 'news' : id === 'setup_hunter' ? 'hunter' : 'command'];
   const speech = agent?.summary ?? 'Standing by';
+  const low = useQuality() === 'low';
   return (
     <group position={b.pos}
       onClick={(e) => { e.stopPropagation(); onSelect(id); }}
@@ -139,7 +139,6 @@ export function AgentBuilding({ id, snap, live, onSelect, selected }: { id: Agen
       <mesh position={[0, 2.9, b.d / 2 - 0.1]}><boxGeometry args={[b.w - 1, PODIUM_H - 1, 0.1]} /><meshPhysicalMaterial color="#9ff3ff" transparent opacity={0.16} roughness={0.1} depthWrite={false} /></mesh>
       <Block size={[b.w, 0.35, 0.35]} pos={[0, PODIUM_H - 0.05, b.d / 2 - 0.1]} color={INK} outline={false} />
       <Block size={[b.w, 0.35, 0.35]} pos={[0, 0.55, b.d / 2 - 0.1]} color={INK} outline={false} />
-      <pointLight position={[0, 3.8, 1.2]} color={b.accent} intensity={4} distance={14} />
       {/* tower */}
       <Block size={[b.w - 1.2, b.towerH, b.d - 1.2]} pos={[0, PODIUM_H + b.towerH / 2 + 0.25, 0]} color={b.color} emissive="#ffffff" emissiveIntensity={0.5} map={tex} />
       <Block size={[b.w - 0.6, 0.6, b.d - 0.6]} pos={[0, PODIUM_H + b.towerH + 0.55, 0]} color={b.accent} emissive={b.accent} emissiveIntensity={0.6} />
@@ -149,7 +148,7 @@ export function AgentBuilding({ id, snap, live, onSelect, selected }: { id: Agen
         <sphereGeometry args={[0.38, 12, 10]} /><meshBasicMaterial ref={lamp} color={STATUS_COLOR[status]} transparent /><Outlines thickness={0.05} color={INK} />
       </mesh>
       {/* operator */}
-      <group position={[0, 0.3, 0.6]}><Operator look={look} busy={busy} phase={id.length} /><Bubble text={speech} color={b.color} /></group>
+      <group position={[0, 0.3, 0.6]}><Operator look={look} busy={busy} phase={id.length} />{!low && <Bubble text={speech} color={b.color} />}</group>
       {/* per-agent holograms */}
       {id === 'market_analyst' && <AnalystHolo snap={snap} live={live} busy={busy} w={b.w} d={b.d} />}
       {id === 'news_intelligence' && <NewsHolo snap={snap} live={live} w={b.w} d={b.d} />}

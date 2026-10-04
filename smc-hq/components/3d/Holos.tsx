@@ -85,9 +85,11 @@ export function AnalystHolo({ snap, live, busy, w, d }: { snap: Snapshot | null;
   const pair = pickPair(snap, live);
   const data = useCandles(pair);
   const a = pair ? snap?.analyses[pair] : undefined;
-  const [tick, setTick] = useState(0);
-  useEffect(() => { const t = setInterval(() => setTick((x) => x + 0.12), 120); return () => clearInterval(t); }, []);
-  const tex = useCanvasTexture(1024, 400, (g, W, H) => drawChart(g, W, H, data?.candles ?? null, a, pair, data?.mode ?? null, tick), [data, a, pair, tick]);
+  // Redrawn only when the data changes (was every 120 ms). The scan line is a cheap moving mesh instead.
+  const aKey = a ? `${a.timestamp}|${a.candidate?.entry_state}|${a.sweep_time}` : '';
+  const tex = useCanvasTexture(1024, 400, (g, W, H) => drawChart(g, W, H, data?.candles ?? null, a, pair, data?.mode ?? null, 0), [data, aKey, pair]);
+  const scan = useRef<THREE.Mesh>(null);
+  useFrame(({ clock }) => { if (scan.current) scan.current.position.x = ((clock.elapsedTime * 1.6) % (w - 1)) - (w - 1) / 2; });
   const orbit = useRef<THREE.Group>(null);
   useFrame(({ clock }) => { if (orbit.current) orbit.current.rotation.y = clock.elapsedTime * (busy ? 0.7 : 0.25); });
   const cands = useMemo(() => Array.from({ length: 16 }).map((_, i) => ({ a: (i / 16) * Math.PI * 2, r: 6 + (i % 3) * 1.6, y: 5.5 + (i % 5) * 1.5, up: i % 3 !== 0, h: 0.9 + (i % 4) * 0.5 })), []);
@@ -97,11 +99,12 @@ export function AnalystHolo({ snap, live, busy, w, d }: { snap: Snapshot | null;
   return (
     <group>
       <mesh position={[0, 3.2, -d / 2 + 0.55]}><planeGeometry args={[w - 1.2, 3.5]} /><meshBasicMaterial map={tex} transparent toneMapped={false} side={THREE.DoubleSide} /></mesh>
+      <mesh ref={scan} position={[0, 3.2, -d / 2 + 0.6]}><planeGeometry args={[0.35, 3.5]} /><meshBasicMaterial color="#00f0ff" transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} /></mesh>
       <group ref={orbit} position={[0, 0, 0]}>
         {cands.map((c, i) => (
           <group key={i} position={[Math.cos(c.a) * c.r, PODIUM_H + c.y, Math.sin(c.a) * c.r]}>
             <mesh><boxGeometry args={[0.1, c.h * 1.6, 0.1]} /><meshBasicMaterial color={INK} /></mesh>
-            <mesh><boxGeometry args={[0.55, c.h, 0.55]} /><meshToonMaterial color={c.up ? '#2bff88' : '#ff3b3b'} gradientMap={toonGradient()} emissive={c.up ? '#2bff88' : '#ff3b3b'} emissiveIntensity={0.5} /><Outlines thickness={0.05} color={INK} /></mesh>
+            <mesh><boxGeometry args={[0.55, c.h, 0.55]} /><meshToonMaterial color={c.up ? '#2bff88' : '#ff3b3b'} gradientMap={toonGradient()} emissive={c.up ? '#2bff88' : '#ff3b3b'} emissiveIntensity={0.5} /></mesh>
           </group>))}
       </group>
       {dir && (
@@ -119,11 +122,11 @@ const IMPACT_COLOR: Record<string, string> = { LOW: '#6a8cff', MEDIUM: '#ffd426'
 
 function NewsScreen({ items, offset, pos, rot, size = [3.4, 2.1] }: { items: Snapshot['news'] extends infer N ? (N extends { items: infer I } ? I : never) : never; offset: number; pos: [number, number, number]; rot: number; size?: [number, number] }) {
   const [t, setT] = useState(0);
-  useEffect(() => { const i = setInterval(() => setT((x) => x + 1), 200); return () => clearInterval(i); }, []);
+  useEffect(() => { const i = setInterval(() => setT((x) => x + 1), 5000); return () => clearInterval(i); }, []);
   const tex = useCanvasTexture(512, 320, (g, W, H) => {
     g.fillStyle = '#12082a'; g.fillRect(0, 0, W, H);
     const list = (items as any[]) ?? [];
-    const it = list.length ? list[(offset + Math.floor(t / 28)) % list.length] : null;
+    const it = list.length ? list[(offset + t) % list.length] : null;
     g.fillStyle = it ? IMPACT_COLOR[it.impact] : '#444'; g.fillRect(0, 0, W, 54);
     strokedText(g, it ? `${it.impact} IMPACT` : 'NO FEED', W / 2, 28, 44, '#fff', INK, 7);
     g.fillStyle = '#fff'; g.font = "bold 30px 'Comic Neue', 'Comic Sans MS', sans-serif"; g.textAlign = 'left'; g.textBaseline = 'top';
@@ -134,7 +137,7 @@ function NewsScreen({ items, offset, pos, rot, size = [3.4, 2.1] }: { items: Sna
     g.fillStyle = '#ffd426'; g.fillRect(0, H - 40, W, 40);
     g.fillStyle = INK; g.font = "bold 24px 'Comic Neue', sans-serif";
     const tick = list.map((x: any) => `${x.currencies.join('/') || '—'}: ${x.headline}`).join('   ◆   ') || 'WAITING FOR NEWS';
-    g.fillText(tick, 12 - ((t * 9) % Math.max(400, g.measureText(tick).width)), H - 32);
+    g.fillText(tick, 12, H - 32, W - 24);
   }, [items, offset, t]);
   return (
     <group position={pos} rotation={[0, rot, 0]}>
@@ -160,8 +163,6 @@ export function NewsHolo({ snap, live, w, d }: { snap: Snapshot | null; live: Li
   const items = snap?.news?.items ?? [];
   const [flash, setFlash] = useState(false);
   useEffect(() => { const i = setInterval(() => setFlash(Date.now() - live.breakingAt < 7000), 250); return () => clearInterval(i); }, [live.breakingAt]);
-  const light = useRef<THREE.PointLight>(null);
-  useFrame(({ clock }) => { if (light.current) light.current.intensity = flash ? (Math.sin(clock.elapsedTime * 14) > 0 ? 8 : 0.5) : 0; });
   const banner = useCanvasTexture(512, 128, (g, W, H) => { g.fillStyle = '#ff2b2b'; g.fillRect(0, 0, W, H); strokedText(g, '⚡ BREAKING NEWS ⚡', W / 2, H / 2 + 4, 74, '#fff', INK, 9); }, []);
   return (
     <group>
@@ -174,7 +175,6 @@ export function NewsHolo({ snap, live, w, d }: { snap: Snapshot | null; live: Li
       {flash && (
         <group position={[0, PODIUM_H + 11 + 2.2, d / 2 + 0.5]}>
           <mesh><planeGeometry args={[7.5, 1.9]} /><meshBasicMaterial map={banner} toneMapped={false} /></mesh>
-          <pointLight ref={light} color="#ff2b2b" distance={30} position={[0, 0, 2]} />
         </group>)}
     </group>
   );
@@ -191,7 +191,7 @@ export function HunterRadar({ snap, live }: { snap: Snapshot | null; live: LiveS
   const list = snap?.settings.watchlist ?? [];
   const evals = new Map((snap?.hunter?.evaluations ?? []).map((e) => [e.pair, e]));
   const [pulse, setPulse] = useState(0);
-  useEffect(() => { const i = setInterval(() => setPulse((p) => p + 1), 250); return () => clearInterval(i); }, []);
+  useEffect(() => { const i = setInterval(() => setPulse((p) => p + 1), 500); return () => clearInterval(i); }, []);
   const rt = roofOf('setup_hunter');
   return (
     <group position={[rt[0], rt[1] + 3.2, rt[2] + 1]} rotation={[-0.9, 0, 0]}>
@@ -247,14 +247,10 @@ export function CommandBeacon({ live }: { live: LiveState }) {
   const rt = roofOf('signal_command');
   const spin = useRef<THREE.Group>(null);
   const burst = useRef<THREE.Mesh>(null);
-  const red = useRef<THREE.PointLight>(null);
-  const green = useRef<THREE.PointLight>(null);
   useFrame(({ clock }, dt) => {
     const since = (Date.now() - live.commandFlashAt) / 1000;
     const hot = since < 4;
     if (spin.current) spin.current.rotation.y += dt * (hot ? 9 : 2);
-    if (red.current) red.current.intensity = hot ? 6 : 1.2;
-    if (green.current) green.current.intensity = hot ? 6 : 1.2;
     if (burst.current) {
       const k = Math.min(1, since / 1.4);
       burst.current.visible = since < 1.4;
@@ -267,8 +263,8 @@ export function CommandBeacon({ live }: { live: LiveState }) {
     <group position={[rt[0], rt[1] + 1.2, rt[2]]}>
       <mesh position={[0, 1.5, 0]}><cylinderGeometry args={[0.08, 0.14, 3, 6]} /><meshToonMaterial color="#333355" gradientMap={toonGradient()} /></mesh>
       <group ref={spin} position={[0, 3.2, 0]}>
-        <mesh position={[0.8, 0, 0]}><sphereGeometry args={[0.45, 12, 10]} /><meshBasicMaterial color="#ff2b2b" /><pointLight ref={red} color="#ff2b2b" distance={25} /></mesh>
-        <mesh position={[-0.8, 0, 0]}><sphereGeometry args={[0.45, 12, 10]} /><meshBasicMaterial color="#2bff88" /><pointLight ref={green} color="#2bff88" distance={25} /></mesh>
+        <mesh position={[0.8, 0, 0]}><sphereGeometry args={[0.45, 12, 10]} /><meshBasicMaterial color="#ff2b2b" /></mesh>
+        <mesh position={[-0.8, 0, 0]}><sphereGeometry args={[0.45, 12, 10]} /><meshBasicMaterial color="#2bff88" /></mesh>
       </group>
       <mesh ref={burst} position={[0, 1, 0]} rotation={[-Math.PI / 2, 0, 0]} visible={false}><ringGeometry args={[0.8, 1, 32]} /><meshBasicMaterial color="#ffd426" transparent depthWrite={false} /></mesh>
     </group>

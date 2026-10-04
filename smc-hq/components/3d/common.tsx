@@ -1,10 +1,15 @@
 'use client';
 import * as THREE from 'three';
 import { Outlines } from '@react-three/drei';
-import { useEffect, useMemo, useState } from 'react';
+import { createContext, useContext, useEffect, useMemo, useState } from 'react';
 import type { AgentId } from '@/types';
 
 export const INK = '#0b0b14';
+
+/** 'low' drops outlines, rain, sparkles and speech bubbles so weaker GPUs stay smooth. */
+export type Quality = 'high' | 'low';
+export const QualityContext = createContext<Quality>('high');
+export const useQuality = () => useContext(QualityContext);
 
 let grad: THREE.DataTexture | null = null;
 /** 4-step cel-shading ramp shared by every toon material. */
@@ -38,12 +43,13 @@ export function Block({ size, pos = [0, 0, 0], color, emissive, emissiveIntensit
   size: [number, number, number]; pos?: [number, number, number]; color: string; emissive?: string; emissiveIntensity?: number;
   opacity?: number; outline?: boolean; rot?: [number, number, number]; map?: THREE.Texture | null; castShadow?: boolean;
 }) {
+  const q = useQuality();
   return (
     <mesh position={pos} rotation={rot} castShadow={castShadow}>
       <boxGeometry args={size} />
       <meshToonMaterial color={color} gradientMap={toonGradient()} emissive={emissive ?? '#000000'} emissiveIntensity={emissive ? emissiveIntensity : 0}
         transparent={opacity < 1} opacity={opacity} map={map ?? null} emissiveMap={emissive && map ? map : null} />
-      {outline && opacity >= 1 && <Outlines thickness={0.06} color={INK} />}
+      {outline && q === 'high' && opacity >= 1 && <Outlines thickness={0.06} color={INK} />}
     </mesh>
   );
 }

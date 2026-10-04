@@ -2,8 +2,8 @@
 import * as THREE from 'three';
 import { useFrame } from '@react-three/fiber';
 import { Grid, Outlines, Sparkles, Stars } from '@react-three/drei';
-import { useMemo, useRef } from 'react';
-import { Block, INK, strokedText, toonGradient, useCanvasTexture } from './common';
+import { useLayoutEffect, useMemo, useRef } from 'react';
+import { Block, INK, strokedText, toonGradient, useCanvasTexture, useQuality } from './common';
 
 function rng(seed: number) { let a = seed; return () => { a = (a * 1664525 + 1013904223) % 4294967296; return a / 4294967296; }; }
 
@@ -28,23 +28,38 @@ export function makeWindowTexture(tint: string, seed: number, repeatX: number, r
 }
 
 function Skyline() {
-  const items = useMemo(() => {
+  const groups = useMemo(() => {
     const r = rng(7);
-    const out: { p: [number, number, number]; s: [number, number, number]; m: number }[] = [];
+    const g: { p: [number, number, number]; s: [number, number, number] }[][] = [[], [], []];
     const cell = (x: number, z: number) => {
       const h = 6 + r() * 26, w = 6 + r() * 5, d = 6 + r() * 5;
-      out.push({ p: [x + (r() - 0.5) * 3, h / 2, z + (r() - 0.5) * 3], s: [w, h, d], m: Math.floor(r() * 3) });
+      g[Math.floor(r() * 3)].push({ p: [x + (r() - 0.5) * 3, h / 2, z + (r() - 0.5) * 3], s: [w, h, d] });
     };
     for (let x = -88; x <= 88; x += 13) for (const z of [-34, -48, -62, -76]) cell(x, z);
     for (let z = -30; z <= 36; z += 13) { for (const x of [-52, -64, -78]) cell(x, z); for (const x of [52, 64, 78]) cell(x, z); }
     for (let x = -88; x <= 88; x += 14) if (Math.abs(x + 8) > 22 && Math.abs(x - 8) > 22 && Math.abs(x - 40) > 10) cell(x, 34);
-    return out;
+    return g;
   }, []);
   const mats = useMemo(() => ['#1c1a45', '#2a1740', '#10253f'].map((t, i) => makeWindowTexture(t, 11 + i, 2, 3)), []);
+  const refs = [useRef<THREE.InstancedMesh>(null), useRef<THREE.InstancedMesh>(null), useRef<THREE.InstancedMesh>(null)];
+  useLayoutEffect(() => {
+    const m = new THREE.Matrix4(), q = new THREE.Quaternion();
+    groups.forEach((list, gi) => {
+      const mesh = refs[gi].current;
+      if (!mesh) return;
+      list.forEach((b, i) => { m.compose(new THREE.Vector3(...b.p), q, new THREE.Vector3(...b.s)); mesh.setMatrixAt(i, m); });
+      mesh.instanceMatrix.needsUpdate = true;
+    });
+  }, [groups]); // eslint-disable-line react-hooks/exhaustive-deps
+  const tint = ['#5a4a9a', '#7a3a8a', '#3a6a9a'];
+  // 3 draw calls for the whole skyline (was ~110 outlined meshes)
   return (
     <group>
-      {items.map((b, i) => (
-        <Block key={i} size={b.s} pos={b.p} color={['#5a4a9a', '#7a3a8a', '#3a6a9a'][b.m]} emissive="#ffffff" emissiveIntensity={0.55} map={mats[b.m]} />
+      {groups.map((list, gi) => (
+        <instancedMesh key={gi} ref={refs[gi]} args={[undefined, undefined, list.length]} frustumCulled={false}>
+          <boxGeometry args={[1, 1, 1]} />
+          <meshToonMaterial color={tint[gi]} gradientMap={toonGradient()} emissive="#ffffff" emissiveIntensity={0.55} map={mats[gi]} emissiveMap={mats[gi]} />
+        </instancedMesh>
       ))}
     </group>
   );
@@ -94,8 +109,8 @@ function Car({ axis, fixed, lo, hi, speed, color, offset }: { axis: 'x' | 'z'; f
   });
   return (
     <group ref={ref}>
-      <Block size={[2.4, 0.7, 1.2]} color={color} pos={[0, 0, 0]} />
-      <Block size={[1.2, 0.55, 1.05]} color="#bfe9ff" pos={[-0.1, 0.55, 0]} />
+      <Block size={[2.4, 0.7, 1.2]} color={color} pos={[0, 0, 0]} outline={false} />
+      <Block size={[1.2, 0.55, 1.05]} color="#bfe9ff" pos={[-0.1, 0.55, 0]} outline={false} />
       <mesh position={[1.22, 0, 0.4]}><sphereGeometry args={[0.16, 8, 8]} /><meshBasicMaterial color="#fff6a0" /></mesh>
       <mesh position={[1.22, 0, -0.4]}><sphereGeometry args={[0.16, 8, 8]} /><meshBasicMaterial color="#fff6a0" /></mesh>
       <mesh position={[-1.22, 0.05, 0]}><boxGeometry args={[0.05, 0.2, 0.9]} /><meshBasicMaterial color="#ff2b2b" /></mesh>
@@ -111,7 +126,7 @@ function Traffic() {
     const lane = (axis: 'x' | 'z', fixed: number, lo: number, hi: number, n: number) => {
       for (let i = 0; i < n; i++) out.push({ axis, fixed: fixed + (i % 2 ? 1.1 : -1.1), lo, hi, speed: (i % 2 ? 1 : -1) * (4 + r() * 5), color: CAR_COLORS[Math.floor(r() * CAR_COLORS.length)], offset: r() * (hi - lo) });
     };
-    lane('x', 16, -80, 80, 6); lane('x', -24, -80, 80, 4); lane('z', 0.5, -24, 16, 3); lane('z', -43, -24, 16, 2); lane('z', 45, -24, 16, 2);
+    lane('x', 16, -80, 80, 5); lane('x', -24, -80, 80, 3); lane('z', 0.5, -24, 16, 3); lane('z', -43, -24, 16, 2); lane('z', 45, -24, 16, 2);
     return out;
   }, []);
   return <>{cars.map((c, i) => <Car key={i} {...c} />)}</>;
@@ -156,14 +171,27 @@ function Cloud({ x, y, z, s, speed }: { x: number; y: number; z: number; s: numb
   return (
     <group ref={ref} position={[x, y, z]} scale={s}>
       {[[0, 0, 0, 3], [3, -0.4, 0.4, 2.4], [-3, -0.3, 0, 2.5], [1.2, 1.2, 0, 2.2], [-1.4, 0.9, 0.5, 2]].map(([px, py, pz, r], i) => (
-        <mesh key={i} position={[px, py, pz]}><sphereGeometry args={[r, 12, 10]} /><meshToonMaterial color="#6a5aa8" gradientMap={toonGradient()} transparent opacity={0.85} /><Outlines thickness={0.08} color={INK} /></mesh>
+        <mesh key={i} position={[px, py, pz]}><sphereGeometry args={[r, 12, 10]} /><meshToonMaterial color="#6a5aa8" gradientMap={toonGradient()} transparent opacity={0.85} /></mesh>
       ))}
     </group>
   );
 }
 
+const RAIN_V = `
+  uniform float uTime;
+  void main() {
+    vec3 p = position;
+    p.y = mod(p.y - uTime * 30.0, 50.0);
+    p.x = mod(p.x - uTime * 3.0 + 70.0, 140.0) - 70.0;
+    vec4 mv = modelViewMatrix * vec4(p, 1.0);
+    gl_PointSize = 90.0 / -mv.z;
+    gl_Position = projectionMatrix * mv;
+  }`;
+const RAIN_F = `void main() { gl_FragColor = vec4(0.56, 0.72, 1.0, 0.5); }`;
+
+/** Rain is animated entirely in the vertex shader: zero per-frame JavaScript. */
 function Rain() {
-  const N = 900;
+  const N = 500;
   const geo = useMemo(() => {
     const g = new THREE.BufferGeometry();
     const p = new Float32Array(N * 3);
@@ -171,29 +199,26 @@ function Rain() {
     g.setAttribute('position', new THREE.BufferAttribute(p, 3));
     return g;
   }, []);
-  useFrame((_, dt) => {
-    const a = geo.attributes.position as THREE.BufferAttribute;
-    for (let i = 0; i < N; i++) {
-      let y = a.getY(i) - dt * 30;
-      if (y < 0) y = 50;
-      a.setY(i, y); a.setX(i, a.getX(i) - dt * 3);
-      if (a.getX(i) < -70) a.setX(i, 70);
-    }
-    a.needsUpdate = true;
-  });
-  return <points geometry={geo}><pointsMaterial color="#8fb8ff" size={0.14} transparent opacity={0.55} sizeAttenuation depthWrite={false} /></points>;
+  const mat = useRef<THREE.ShaderMaterial>(null);
+  useFrame(({ clock }) => { if (mat.current) mat.current.uniforms.uTime.value = clock.elapsedTime; });
+  return (
+    <points geometry={geo} frustumCulled={false}>
+      <shaderMaterial ref={mat} vertexShader={RAIN_V} fragmentShader={RAIN_F} uniforms={{ uTime: { value: 0 } }} transparent depthWrite={false} />
+    </points>
+  );
 }
 
 export function Atmosphere() {
+  const low = useQuality() === 'low';
   return (
     <group>
-      <Stars radius={180} depth={50} count={2500} factor={6} saturation={0.4} fade speed={1} />
+      <Stars radius={180} depth={50} count={low ? 600 : 1200} factor={6} saturation={0.4} fade speed={low ? 0 : 1} />
       <mesh position={[-70, 60, -110]}><sphereGeometry args={[9, 24, 18]} /><meshBasicMaterial color="#fff2a8" /><Outlines thickness={0.4} color={INK} /></mesh>
       <Cloud x={-60} y={44} z={-60} s={1.6} speed={1.1} /><Cloud x={10} y={52} z={-80} s={2} speed={0.8} />
       <Cloud x={50} y={40} z={-50} s={1.4} speed={1.4} /><Cloud x={-20} y={36} z={-30} s={1.2} speed={0.9} />
       <Cloud x={70} y={50} z={-90} s={1.8} speed={0.6} /><Cloud x={-90} y={38} z={-20} s={1.3} speed={1.2} />
-      <Rain />
-      <Sparkles count={90} scale={[110, 34, 70]} size={4} speed={0.35} color="#ffd426" position={[0, 16, 0]} />
+      {!low && <Rain />}
+      {!low && <Sparkles count={50} scale={[110, 34, 70]} size={4} speed={0.35} color="#ffd426" position={[0, 16, 0]} />}
     </group>
   );
 }

@@ -29,29 +29,29 @@ export function Operator({ look, busy, scale = 1, phase = 0 }: { look: Look; bus
   const hair = () => {
     if (look.hairStyle === 'spiky') return [0, 1, 2, 3, 4].map((i) => (
       <mesh key={i} position={[(i - 2) * 0.17, 0.5 + (i % 2 ? 0.02 : 0.1), -0.02]} rotation={[0, 0, (2 - i) * 0.35]}>
-        <coneGeometry args={[0.13, 0.42, 6]} /><M c={look.hair} /><Outlines thickness={0.03} color={INK} />
+        <coneGeometry args={[0.13, 0.42, 6]} /><M c={look.hair} />
       </mesh>));
     if (look.hairStyle === 'swoop') return (
       <mesh position={[0.08, 0.46, 0.05]} rotation={[0.2, 0, -0.35]} scale={[1.2, 0.55, 1.1]}>
-        <sphereGeometry args={[0.42, 12, 10]} /><M c={look.hair} /><Outlines thickness={0.03} color={INK} />
+        <sphereGeometry args={[0.42, 12, 10]} /><M c={look.hair} />
       </mesh>);
     if (look.hairStyle === 'bun') return (<>
-      <mesh position={[0, 0.4, -0.05]} scale={[1.05, 0.7, 1.05]}><sphereGeometry args={[0.42, 12, 10]} /><M c={look.hair} /><Outlines thickness={0.03} color={INK} /></mesh>
-      <mesh position={[0, 0.85, -0.1]}><sphereGeometry args={[0.2, 10, 8]} /><M c={look.hair} /><Outlines thickness={0.03} color={INK} /></mesh></>);
-    return (<mesh position={[0, 0.42, -0.02]} scale={[1.04, 0.6, 1.04]}><sphereGeometry args={[0.42, 12, 10]} /><M c={look.hair} /><Outlines thickness={0.03} color={INK} /></mesh>);
+      <mesh position={[0, 0.4, -0.05]} scale={[1.05, 0.7, 1.05]}><sphereGeometry args={[0.42, 12, 10]} /><M c={look.hair} /></mesh>
+      <mesh position={[0, 0.85, -0.1]}><sphereGeometry args={[0.2, 10, 8]} /><M c={look.hair} /></mesh></>);
+    return (<mesh position={[0, 0.42, -0.02]} scale={[1.04, 0.6, 1.04]}><sphereGeometry args={[0.42, 12, 10]} /><M c={look.hair} /></mesh>);
   };
   return (
     <group ref={root} scale={scale}>
       {/* legs */}
       {[-0.2, 0.2].map((x) => (
-        <mesh key={x} position={[x, 0.45, 0]}><boxGeometry args={[0.28, 0.9, 0.3]} /><M c={look.pants} /><Outlines thickness={0.04} color={INK} /></mesh>))}
+        <mesh key={x} position={[x, 0.45, 0]}><boxGeometry args={[0.28, 0.9, 0.3]} /><M c={look.pants} /></mesh>))}
       {/* torso */}
       <mesh position={[0, 1.3, 0]}><capsuleGeometry args={[0.45, 0.55, 6, 12]} /><M c={look.shirt} /><Outlines thickness={0.05} color={INK} /></mesh>
       {/* arms */}
       {([['L', -0.62, armL], ['R', 0.62, armR]] as const).map(([k, x, ref]) => (
         <group key={k} ref={ref} position={[x, 1.65, 0]}>
-          <mesh position={[0, -0.35, 0.25]} rotation={[0.1, 0, 0]}><capsuleGeometry args={[0.13, 0.55, 4, 8]} /><M c={look.shirt} /><Outlines thickness={0.04} color={INK} /></mesh>
-          <mesh position={[0, -0.7, 0.45]}><sphereGeometry args={[0.15, 8, 8]} /><M c={look.skin} /><Outlines thickness={0.03} color={INK} /></mesh>
+          <mesh position={[0, -0.35, 0.25]} rotation={[0.1, 0, 0]}><capsuleGeometry args={[0.13, 0.55, 4, 8]} /><M c={look.shirt} /></mesh>
+          <mesh position={[0, -0.7, 0.45]}><sphereGeometry args={[0.15, 8, 8]} /><M c={look.skin} /></mesh>
         </group>))}
       {/* head */}
       <group ref={head} position={[0, 2.2, 0]}>

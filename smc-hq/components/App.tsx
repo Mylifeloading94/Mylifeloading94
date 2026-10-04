@@ -39,9 +39,12 @@ export default function App() {
   const [idle, setIdle] = useState(false);
   const [scanning, setScanning] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
+  const [fast, setFast] = useState(false);
+  const setFastSaved = (v: boolean) => { setFast(v); try { localStorage.setItem('smc-fast', v ? '1' : '0'); } catch { /* storage unavailable */ } };
 
   useEffect(() => {
     setFlat(!webglOk() || window.innerWidth < 640 || new URLSearchParams(location.search).has('flat'));
+    try { const saved = localStorage.getItem('smc-fast'); if (saved === '1' || (saved === null && (navigator.hardwareConcurrency ?? 8) <= 4)) setFast(true); } catch { /* ignore */ }
     setBooted(true);
     const t = setTimeout(() => setIdle(true), 6500); // cinematic camera starts drifting after the title card
     return () => clearTimeout(t);
@@ -62,7 +65,7 @@ export default function App() {
       {booted && !flat && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 1 }}>
           <Boundary onError={() => setFlat(true)}>
-            <World snap={snap} live={live} selected={selected} onSelect={selectAgent} idle={idle && !panelOpen} />
+            <World snap={snap} live={live} selected={selected} onSelect={selectAgent} idle={idle && !panelOpen} fast={fast} onAutoFast={() => setFastSaved(true)} />
           </Boundary>
         </div>)}
       {flat && (
@@ -83,7 +86,7 @@ export default function App() {
 
       <div className="halftone" /><div className="vignette" /><div className="frame" />
       <div className={`speedlines ${live.running ? 'on' : ''}`} />
-      <TopBar snap={snap} view={view} onView={pickView} flat={flat} onFlat={() => setFlat(!flat)} error={error} />
+      <TopBar snap={snap} view={view} onView={pickView} flat={flat} onFlat={() => setFlat(!flat)} error={error} fast={fast} onFast={() => setFastSaved(!fast)} />
 
       {booted && !flat && <div className="intro" aria-hidden><h1>SMC TRADING HQ</h1><p>FOUR AI AGENTS. ONE MARKET INTELLIGENCE SYSTEM.</p><span className="tap">CLICK A BUILDING TO ENTER ITS CONTROL ROOM</span></div>}
 

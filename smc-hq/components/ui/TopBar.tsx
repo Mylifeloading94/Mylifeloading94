@@ -6,7 +6,7 @@ const VIEWS: View[] = ['world', 'market', 'news', 'setups', 'signals', 'performa
 
 const Dot = ({ cls }: { cls: 'ok' | 'demo' | 'bad' | 'off' }) => <i className={`dot ${cls}`} />;
 
-export function TopBar({ snap, view, onView, flat, onFlat, error }: { snap: Snapshot | null; view: View; onView: (v: View) => void; flat: boolean; onFlat: () => void; error: string | null }) {
+export function TopBar({ snap, view, onView, flat, onFlat, error, fast, onFast }: { snap: Snapshot | null; view: View; onView: (v: View) => void; flat: boolean; onFlat: () => void; error: string | null; fast: boolean; onFast: () => void }) {
   const s = snap?.system;
   const mk = s?.market.state, nw = s?.news.state, tg = s?.telegram.state;
   return (
@@ -16,6 +16,7 @@ export function TopBar({ snap, view, onView, flat, onFlat, error }: { snap: Snap
         <nav className="nav" style={{ marginTop: 10 }} aria-label="Primary">
           {VIEWS.map((v) => <button key={v} className={view === v ? 'on' : ''} onClick={() => onView(v)}>{v.toUpperCase()}</button>)}
           <button onClick={onFlat} title="Toggle 2D / 3D">{flat ? '3D MODE' : '2D MODE'}</button>
+          {!flat && <button className={fast ? 'on' : ''} onClick={onFast} title="Lighter graphics for slower computers">{fast ? 'FAST: ON' : 'FAST MODE'}</button>}
         </nav>
       </div>
       <div className="statusbar" role="status" aria-live="polite">

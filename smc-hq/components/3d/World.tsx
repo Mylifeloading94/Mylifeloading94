@@ -1,13 +1,13 @@
 'use client';
 import * as THREE from 'three';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { Html, OrbitControls } from '@react-three/drei';
-import { Suspense, useEffect, useRef } from 'react';
+import { Html, OrbitControls, PerformanceMonitor } from '@react-three/drei';
+import { Suspense, useEffect, useRef, useState } from 'react';
 import type { AgentId } from '@/types';
 import type { LiveState, Snapshot } from '../world-types';
 import { AgentBuilding } from './Buildings';
 import { Atmosphere, City } from './City';
-import { BUILDINGS, PODIUM_H } from './common';
+import { BUILDINGS, PODIUM_H, QualityContext } from './common';
 import { CommandBeacon, HunterRadar, Packets, TelegramRelay } from './Holos';
 
 const HOME_POS = new THREE.Vector3(3, 38, 88);
@@ -75,11 +75,17 @@ function Scene({ snap, live, selected, onSelect, idle }: { snap: Snapshot | null
   );
 }
 
-export default function World(props: { snap: Snapshot | null; live: LiveState; selected: AgentId | null; onSelect: (id: AgentId | null) => void; idle: boolean }) {
+export default function World(props: { snap: Snapshot | null; live: LiveState; selected: AgentId | null; onSelect: (id: AgentId | null) => void; idle: boolean; fast: boolean; onAutoFast: () => void }) {
+  const { fast, onAutoFast, ...rest } = props;
+  const [dpr, setDpr] = useState(1.5);
   return (
-    <Canvas shadows={false} dpr={[1, 1.75]} camera={{ fov: 46, near: 0.5, far: 520, position: [-70, 70, 100] }} gl={{ antialias: true, powerPreference: 'high-performance' }}
-      onCreated={({ gl }) => { gl.toneMapping = THREE.NoToneMapping; gl.outputColorSpace = THREE.SRGBColorSpace; }}>
-      <Scene {...props} />
-    </Canvas>
+    <QualityContext.Provider value={fast ? 'low' : 'high'}>
+      <Canvas shadows={false} dpr={fast ? 1 : dpr} camera={{ fov: 46, near: 0.5, far: 520, position: [-70, 70, 100] }} gl={{ antialias: !fast, powerPreference: 'high-performance' }}
+        onCreated={({ gl }) => { gl.toneMapping = THREE.NoToneMapping; gl.outputColorSpace = THREE.SRGBColorSpace; }}>
+        {/* Watches the frame rate: first lowers resolution, then switches the whole scene to FAST mode. */}
+        <PerformanceMonitor ms={300} iterations={6} flipflops={1} onDecline={() => setDpr(1)} onFallback={onAutoFast} />
+        <Scene {...rest} />
+      </Canvas>
+    </QualityContext.Provider>
   );
 }

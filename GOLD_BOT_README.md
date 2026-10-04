@@ -578,3 +578,37 @@ Files: `run_liq2.py`, `liq_info_test.py`, `account_sim.py`, `run_account_liq.py`
 **Full profit statistics** (every version × risk level, with and without the breaker, yearly P&L, streaks, drawdown
 durations, direction/exit breakdowns): `python3 full_profit_stats.py` → `results/full_profit_stats.txt`,
 `results/full_stats/summary.csv`, and trade-by-trade ledgers in `results/full_stats/`.
+
+---
+
+## Aquafunded evaluation: which forex pair gives the best chance to pass? (3% target, 5% trailing DD, $25k)
+
+Code: `prop_sim.py` (challenge simulator), `run_prop.py` (study), outputs `results/prop_study.csv` (real signals) and
+`results/prop_study_null.csv` (same trades, signals time-shifted 7,919 bars = no information).
+
+**Rules modelled** (Aquafunded "Pay After Pass Model" help article): +3% balance target ($750); max drawdown 5% **trailing** from the
+highest equity incl. floating P&L (floor = peak - $1,250, peak includes each trade's best excursion = stricter reading); account
+closed if one position floats below -1% of the start balance (-$250). NOT stated on the page and therefore not modelled: time limit,
+evaluation daily-loss limit, news/EA/weekend rules, minimum trading days for the evaluation. Check these before trading.
+
+**Method**: 9 FX pairs x 10 pre-registered configs (same as the watchlist screen) x fixed $ risk per trade ($50-$200) x time
+horizon (30/60/90/365 days), a challenge started every 3 days from 2019-02. Design starts 2019-2024, held-out starts 2025+.
+H1 data; the ask side is partly modelled (median spread per year/hour) so costs are an estimate.
+
+**Result**
+- Best pair / config: **USDJPY H1 momentum** (20-bar break + EMA stack, RSI>70, 8 h hold, 3 ATR stop, both sides).
+  753 trades, win rate 50.6%, avg +0.064 R, ~100 trades/yr. Next best (much weaker, fails more often): USDCHF momentum, GBPUSD/EURUSD fade.
+- Pass probability for USDJPY at **$150 risk/trade (0.6%)**, any start date 2019-2025:
+  within 90 days ~4-13% on average but 0-64% depending on the year; within 180 days ~45% typical; within 365 days 76.8% pass / 18.7% breach
+  (design starts), 89% pass / 0% breach (2025+ starts, heavily overlapping windows, so effectively one regime).
+  Median time to pass ~4 months. Starting in 2019 or 2020 (flat/negative years for this strategy) breached the trailing DD in 17-69% of runs.
+- Higher risk ($200) passes faster (median ~73 days) but breaches 31% of the time; $100 is safer but slower (65% / 3% within a year).
+- Null (same trade sizes/timing, no signal information): 12% pass / 20% breach within 365 days at $150 risk, 0.5-3% within 60-90 days.
+  So USDJPY momentum is well above chance, but 60-90-day passes are rare: the strategy is simply too slow (one 8 h trade at a time).
+- **Win rate is ~50%, not 60-90%.** Nothing tested reached a high win rate with real costs.
+
+**Caveats**: pair/config was chosen from 90 combinations on the design period (selection bias); the USDJPY edge was previously only
+t=+2.3; the sample is one pair in one 7-year regime; no strategy can guarantee a pass; the 2019-20 breach rate shows a bad regime start can
+fail the account. Demo-test the TradeLocker bot (dry-run by default) before spending on an evaluation.
+
+**Security reminder**: the TradeLocker demo password was pasted into chat; rotate it. It is not in any committed file.

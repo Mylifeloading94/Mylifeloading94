@@ -519,3 +519,58 @@ cannot distinguish −0.03R from +0.07R). I did not tune toward any of these.
 
 Files: `liq_scalp.py`, `liq_exec.py`, `run_liq.py`, `liq_baseline.py`, `liq_economics.py`; outputs
 `results/liq_grid_output.txt`, `results/liq_grid.json`, `results/liq_baseline.txt`, `results/liq_economics.txt`.
+
+---
+
+## Improving the Brad-Gold strategy, and the $25,000 / $1,250-drawdown account backtest
+
+**Result: I could not make it profitable. The best improved version is break-even (PF 1.01), and no version earns
+money while staying inside a $1,250 drawdown.**
+
+**Disclosure:** the levers below came from last round's diagnosis, which used full-history numbers, so the 2025+ test
+period is not pristine. To compensate the grid was fixed and small, and the bar was raised to PF > 1.10 on both train
+and validation.
+
+**Levers (each aimed at a diagnosed problem), 96 configs:** entry {E1, E2 with a looser confirming candle} × stop
+buffer {0.1, 0.5 ATR} × minimum stop {0.5, 1.5 ATR} (skip micro-stops where spread dominates) × target {nearest swing,
+nearest swing paying ≥ 1R, ≥ 1.5R} × kill zones {off, London+NY AM} × timeframe rule {1H+15M aligned, 15M only}.
+
+| | Result |
+|---|---|
+| Configs with ≥ 100 train trades | 43 of 96 |
+| **Qualifiers (PF > 1.10 on train AND validation)** | **0** |
+| Best train PF | 0.91 (then 0.39–0.64 on validation) |
+| Strongest lever: target pays ≥ 1R | median PF 0.59 → 0.77 — better, still below 1 |
+| Kill zones / wider stop / min stop / alignment | no material effect (medians 0.67–0.76) |
+
+**Does the setup predict direction at any horizon?** (no stops, exits or costs; `liq_info_test.py`) Weakly and
+inconsistently: signed moves are mostly positive but non-significant in train (t < 0.7 at 4–6h), and only clear in 2025+
+(15M-only, 4–6h: t ≈ 2.8–2.9) — the strongest trend year, so that looks like trend-following, not sweeps. No horizon
+rescues it with a longer hold.
+
+**$25,000 account, real 0.01-lot sizing, drawdown measured mark-to-market (worst adverse excursion on every M1 bar),
+hard breaker: trading stops when drawdown reaches $1,250.** Spread paid from the feed, no commission.
+
+| Version | Risk/trade | Trades before stop | Net | Max DD | Breaker |
+|---|---|---|---|---|---|
+| As written, E1 | 0.25% | 183 | −$1,115 | $1,250 | hit Apr 2021 |
+| | 0.5% | 32 | −$976 | $1,250 | hit May 2019 |
+| | 1.0% | 17 | −$710 | $1,250 | hit Mar 2019 |
+| As written, E2 (Brad's candle) | 0.25% | 74 (all) | −$129 | $481 | not hit |
+| | 0.5% | 74 (all) | −$260 | $989 | not hit |
+| | 1.0% | 31 | −$821 | $1,250 | hit Sep 2021 |
+| Best improved (E1, min stop 1.5 ATR, target ≥ 1R, 15M-only) | 0.25% | 188 (all) | **+$59 (+0.24%)** | $1,166 | not hit |
+| | 0.5% | 30 | −$1,123 | $1,250 | hit Dec 2019 |
+| | 1.0% | 19 | −$996 | $1,250 | hit Sep 2019 |
+
+Without the breaker at 0.5% risk: E1 −$8,713 (−34.9%, max DD $9,153); E2 −$260; best improved −$17 with a $2,353 max
+drawdown. Period split of the best improved version: train PF 0.83 (n = 104), validation 1.41 (n = 47), test 1.11
+(n = 37) — noise-sized samples around break-even. E2's 2025+ PF of 7.36 is 13 trades.
+
+**What this means:** at $25,000 the $1,250 cap is 5% of the account. This setup's per-trade edge before costs is a few
+hundredths of an R and the spread costs more than that, so a 5% cap is hit within weeks to a couple of years depending
+on risk. Staying under it means risking ≤ 0.25% per trade, and then the strategy earns about nothing.
+
+Files: `run_liq2.py`, `liq_info_test.py`, `account_sim.py`, `run_account_liq.py`; outputs `results/liq_improve_output.txt`,
+`results/liq_improve.json`, `results/liq_info_test.txt`, `results/liq_account_output.txt`, `results/liq_account.json`,
+`results/liq_account_periods.txt`, `results/liq_account_equity.png`.

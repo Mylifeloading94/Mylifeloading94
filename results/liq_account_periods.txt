@@ -1,0 +1,5 @@
+period split of the three versions (R-based, spread paid)
+as written: E1   train n= 324 WR 60.2 PF 0.67 R  -41.3 | valid n= 164 WR 59.1 PF 0.66 R  -22.3 | test n= 162 WR 56.2 PF 0.69 R  -22.0
+as written: E2   train n=  44 WR 65.9 PF 0.70 R   -4.1 | valid n=  17 WR 70.6 PF 0.73 R   -1.2 | test n=  13 WR 84.6 PF 7.36 R   +3.3
+best improved    train n= 104 WR 41.3 PF 0.83 R   -9.4 | valid n=  47 WR 55.3 PF 1.41 R   +8.7 | test n=  37 WR 54.1 PF 1.11 R   +1.8
+best improved config: {'entry': 'E1', 'buf': 0.1, 'min_risk': 1.5, 'tp_min_r': 1.0, 'kz': False, 'aligned': False}

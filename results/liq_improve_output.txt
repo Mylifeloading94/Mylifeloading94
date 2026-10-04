@@ -1,0 +1,27 @@
+96 configs, 43 with >=100 train trades
+
+config                                                     |        train 2019-22         |        valid 2023-24        
+E1       buf0.1 minrisk0.5 tp>=1.5 kz=Y 1H+15M             | n= 124 WR 34.7 PF 0.91 R   -7.0 | n=  59 WR 16.9 PF 0.39 R  -29.9
+E1       buf0.1 minrisk0.5 tp>=1.0 kz=Y 1H+15M             | n= 140 WR 40.7 PF 0.91 R   -7.3 | n=  67 WR 32.8 PF 0.64 R  -16.2
+E1       buf0.5 minrisk1.5 tp>=1.0 kz=N 15M                | n= 275 WR 44.0 PF 0.90 R  -13.3 | n= 125 WR 41.6 PF 0.74 R  -18.3
+E1       buf0.5 minrisk1.5 tp>=1.5 kz=N 15M                | n= 201 WR 38.3 PF 0.89 R  -12.1 | n=  87 WR 34.5 PF 0.71 R  -16.2
+E1       buf0.1 minrisk0.5 tp>=1.0 kz=N 1H+15M             | n= 337 WR 40.7 PF 0.87 R  -24.6 | n= 154 WR 33.8 PF 0.61 R  -39.2
+E1       buf0.5 minrisk1.5 tp>=1.5 kz=Y 15M                | n= 104 WR 35.6 PF 0.86 R   -8.9 | n=  50 WR 32.0 PF 0.70 R  -10.1
+E1       buf0.5 minrisk0.5 tp>=1.0 kz=Y 1H+15M             | n= 157 WR 42.0 PF 0.85 R  -13.4 | n=  73 WR 28.8 PF 0.49 R  -26.7
+E1       buf0.5 minrisk0.5 tp>=1.0 kz=N 1H+15M             | n= 434 WR 41.2 PF 0.83 R  -40.1 | n= 203 WR 34.5 PF 0.60 R  -50.8
+E1       buf0.1 minrisk1.5 tp>=1.0 kz=N 15M                | n= 104 WR 41.3 PF 0.83 R   -9.4 | n=  47 WR 55.3 PF 1.41 R   +8.7
+E1       buf0.1 minrisk0.5 tp>=1.5 kz=N 1H+15M             | n= 308 WR 33.4 PF 0.83 R  -33.6 | n= 142 WR 25.4 PF 0.51 R  -50.4
+E1       buf0.5 minrisk1.5 tp>=1.0 kz=Y 15M                | n= 143 WR 41.3 PF 0.80 R  -16.2 | n=  70 WR 41.4 PF 0.81 R   -7.8
+E1       buf0.5 minrisk0.5 tp>=1.5 kz=Y 15M                | n= 395 WR 31.9 PF 0.76 R  -64.0 | n= 196 WR 35.2 PF 0.90 R  -12.6
+E1       buf0.5 minrisk0.5 tp>=1.5 kz=N 1H+15M             | n= 380 WR 33.4 PF 0.76 R  -57.8 | n= 177 WR 28.2 PF 0.62 R  -45.8
+E1       buf0.5 minrisk0.5 tp>=1.5 kz=Y 1H+15M             | n= 137 WR 31.4 PF 0.75 R  -23.0 | n=  63 WR 27.0 PF 0.69 R  -14.1
+
+QUALIFIERS (PF > 1.10 on train AND validation): 0 of 43
+
+=== effect of each lever (median train PF / median valid PF across the configs that differ only in that lever) ===
+  entry=E1: train 0.72 valid 0.71 (n=33) | entry=E2-loose: train 0.57 valid 0.70 (n=10)
+  buf=0.1: train 0.70 valid 0.72 (n=18) | buf=0.5: train 0.68 valid 0.70 (n=25)
+  min_risk=0.5: train 0.70 valid 0.71 (n=30) | min_risk=1.5: train 0.68 valid 0.70 (n=13)
+  tp_min_r=0.0: train 0.59 valid 0.61 (n=16) | tp_min_r=1.0: train 0.77 valid 0.74 (n=14) | tp_min_r=1.5: train 0.75 valid 0.74 (n=13)
+  kz=False: train 0.67 valid 0.68 (n=28) | kz=True: train 0.74 valid 0.74 (n=15)
+  aligned=True: train 0.76 valid 0.61 (n=13) | aligned=False: train 0.69 valid 0.74 (n=30)

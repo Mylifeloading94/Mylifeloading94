@@ -1,0 +1,22 @@
+best improved config by the pre-registered rule: {'entry': 'E1', 'buf': 0.1, 'min_risk': 1.5, 'tp_min_r': 1.0, 'kz': False, 'aligned': False} 
+
+$25,000 start | drawdown breaker $1,250 | real 0.01-lot sizing | spread paid from the feed
+version                          risk/trade | trades   WR%     net $   return  max DD $ | breaker
+as written: E1 aggressive             0.25% |    183  60.1     -1115   -4.46%      1250 | HIT 2021-04-12 after 183 trades
+as written: E1 aggressive             0.50% |     32  53.1      -976   -3.91%      1250 | HIT 2019-05-28 after 32 trades
+as written: E1 aggressive             1.00% |     17  58.8      -710   -2.84%      1250 | HIT 2019-03-15 after 17 trades
+                                 (ledger: 650 trades, PF 0.67, mean R -0.132)
+as written: E2 (Brad's candle)        0.25% |     74  70.3      -129   -0.51%       481 | not hit
+as written: E2 (Brad's candle)        0.50% |     74  70.3      -260   -1.04%       989 | not hit
+as written: E2 (Brad's candle)        1.00% |     31  64.5      -821   -3.28%      1250 | HIT 2021-09-08 after 31 trades
+                                 (ledger: 74 trades, PF 0.90, mean R -0.026)
+best improved (rule-selected)         0.25% |    188  47.3       +59   +0.24%      1166 | not hit
+best improved (rule-selected)         0.50% |     30  30.0     -1123   -4.49%      1250 | HIT 2019-12-02 after 30 trades
+best improved (rule-selected)         1.00% |     19  36.8      -996   -3.98%      1250 | HIT 2019-09-17 after 19 trades
+                                 (ledger: 188 trades, PF 1.01, mean R +0.005)
+
+SAME TRADES WITHOUT the breaker (what the account would have done), 0.5% risk:
+  as written: E1 aggressive        net     -8713 (-34.9%)  max DD $9,153  final $16,287
+  as written: E2 (Brad's candle)   net      -260 (-1.0%)  max DD $989  final $24,740
+  best improved (rule-selected)    net       -17 (-0.1%)  max DD $2,353  final $24,983
+wrote results/liq_account_equity.png

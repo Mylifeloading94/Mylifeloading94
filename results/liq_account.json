@@ -1,0 +1,101 @@
+{
+ "as written: E1 aggressive|0.25": {
+  "trades": 183,
+  "skipped": 0,
+  "net": -1114.933078757971,
+  "ret_pct": -4.459732315031884,
+  "final": 23885.06692124203,
+  "max_dd": 1250.0,
+  "breached": true,
+  "breach_at": "2021-04-12 07:30:00+00:00",
+  "wr": 60.10928961748634
+ },
+ "as written: E1 aggressive|0.5": {
+  "trades": 32,
+  "skipped": 0,
+  "net": -976.4555084912026,
+  "ret_pct": -3.905822033964812,
+  "final": 24023.544491508797,
+  "max_dd": 1250.0,
+  "breached": true,
+  "breach_at": "2019-05-28 16:00:00+00:00",
+  "wr": 53.125
+ },
+ "as written: E1 aggressive|1.0": {
+  "trades": 17,
+  "skipped": 0,
+  "net": -709.8391017226786,
+  "ret_pct": -2.839356406890714,
+  "final": 24290.16089827732,
+  "max_dd": 1250.0,
+  "breached": true,
+  "breach_at": "2019-03-15 17:00:00+00:00",
+  "wr": 58.82352941176471
+ },
+ "as written: E2 (Brad's candle)|0.25": {
+  "trades": 74,
+  "skipped": 0,
+  "net": -128.55618777988275,
+  "ret_pct": -0.5142247511195297,
+  "final": 24871.443812220117,
+  "max_dd": 480.7248445725272,
+  "breached": false,
+  "breach_at": null,
+  "wr": 70.27027027027027
+ },
+ "as written: E2 (Brad's candle)|0.5": {
+  "trades": 74,
+  "skipped": 0,
+  "net": -260.2032785992851,
+  "ret_pct": -1.0408131143971433,
+  "final": 24739.796721400715,
+  "max_dd": 989.2967895574366,
+  "breached": false,
+  "breach_at": null,
+  "wr": 70.27027027027027
+ },
+ "as written: E2 (Brad's candle)|1.0": {
+  "trades": 31,
+  "skipped": 0,
+  "net": -820.8556917380483,
+  "ret_pct": -3.283422766952193,
+  "final": 24179.14430826195,
+  "max_dd": 1250.0,
+  "breached": true,
+  "breach_at": "2021-09-08 12:15:00+00:00",
+  "wr": 64.51612903225806
+ },
+ "best improved (rule-selected)|0.25": {
+  "trades": 188,
+  "skipped": 0,
+  "net": 59.16855361836133,
+  "ret_pct": 0.2366742144734424,
+  "final": 25059.16855361836,
+  "max_dd": 1165.907030707498,
+  "breached": false,
+  "breach_at": null,
+  "wr": 47.340425531914896
+ },
+ "best improved (rule-selected)|0.5": {
+  "trades": 30,
+  "skipped": 0,
+  "net": -1122.96875,
+  "ret_pct": -4.491875,
+  "final": 23877.03125,
+  "max_dd": 1250.0,
+  "breached": true,
+  "breach_at": "2019-12-02 07:30:00+00:00",
+  "wr": 30.0
+ },
+ "best improved (rule-selected)|1.0": {
+  "trades": 19,
+  "skipped": 0,
+  "net": -995.9375,
+  "ret_pct": -3.983749999999997,
+  "final": 24004.0625,
+  "max_dd": 1250.0,
+  "breached": true,
+  "breach_at": "2019-09-17 05:00:00+00:00",
+  "wr": 36.84210526315789
+ }
+}

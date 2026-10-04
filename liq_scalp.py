@@ -67,7 +67,19 @@ def nearest_beyond(sw, key, upto_conf_idx, price, direction, n_back=12):
     c = cand[cand < price]; return c.max() if len(c) else np.nan
 
 
-def generate(b15, b1h, entry="E1", aligned=True, tp_mode="swing15", min_rr=0.0):
+def pick_target(sw, key, upto, entry_px, d, risk, min_r):
+    """Nearest confirmed swing beyond entry whose reward:risk is at least min_r (0 = simply the nearest)."""
+    conf = sw[key + "_conf"]; val = sw[key + "_val"]
+    p = np.searchsorted(conf, upto, side="right")
+    cand = val[max(0, p - 12):p]
+    ok = cand[d * (cand - entry_px) / risk >= max(min_r, 1e-9)]
+    if not len(ok):
+        return np.nan
+    return ok.min() if d == 1 else ok.max()
+
+
+def generate(b15, b1h, entry="E1", aligned=True, tp_mode="swing15", min_rr=0.0,
+             stop_buf=0.1, min_risk_atr=0.5, max_risk_atr=4.0, tp_min_r=0.0, kz=False, e2_mode="strict", need_target=True):
     n = len(b15)
     o, h, l, c = (b15[x].to_numpy() for x in ("open", "high", "low", "close"))
     atr = S.atr(b15).to_numpy()
@@ -135,8 +147,12 @@ def generate(b15, b1h, entry="E1", aligned=True, tp_mode="swing15", min_rr=0.0):
             keep = []
             for (s, d, ext, z, _) in pend2:
                 if t == s + 1:
-                    ok = (d == 1 and body[t] > 0 and body[t] >= 0.6 * rng[t] and c[t] > h[s]) or \
-                         (d == -1 and body[t] < 0 and -body[t] >= 0.6 * rng[t] and c[t] < l[s])
+                    if e2_mode == "strict":
+                        ok = (d == 1 and body[t] > 0 and body[t] >= 0.6 * rng[t] and c[t] > h[s]) or \
+                             (d == -1 and body[t] < 0 and -body[t] >= 0.6 * rng[t] and c[t] < l[s])
+                    else:       # loose: a clearly directional candle that closes past the middle of the sweep bar
+                        ok = (d == 1 and body[t] > 0 and body[t] >= 0.4 * rng[t] and c[t] > (h[s] + l[s]) / 2) or \
+                             (d == -1 and body[t] < 0 and -body[t] >= 0.4 * rng[t] and c[t] < (h[s] + l[s]) / 2)
                     if ok and ((d == 1 and tr15[t] == 1) or (d == -1 and tr15[t] == -1)):
                         e2 = min(ext, l[t]) if d == 1 else max(ext, h[t])
                         rows.append(("E2", t, d, c[t], e2, z, s))
@@ -165,20 +181,30 @@ def generate(b15, b1h, entry="E1", aligned=True, tp_mode="swing15", min_rr=0.0):
                         rows.append(("E3", t, d, lim, ext, z, s))
         # (zones consumed above are dropped by the upkeep filter on the next bar)
     out = []
+    if kz:
+        import smc
+        kzm, _ = smc.kill_zone_mask(b15, 15)
     for kind, t, d, entry_px, ext, z, s in rows:
-        a = atr[t]; stop = ext - 0.1 * a if d == 1 else ext + 0.1 * a
+        if kz and not kzm[t]:
+            continue
+        a = atr[t]; stop = ext - stop_buf * a if d == 1 else ext + stop_buf * a
         risk = d * (entry_px - stop)
-        if not (0.5 * a <= risk <= 4.0 * a):
+        if not (min_risk_atr * a <= risk <= max_risk_atr * a):
             continue
         ref = c[t]
-        if tp_mode == "swing15":
+        if tp_min_r > 0:
+            tgt = pick_target(sw15, "hi" if d == 1 else "lo", t, entry_px, d, risk, tp_min_r)
+        elif tp_mode == "swing15":
             tgt = nearest_beyond(sw15, "hi" if d == 1 else "lo", t, entry_px, d)
         else:
             jh = int(j[t]); tgt = nearest_beyond(sw1h, "hi" if d == 1 else "lo", jh, entry_px, d) if jh >= 0 else np.nan
-        if not np.isfinite(tgt):
-            continue
-        rr = d * (tgt - entry_px) / risk
-        if rr <= 0 or rr < min_rr:
-            continue
+        if need_target:
+            if not np.isfinite(tgt):
+                continue
+            rr = d * (tgt - entry_px) / risk
+            if rr <= 0 or rr < min_rr:
+                continue
+        else:
+            rr = d * (tgt - entry_px) / risk if np.isfinite(tgt) else np.nan
         out.append((t, d, kind, entry_px, stop, tgt, risk, rr, z[3], int(tr1h[t] == d)))
     return pd.DataFrame(out, columns=["t", "dir", "model", "entry", "stop", "target", "risk", "rr", "poi", "h1_aligned"])

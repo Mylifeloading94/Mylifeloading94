@@ -13,7 +13,7 @@ import xau_engine as E
 
 @njit(cache=True)
 def _sim_trade(act, direction, is_limit, limit, stop, target, expire_min, hold_min, tmin,
-               bo, bh, bl, bc, ao, ah, al, ac, o_status, o_r, o_fill, o_end, o_why):
+               bo, bh, bl, bc, ao, ah, al, ac, o_status, o_r, o_fill, o_end, o_why, o_fpx, o_xpx):
     n = len(tmin)
     for k in range(len(act)):
         j0 = act[k]; d = direction[k]; stp = stop[k]; tgt = target[k]
@@ -42,7 +42,7 @@ def _sim_trade(act, direction, is_limit, limit, stop, target, expire_min, hold_m
             risk = d * (lim - stp)
             if risk <= 0 or d * (tgt - lim) <= 0:
                 continue
-        o_status[k] = 1; o_fill[k] = jf
+        o_status[k] = 1; o_fill[k] = jf; o_fpx[k] = fill
         ex = np.nan; why = 0; jx = jf
         start = jf
         if is_limit[k] == 1:                       # fill bar: stop only
@@ -71,7 +71,7 @@ def _sim_trade(act, direction, is_limit, limit, stop, target, expire_min, hold_m
             jx = jf
         if np.isnan(ex):
             ex = bc[jx] if d == 1 else ac[jx]; why = 4
-        o_r[k] = d * (ex - fill) / risk
+        o_r[k] = d * (ex - fill) / risk; o_xpx[k] = ex
         o_end[k] = jx; o_why[k] = why
 
 
@@ -88,8 +88,9 @@ def run(m1, b15, sig, hold_min=360, expiry_bars=8, cooldown=1, max_per_day=3, da
     arr = [np.ascontiguousarray(m1[c].to_numpy("float64")) for c in ("bo", "bh", "bl", "bc", "ao", "ah", "al", "ac")]
     n = len(s)
     st = np.empty(n, np.int64); r = np.empty(n); fi = np.empty(n, np.int64); en = np.empty(n, np.int64); wy = np.empty(n, np.int64)
+    fpx = np.zeros(n); xpx = np.zeros(n)
     _sim_trade(act, s.dir.to_numpy().astype(np.int64), (s.model.to_numpy() == "E3").astype(np.int64), s.entry.to_numpy("float64"),
-               s.stop.to_numpy("float64"), s.target.to_numpy("float64"), int(expiry_bars * 15), int(hold_min), tmin, *arr, st, r, fi, en, wy)
+               s.stop.to_numpy("float64"), s.target.to_numpy("float64"), int(expiry_bars * 15), int(hold_min), tmin, *arr, st, r, fi, en, wy, fpx, xpx)
     et_day = (m1.index.tz_convert("America/New_York") + pd.Timedelta(hours=7)).floor("D")
     keep, busy = [], -1
     day_n, day_r = {}, {}
@@ -108,4 +109,5 @@ def run(m1, b15, sig, hold_min=360, expiry_bars=8, cooldown=1, max_per_day=3, da
         return pd.DataFrame(columns=cols)
     return pd.DataFrame({"entry_time": m1.index[fi[k]], "exit_time": m1.index[en[k]], "dir": s.dir.to_numpy()[k], "r": r[k],
                          "reason": wy[k], "model": s.model.to_numpy()[k], "rr_plan": s.rr.to_numpy()[k],
-                         "h1_aligned": s.h1_aligned.to_numpy()[k], "poi": s.poi.to_numpy()[k], "risk": s.risk.to_numpy()[k]})
+                         "h1_aligned": s.h1_aligned.to_numpy()[k], "poi": s.poi.to_numpy()[k], "risk": s.risk.to_numpy()[k],
+                         "fill_i": fi[k], "exit_i": en[k], "entry_px": fpx[k], "exit_px": xpx[k], "stop": s.stop.to_numpy()[k]})

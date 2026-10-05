@@ -1,0 +1,267 @@
+{
+  "format": "tvremix.dashboards",
+  "version": 1,
+  "exported_at": "2026-10-05T04:30:35.126125+00:00",
+  "source": "tvremix",
+  "dashboards": [
+    {
+      "title": "Gold (XAUUSD) — Trade Setup GO/NO-GO",
+      "created_at": "2026-10-05T02:43:08.570620+00:00",
+      "schema": {
+        "version": 1,
+        "title": "Gold (XAUUSD) — High-Probability Trade Setup",
+        "scope": {
+          "symbols": [
+            "FOREXCOM:XAUUSD"
+          ],
+          "watchlist_id": null,
+          "market": null
+        },
+        "layout": "stack",
+        "columns": 1,
+        "grid_version": 2,
+        "intent": "trade_plan",
+        "analyst_task": "Deliver a high-probability GO/NO-GO trade read on spot gold (FOREXCOM:XAUUSD). Only call GO when the 1D, 4h and 1h reads agree AND price sits at a confluence of structure and volume levels; otherwise say WAIT or NO-GO and name exactly what is missing. State the technical confluence behind the call, the key levels that matter, and the concrete entry/stop/target plan with its reward-to-risk. Lay out the bull and bear scenarios explicitly, each with the price level that invalidates it.",
+        "language": "English",
+        "density": null,
+        "report_template": null,
+        "auto_refresh": null,
+        "active_symbol": null,
+        "widgets": [
+          {
+            "id": "hero",
+            "type": "narrative_compare",
+            "title": "GO / NO-GO — High-Probability Read",
+            "role": "answer",
+            "width_intent": 12,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbols": [
+                "FOREXCOM:XAUUSD"
+              ]
+            },
+            "config": {
+              "lens": "Lead with a GO / NO-GO / WAIT verdict for a gold trade right now, framed as a probability call: state how many of the 1D, 4h and 1h timeframes agree, how many independent confluences support the trade (structure level, volume POC/value area, SMC zone, moving average), and the reward-to-risk of the plan. Only call GO when the timeframes align and at least two confluences sit at the entry; otherwise say WAIT and name the single condition that would upgrade it. Then give the bull case and the bear case side by side, each with the exact price level that invalidates it. Close with what would flip the verdict."
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "tradebox",
+            "type": "trade_box",
+            "title": "Trade Plan",
+            "role": "answer",
+            "width_intent": null,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {
+              "interval": "1h"
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "gauge",
+            "type": "technical_gauge",
+            "title": "Technical Gauge — 1D · 4h · 1h",
+            "role": "answer",
+            "width_intent": null,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {
+              "interval": "1h",
+              "timeframes": [
+                "1D",
+                "4h",
+                "1h"
+              ]
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "levels",
+            "type": "key_levels",
+            "title": "Key Levels",
+            "role": "research",
+            "width_intent": null,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {
+              "interval": "1h",
+              "volume_levels": true
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "scenarios",
+            "type": "annotated_insight",
+            "title": "Bull / Bear Scenarios",
+            "role": "answer",
+            "width_intent": null,
+            "height": 384,
+            "col_span": null,
+            "binding": {
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {
+              "lens": "Write the bull scenario and the bear scenario as two short blocks. For each: the trigger level, the path it opens, the target, the exact price that invalidates it, and how many timeframes support that side. Be specific with numbers from the board's levels and plan."
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "smc",
+            "type": "smc_zones",
+            "title": "SMC Zones",
+            "role": "research",
+            "width_intent": null,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {
+              "interval": "1h"
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "volprof",
+            "type": "volume_profile",
+            "title": "Volume Profile",
+            "role": "research",
+            "width_intent": null,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {
+              "interval": "1h"
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "snapshot",
+            "type": "company_snapshot",
+            "title": "Gold — Snapshot",
+            "role": "answer",
+            "width_intent": null,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {},
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "news",
+            "type": "news_sentiment",
+            "title": "Gold — News & Catalysts",
+            "role": "answer",
+            "width_intent": null,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbols": [
+                "FOREXCOM:XAUUSD"
+              ],
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {},
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "chart",
+            "type": "price_chart",
+            "title": "Gold — Setup on the Chart",
+            "role": "research",
+            "width_intent": 12,
+            "height": 788,
+            "col_span": null,
+            "binding": {
+              "symbol": "FOREXCOM:XAUUSD"
+            },
+            "config": {
+              "interval": "1h",
+              "mode": "full",
+              "show_levels": true,
+              "show_trade_plan": true,
+              "overlays": [
+                "ema20",
+                "ema50",
+                "vwap"
+              ]
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "macro",
+            "type": "economic_calendar",
+            "title": "Macro Events — Gold Drivers",
+            "role": "research",
+            "width_intent": 12,
+            "height": 788,
+            "col_span": null,
+            "binding": {},
+            "config": {
+              "countries": [
+                "US",
+                "EU"
+              ],
+              "min_importance": 2,
+              "highlight": [
+                "gold",
+                "rate",
+                "FOMC",
+                "CPI",
+                "inflation",
+                "Fed"
+              ]
+            },
+            "user_configured": null,
+            "analysis_depth": null
+          },
+          {
+            "id": "notebook",
+            "type": "notebook",
+            "title": "Notebook",
+            "role": "research",
+            "width_intent": null,
+            "height": 788,
+            "col_span": null,
+            "binding": {},
+            "config": {},
+            "user_configured": null,
+            "analysis_depth": null
+          }
+        ],
+        "automations": [],
+        "web_context": false,
+        "notes": [],
+        "user_levels": [],
+        "notebook_removed": false,
+        "intent_minimum_removed": [],
+        "agent_log": []
+      }
+    }
+  ]
+}

@@ -48,3 +48,4 @@ replay_check.log
 fetch365.log
 fetch_h1.log
 run_smc.log
+data/trade_log.csv

@@ -14,5 +14,21 @@
     "status": "pending",
     "events": [],
     "result_pips": null
+  },
+  {
+    "id": "2026-10-08-AUDUSD-S1",
+    "demo": false,
+    "pair": "AUDUSD",
+    "flag": "🇦🇺🇺🇸",
+    "symbol": "OANDA:AUDUSD",
+    "side": "SELL",
+    "created_utc": "2026-10-08T01:50:00Z",
+    "entry": 0.69769,
+    "stop": 0.69894,
+    "tp1": 0.69644,
+    "tp2": 0.69457,
+    "status": "pending",
+    "events": [],
+    "result_pips": null
   }
 ]

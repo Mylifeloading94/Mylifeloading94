@@ -342,3 +342,48 @@ Over the full 90 trading days that works out to about 0.92 trades per day.
   - **M15:** about 52 days.
   - **M5 and M1:** not tested, because the 5,000-bar limit gives too little history.
 - **Reproduce:** run `python3 backtest_tv/run.py`. Raw TradingView bars go in `backtest_tv/data/` (not committed; re-pull them with `get_ohlcv`, 1h×2300, 30m×4700, 15m×5000 per symbol).
+
+---
+
+## Addendum: fixed 0.20 lots per trade (same 83 trades)
+
+**Assumptions:**
+- **FX pairs:** 0.20 lots = 20,000 units, so 1 pip ≈ $2 on USD-quoted pairs. Cross and JPY pip values are converted to USD at the TradingView H1 close at fill time.
+- **Gold:** 1 pip (0.1) = $2.
+- **SPX500:** $0.20 per point. This depends on the broker and is assumed.
+- **P/L per trade** = net R × stop in pips × pip value. There's no compounding.
+
+| Account | Set | Trades | Win rate | Net profit | ROI | Max DD | Ending balance | PF ($) |
+|---|---|---:|---:|---:|---:|---:|---:|---:|
+| $500 | all symbols | 83 | 68.7% | **−$215.79** | −43.2% | **95.7%** (effectively blown) | $284.21 | 0.85 |
+| $1,000 | all symbols | 83 | 68.7% | **−$215.79** | −21.6% | 59.4% | $784.21 | 0.85 |
+| $500 | without XAUUSD | 81 | 70.4% | +$523.77 | +104.8% | 17.0% | $1,023.77 | 1.78 |
+| $1,000 | without XAUUSD | 81 | 70.4% | +$523.77 | +52.4% | 11.1% | $1,523.77 | 1.78 |
+
+**Why gold flips the result:**
+- **The size problem:** a fixed lot ignores stop size. The two gold trades had M30 stops of about $22, so each risked about **$440 at 0.20 lots**. That's 88% of a $500 account on one trade.
+- **The damage:** those two losses cost **−$739.56**, more than all 81 other trades made together (+$523.77).
+- **Without gold:** 0.20 lots risks a median **$21 per trade**, which is 4.3% of $500 or 2.1% of $1,000. The largest single risk is $66 (13% of $500).
+
+**More numbers, without gold:**
+- **Per trade:** average win +$20.96, average loss −$27.96. Best trade +$106.22, worst −$54.99.
+- **Days:** average +$9.35 per active day. Best day +$120.61, worst day −$54.99.
+- **Weeks:** 13 of 18 profitable. Best week 2026-W41 (+$148.01), worst 2026-W38 (−$83.73).
+
+**Monthly, without gold:**
+
+| Month | Trades | Win rate | PF | Net profit | ROI on $500 | ROI on $1,000 |
+|---|---:|---:|---:|---:|---:|---:|
+| 2026-06 | 9 | 67% | 2.17 | +$72.30 | +14.5% | +7.2% |
+| 2026-07 | 29 | 66% | 1.26 | +$73.61 | +14.7% | +7.4% |
+| 2026-08 | 16 | 81% | 4.02 | +$156.89 | +31.4% | +15.7% |
+| 2026-09 | 22 | 68% | 1.31 | +$72.95 | +14.6% | +7.3% |
+| 2026-10 | 5 | 80% | 4.84 | +$148.01 | +29.6% | +14.8% |
+
+**Margin:** up to 2 trades were open at once, with about $50k notional (gold excluded).
+- On $500, that's 100:1 leverage, and many brokers will refuse the second position.
+- On $1,000 it's 50:1.
+
+**Verdict:** at 0.20 lots, $500 is over-leveraged; one wide-stop trade can wipe it out.
+- **If you want a fixed lot:** exclude gold and indices, and skip any trade whose stop would risk more than 3% of the account (about 0.20 lots × 37 pips on $1,000).
+- **Otherwise:** use percent-risk sizing (sections 8–10).

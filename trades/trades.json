@@ -1,0 +1,18 @@
+[
+  {
+    "id": "2026-10-08-EURUSD-S1",
+    "demo": true,
+    "pair": "EURUSD",
+    "flag": "🇪🇺🇺🇸",
+    "symbol": "OANDA:EURUSD",
+    "side": "SELL",
+    "created_utc": "2026-10-08T01:15:00Z",
+    "entry": 1.12204,
+    "stop": 1.12414,
+    "tp1": 1.11994,
+    "tp2": 1.11679,
+    "status": "pending",
+    "events": [],
+    "result_pips": null
+  }
+]

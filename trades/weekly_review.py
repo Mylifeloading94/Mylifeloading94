@@ -1,6 +1,6 @@
 """Weekly review. Usage: weekly_review.py [--since ISO] [--until ISO]. Defaults to the last 7 days."""
 import json, argparse, datetime as dt
-def pip(pair): return 0.01 if "JPY" in pair else 0.1 if pair == "XAUUSD" else 0.0001
+def pip(pair): return 0.01 if "JPY" in pair else 0.1 if pair == "XAUUSD" else 1.0 if pair == "SPX500USD" else 0.0001
 ap = argparse.ArgumentParser(); ap.add_argument("--trades", default="trades/trades.json")
 ap.add_argument("--since"); ap.add_argument("--until"); a = ap.parse_args()
 now = dt.datetime.now(dt.timezone.utc)

@@ -5,7 +5,7 @@ import matplotlib; matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.patches import Rectangle
 
-def pip(pair): return 0.01 if "JPY" in pair else 0.1 if pair == "XAUUSD" else 0.0001
+def pip(pair): return 0.01 if "JPY" in pair else 0.1 if pair == "XAUUSD" else 1.0 if pair == "SPX500USD" else 0.0001
 ap = argparse.ArgumentParser(); ap.add_argument("trade_id"); ap.add_argument("bars"); ap.add_argument("out")
 ap.add_argument("--event", default="setup"); ap.add_argument("--trades", default="trades/trades.json")
 a = ap.parse_args()

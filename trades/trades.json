@@ -34,7 +34,7 @@
     "stop": 0.69894,
     "tp1": 0.69644,
     "tp2": 0.69457,
-    "status": "pending",
+    "status": "expired",
     "events": [
       {
         "type": "expired",
@@ -46,6 +46,12 @@
         "type": "reinstated",
         "time_utc": "2026-10-08T02:46:00Z",
         "note": "cancel rule changed to structure-based (rule A); expiry on a 0.2-pip TP1 touch was too strict"
+      },
+      {
+        "type": "expired",
+        "time_utc": "2026-10-08T14:15:00Z",
+        "price": 0.69698,
+        "note": "rule A: M15 structure flipped bullish (CHoCH above 0.69622, M15 close 0.69698) before entry filled; order cancelled, never filled"
       }
     ],
     "result_pips": null

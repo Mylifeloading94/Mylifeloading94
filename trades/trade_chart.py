@@ -14,7 +14,7 @@ bars = [tuple(map(float, r)) for r in csv.reader(open(a.bars)) if r and r[0][0].
 P = pip(T["pair"]); sell = T["side"] == "SELL"
 risk = abs(T["stop"] - T["entry"]) / P
 p1 = abs(T["entry"] - T["tp1"]) / P; p2 = abs(T["entry"] - T["tp2"]) / P
-head = {"setup": "SETUP", "tp1": "🎯 TP1 HIT", "tp2": "🎯 TP2 HIT", "sl": "🛑 STOP LOSS HIT", "be": "STOPPED AT BREAKEVEN (after TP1)", "expired": "SETUP EXPIRED (Target 1 level reached before entry)"}[a.event]
+head = {"setup": "SETUP", "tp1": "🎯 TP1 HIT", "tp2": "🎯 TP2 HIT", "sl": "🛑 STOP LOSS HIT", "be": "STOPPED AT BREAKEVEN (after TP1)", "expired": "SETUP CANCELLED (M15 structure invalidated before entry)"}[a.event]
 head = head.replace("🎯 ", "TARGET ").replace("🛑 ", "")  # matplotlib fonts lack emoji
 fig, ax = plt.subplots(figsize=(12, 7), dpi=130)
 for i, (t, o, h, l, c) in enumerate(bars):

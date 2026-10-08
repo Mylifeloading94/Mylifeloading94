@@ -69,16 +69,22 @@
   "stop": 208.77,
   "tp1": 209.07,
   "tp2": 209.29,
-  "status": "open",
+  "status": "closed",
   "events": [
    {
     "type": "fill",
     "time_utc": "2026-10-08T16:30:00Z",
     "price": 208.92,
     "note": "buy limit filled: M1 low 208.882 traded through entry by >1 pip"
+   },
+   {
+    "type": "sl",
+    "time_utc": "2026-10-08T16:58:00Z",
+    "price": 208.77,
+    "note": "M1 low 208.770 touched the stop"
    }
   ],
-  "result_pips": null,
+  "result_pips": -15.0,
   "note": "4H discount (~21% of range), 1H+15m bullish, 15m BOS 209.04 displacement 14:15; limit at 62% OTE of 208.62->209.40 leg; DOL bearish FVG 209.37 = 3R room; posted outside killzone at user request"
  }
 ]

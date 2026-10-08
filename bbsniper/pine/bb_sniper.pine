@@ -1,0 +1,635 @@
+//@version=5
+// ════════════════════════════════════════════════════════════════════════════
+// BB SNIPER — Bollinger + liquidity + market-structure strategy (Pine v5)
+// Same rules as the Python engine in /bbsniper (see backtest_tv/out/bbsniper/REPORT.md).
+// No repaint: higher-timeframe values come from the LAST CLOSED HTF bar
+// (expr[1] with lookahead_on); entries are taken on confirmed bar closes.
+// ════════════════════════════════════════════════════════════════════════════
+strategy("BB SNIPER", overlay=true, pyramiding=0, process_orders_on_close=true, calc_on_every_tick=false,
+     initial_capital=1000, currency=currency.USD, default_qty_type=strategy.fixed, default_qty_value=1, max_bars_back=1000)
+
+// ─── Inputs ────────────────────────────────────────────────────────────────
+grpI = "Indicators"
+bbLen      = input.int(20, "BB length", minval=5, group=grpI)
+bbMult     = input.float(2.0, "BB std dev", step=0.1, group=grpI)
+emaFastLen = input.int(20, "EMA fast", group=grpI)
+emaSlowLen = input.int(200, "EMA slow", group=grpI)
+rsiLen     = input.int(14, "RSI length", group=grpI)
+adxLen     = input.int(14, "ADX length", group=grpI)
+atrLen     = input.int(14, "ATR length", group=grpI)
+bwLook     = input.int(100, "BandWidth percentile lookback", group=grpI)
+
+grpT = "Timeframes"
+biasTf  = input.timeframe("15", "Bias timeframe (15M default)", group=grpT)
+setupTf = input.timeframe("5", "Setup timeframe (5M default)", group=grpT)
+
+grpR = "Regime"
+adxWeak    = input.float(20, "ADX weak (<)", group=grpR)
+adxTrend   = input.float(25, "ADX trend (>)", group=grpR)
+squeezePct = input.float(20, "Squeeze: BW percentile <", group=grpR)
+
+grpS = "Setups & score"
+useMR    = input.bool(true, "Mean reversion (BB liquidity reversal)", group=grpS)
+useTC    = input.bool(true, "Trend continuation", group=grpS)
+useSB    = input.bool(true, "Squeeze breakout", group=grpS)
+mode     = input.string("Standard", "Score mode", options=["Conservative", "Standard", "Aggressive"], group=grpS)
+pivLiq   = input.int(3, "Liquidity pivot strength", group=grpS)
+pivMicro = input.int(2, "Micro structure pivot strength", group=grpS)
+liqLook  = input.int(60, "Liquidity lookback (bars)", group=grpS)
+armWin   = input.int(12, "Bars a setup stays armed", group=grpS)
+approach = input.float(0.10, "'Approaches band' = within x band width", step=0.05, group=grpS)
+rsiOS    = input.float(40, "RSI oversold zone (<)", group=grpS)
+rsiOB    = input.float(60, "RSI overbought zone (>)", group=grpS)
+sbRange  = input.int(20, "Breakout range (bars)", group=grpS)
+
+grpK = "Risk"
+riskPct     = input.float(1.0, "Risk % per trade", options=[1.0, 2.0], group=grpK)
+useFixedLot = input.bool(false, "Fixed-lot mode", group=grpK)
+fixedUnits  = input.float(10000, "Fixed units (if fixed-lot mode)", group=grpK)
+slBufAtr    = input.float(0.20, "SL buffer (x ATR)", step=0.05, group=grpK)
+maxSlAtr    = input.float(3.0, "Max stop (x ATR)", group=grpK)
+minRR       = input.float(1.5, "Min room to opposing structure (R)", step=0.25, group=grpK)
+spreadPips  = input.float(1.4, "Assumed spread (pips) for filter", group=grpK)
+maxSprAtr   = input.float(50, "Max spread as % of ATR", group=grpK)
+maxTrades   = input.int(3, "Max trades per day", group=grpK)
+maxLosses   = input.int(3, "Stop after N losses per day", group=grpK)
+dailyLossP  = input.float(3.0, "Daily loss limit % equity", group=grpK)
+
+grpM = "Management"
+tp1R = input.float(1.0, "TP1 (R)", group=grpM)
+tp1Q = input.float(30, "TP1 close %", group=grpM)
+tp2R = input.float(2.0, "TP2 (R)", group=grpM)
+tp2Q = input.float(35, "TP2 close %", group=grpM)
+tp3R = input.float(3.0, "TP3 (R) - rest", group=grpM)
+useBE   = input.bool(true, "Break-even after TP1", group=grpM)
+beBufR  = input.float(0.05, "BE buffer (R)", group=grpM)
+trailOn = input.string("ATR", "Trailing stop", options=["None", "ATR", "EMA20", "BB middle", "Swing"], group=grpM)
+trailAfterR = input.float(2.0, "Trail after (R)", group=grpM)
+trailAtr = input.float(1.5, "ATR trail multiple", group=grpM)
+
+grpX = "Sessions & news (UTC)"
+useLondon = input.bool(true, "London 07:00-16:00", group=grpX)
+useNY     = input.bool(true, "New York 12:00-21:00", group=grpX)
+useAsia   = input.bool(false, "Asian 23:00-07:00", group=grpX)
+useNews   = input.bool(false, "Manual news blackout (no calendar feed in Pine)", group=grpX)
+news1     = input.time(timestamp("2000-01-01 00:00 +0000"), "High-impact news time 1", group=grpX)
+news2     = input.time(timestamp("2000-01-01 00:00 +0000"), "High-impact news time 2", group=grpX)
+newsBefore = input.int(15, "Minutes before", group=grpX)
+newsAfter = input.int(30, "Minutes after", group=grpX)
+
+minScore = mode == "Conservative" ? 9 : mode == "Standard" ? 8 : 7
+
+// ─── 1. Indicators (exec TF) ───────────────────────────────────────────────
+basis = ta.sma(close, bbLen)
+dev   = bbMult * ta.stdev(close, bbLen)
+upper = basis + dev
+lower = basis - dev
+pctB  = (close - lower) / (upper - lower)
+bw    = (upper - lower) / basis
+bwPct = ta.percentrank(bw, bwLook)
+emaF  = ta.ema(close, emaFastLen)
+emaS  = ta.ema(close, emaSlowLen)
+rsiV  = ta.rsi(close, rsiLen)
+[diP, diM, adxV] = ta.dmi(adxLen, adxLen)
+atrV  = ta.atr(atrLen)
+pipSz = syminfo.mintick * (syminfo.type == "forex" ? 10 : 1)
+
+// ─── 2/3. Higher timeframes, last CLOSED bar only (no repaint) ─────────────
+f_ctx() =>
+    [_, _, a] = ta.dmi(adxLen, adxLen)
+    b = ta.sma(close, bbLen)
+    d = bbMult * ta.stdev(close, bbLen)
+    p = ta.percentrank(2 * d / b, bwLook)
+    ef = ta.ema(close, emaFastLen)
+    [a[1], ef[1], ta.ema(close, emaSlowLen)[1], close[1], p[1], a[4], ef[4]]
+[sAdx, sEf, sEs, sC, sBwp, sAdx3, _s4] = request.security(syminfo.tickerid, setupTf, f_ctx(), lookahead=barmerge.lookahead_on)
+[_b1, bEf, bEs, bC, _b2, _b3, bEf3] = request.security(syminfo.tickerid, biasTf, f_ctx(), lookahead=barmerge.lookahead_on)
+
+bias = bC > bEs and bEf > bEs ? 1 : bC < bEs and bEf < bEs ? -1 : 0
+// Regime (setup TF): 2 up-trend, -2 down-trend, 0 ranging, 1 transitional, 3 squeeze
+regime = sBwp < squeezePct and sAdx < adxTrend ? 3 : sAdx > adxTrend and sEf > sEs and sC > sEs ? 2 : sAdx > adxTrend and sEf < sEs and sC < sEs ? -2 : sAdx < adxWeak ? 0 : 1
+sTrend = sEf > sEs and sC > sEf ? 1 : sEf < sEs and sC < sEf ? -1 : 0
+
+// ─── 4. Liquidity pools (confirmed pivots, swept ones removed) ─────────────
+var float[] loPx = array.new_float()
+var int[] loBar = array.new_int()
+var float[] hiPx = array.new_float()
+var int[] hiBar = array.new_int()
+var float[] mloPx = array.new_float()
+var int[] mloBar = array.new_int()
+var float[] mhiPx = array.new_float()
+var int[] mhiBar = array.new_int()
+var float[] majHi = array.new_float()
+var float[] majLo = array.new_float()
+
+// returns [swept?, deepest swept level, its pivot bar]
+f_sweep(px, bars, isHigh, look) =>
+    bool sw = false
+    float lvl = na
+    int pb = na
+    int k = array.size(px) - 1
+    while k >= 0
+        float p = array.get(px, k)
+        int b = array.get(bars, k)
+        bool old = bar_index - b > look
+        bool hit = isHigh ? high > p : low < p
+        if hit and not old
+            if na(lvl) or (isHigh ? p > lvl : p < lvl)
+                lvl := p
+                pb := b
+            sw := true
+        if hit or old
+            array.remove(px, k)
+            array.remove(bars, k)
+        k -= 1
+    [sw, lvl, pb]
+
+[swL, swLlvl, swLbar]   = f_sweep(loPx, loBar, false, liqLook)
+[swH, swHlvl, swHbar]   = f_sweep(hiPx, hiBar, true, liqLook)
+[mswL, mswLlvl, _m1]    = f_sweep(mloPx, mloBar, false, liqLook)
+[mswH, mswHlvl, _m2]    = f_sweep(mhiPx, mhiBar, true, liqLook)
+
+pl  = ta.pivotlow(low, pivLiq, pivLiq)
+ph  = ta.pivothigh(high, pivLiq, pivLiq)
+mpl = ta.pivotlow(low, pivMicro, pivMicro)
+mph = ta.pivothigh(high, pivMicro, pivMicro)
+jpl = ta.pivotlow(low, 2 * pivLiq, 2 * pivLiq)
+jph = ta.pivothigh(high, 2 * pivLiq, 2 * pivLiq)
+if not na(pl)
+    array.push(loPx, pl)
+    array.push(loBar, bar_index - pivLiq)
+if not na(ph)
+    array.push(hiPx, ph)
+    array.push(hiBar, bar_index - pivLiq)
+if not na(mpl)
+    array.push(mloPx, mpl)
+    array.push(mloBar, bar_index - pivMicro)
+if not na(mph)
+    array.push(mhiPx, mph)
+    array.push(mhiBar, bar_index - pivMicro)
+if not na(jph)
+    array.push(majHi, jph)
+if not na(jpl)
+    array.push(majLo, jpl)
+
+// ─── 5. Structure: last confirmed micro swing high / low ───────────────────
+var float lastPH = na
+var int lastPHbar = na
+var float lastPL = na
+var int lastPLbar = na
+if not na(mph)
+    lastPH := mph
+    lastPHbar := bar_index - pivMicro
+if not na(mpl)
+    lastPL := mpl
+    lastPLbar := bar_index - pivMicro
+
+// nearest unswept major swing above (longs) / below (shorts)
+f_nearest(arr, ref, above) =>
+    float best = na
+    int n = array.size(arr)
+    if n > 0
+        for i = 0 to n - 1
+            float p = array.get(arr, i)
+            if above ? p > ref and (na(best) or p < best) : p < ref and (na(best) or p > best)
+                best := p
+    best
+
+// prune swept major swings and keep the 50 most recent
+f_prune(arr, isHigh) =>
+    int k = array.size(arr) - 1
+    while k >= 0
+        float p = array.get(arr, k)
+        if isHigh ? high > p : low < p
+            array.remove(arr, k)
+        k -= 1
+    while array.size(arr) > 50
+        array.shift(arr)
+    0
+_pr1 = f_prune(majHi, true)
+_pr2 = f_prune(majLo, false)
+
+// ─── 7/8. Setup state machines ─────────────────────────────────────────────
+// Mean reversion LONG
+var bool mrL = false
+var float mrLlvl = na
+var int mrLpb = na
+var float mrLlow = na
+var int mrLlowBar = na
+var bool mrLrec = false
+var int mrLexp = na
+var bool mrLbbx = false
+var float mrLrsiMin = na
+var float mrLpbMin = na
+var int mrLi0 = na
+var float mrLsweepHi = na
+var float mrLrsiPiv = na
+var float mrLpctPiv = na
+var float mrLrsiLow = na
+var float mrLpctLow = na
+// Mean reversion SHORT
+var bool mrS = false
+var float mrSlvl = na
+var int mrSpb = na
+var float mrShigh = na
+var bool mrSrec = false
+var int mrSexp = na
+var bool mrSbbx = false
+var float mrSrsiMax = na
+var float mrSpbMax = na
+var int mrSi0 = na
+var float mrSsweepLo = na
+var float mrSrsiPiv = na
+var float mrSpctPiv = na
+var float mrSrsiHigh = na
+var float mrSpctHigh = na
+
+okCtx = not na(sAdx) and not na(bEs) and not na(atrV) and not na(bwPct)
+
+if useMR and okCtx and swL and (regime == 0 or regime == 1) and low <= lower + approach * (upper - lower)
+    mrL := true
+    mrLlvl := swLlvl
+    mrLpb := swLbar
+    mrLlow := low
+    mrLlowBar := bar_index
+    mrLrec := close > swLlvl
+    mrLexp := bar_index + armWin
+    mrLbbx := low <= lower
+    mrLrsiMin := math.min(rsiV, rsiV[1])
+    mrLpbMin := math.min(pctB, pctB[1])
+    mrLi0 := bar_index
+    mrLsweepHi := high
+    mrLrsiPiv := rsiV[bar_index - swLbar]
+    mrLpctPiv := pctB[bar_index - swLbar]
+    mrLrsiLow := rsiV
+    mrLpctLow := pctB
+else if mrL
+    if low < mrLlow
+        mrLlow := low
+        mrLlowBar := bar_index
+        mrLrsiLow := rsiV
+        mrLpctLow := pctB
+    mrLbbx := mrLbbx or low <= lower
+    mrLrsiMin := math.min(mrLrsiMin, rsiV)
+    mrLpbMin := math.min(mrLpbMin, pctB)
+    mrLrec := mrLrec or close > mrLlvl
+    if bar_index > mrLexp
+        mrL := false
+
+if useMR and okCtx and swH and (regime == 0 or regime == 1) and high >= upper - approach * (upper - lower)
+    mrS := true
+    mrSlvl := swHlvl
+    mrSpb := swHbar
+    mrShigh := high
+    mrSrec := close < swHlvl
+    mrSexp := bar_index + armWin
+    mrSbbx := high >= upper
+    mrSrsiMax := math.max(rsiV, rsiV[1])
+    mrSpbMax := math.max(pctB, pctB[1])
+    mrSi0 := bar_index
+    mrSsweepLo := low
+    mrSrsiPiv := rsiV[bar_index - swHbar]
+    mrSpctPiv := pctB[bar_index - swHbar]
+    mrSrsiHigh := rsiV
+    mrSpctHigh := pctB
+else if mrS
+    if high > mrShigh
+        mrShigh := high
+        mrSrsiHigh := rsiV
+        mrSpctHigh := pctB
+    mrSbbx := mrSbbx or high >= upper
+    mrSrsiMax := math.max(mrSrsiMax, rsiV)
+    mrSpbMax := math.max(mrSpbMax, pctB)
+    mrSrec := mrSrec or close < mrSlvl
+    if bar_index > mrSexp
+        mrS := false
+
+// Trend continuation
+hiPb20 = ta.highest(pctB, 20)[1]
+loPb20 = ta.lowest(pctB, 20)[1]
+var bool tcL = false
+var int tcLi0 = na
+var float tcLlow = na
+var int tcLexp = na
+var float tcLrsiMin = na
+var float tcLpbMin = na
+var bool tcLsw = false
+var bool tcS = false
+var int tcSi0 = na
+var float tcShigh = na
+var int tcSexp = na
+var float tcSrsiMax = na
+var float tcSpbMax = na
+var bool tcSsw = false
+tcCtxL = okCtx and regime == 2 and bias == 1
+tcCtxS = okCtx and regime == -2 and bias == -1
+if useTC and not tcL and tcCtxL and low <= math.max(emaF, basis) and close > lower and hiPb20 > 0.8
+    tcL := true
+    tcLi0 := bar_index
+    tcLlow := low
+    tcLexp := bar_index + armWin
+    tcLrsiMin := rsiV
+    tcLpbMin := pctB
+    tcLsw := mswL and close > mswLlvl
+else if tcL
+    tcLlow := math.min(tcLlow, low)
+    tcLrsiMin := math.min(tcLrsiMin, rsiV)
+    tcLpbMin := math.min(tcLpbMin, pctB)
+    tcLsw := tcLsw or (mswL and close > mswLlvl)
+    if close < lower or bar_index > tcLexp
+        tcL := false
+if useTC and not tcS and tcCtxS and high >= math.min(emaF, basis) and close < upper and loPb20 < 0.2
+    tcS := true
+    tcSi0 := bar_index
+    tcShigh := high
+    tcSexp := bar_index + armWin
+    tcSrsiMax := rsiV
+    tcSpbMax := pctB
+    tcSsw := mswH and close < mswHlvl
+else if tcS
+    tcShigh := math.max(tcShigh, high)
+    tcSrsiMax := math.max(tcSrsiMax, rsiV)
+    tcSpbMax := math.max(tcSpbMax, pctB)
+    tcSsw := tcSsw or (mswH and close < mswHlvl)
+    if close > upper or bar_index > tcSexp
+        tcS := false
+
+// Squeeze breakout -> retest -> confirmation
+squeezed = ta.lowest(bwPct, 10)[1] < squeezePct
+rngHi = ta.highest(high, sbRange)[1]
+rngLo = ta.lowest(low, sbRange)[1]
+var int sbL = 0
+var float sbLlvl = na
+var int sbLb = na
+var int sbLexp = na
+var float sbLrsi = na
+var float sbLpb = na
+var float sbLrLow = na
+var float sbLrHigh = na
+var float sbLpbR = na
+var int sbS = 0
+var float sbSlvl = na
+var int sbSb = na
+var int sbSexp = na
+var float sbSrsi = na
+var float sbSpb = na
+var float sbSrHigh = na
+var float sbSrLow = na
+var float sbSpbR = na
+if useSB
+    if sbL == 0
+        if okCtx and regime != -2 and squeezed and close > upper and close > rngHi and adxV > adxV[3]
+            sbL := 1
+            sbLlvl := rngHi
+            sbLb := bar_index
+            sbLexp := bar_index + 15
+            sbLrsi := rsiV
+            sbLpb := pctB
+    else
+        if close < sbLlvl - 0.2 * atrV or (sbL == 1 and bar_index > sbLexp)
+            sbL := 0
+        else if sbL == 1 and bar_index > sbLb and low <= sbLlvl + 0.1 * atrV and close >= sbLlvl
+            sbL := 2
+            sbLrLow := low
+            sbLrHigh := high
+            sbLexp := bar_index + 5
+            sbLpbR := pctB
+        else if sbL == 2
+            sbLrLow := math.min(sbLrLow, low)
+            if bar_index > sbLexp and not (close > sbLrHigh and close > open)
+                sbL := 0
+    if sbS == 0
+        if okCtx and regime != 2 and squeezed and close < lower and close < rngLo and adxV > adxV[3]
+            sbS := 1
+            sbSlvl := rngLo
+            sbSb := bar_index
+            sbSexp := bar_index + 15
+            sbSrsi := rsiV
+            sbSpb := pctB
+    else
+        if close > sbSlvl + 0.2 * atrV or (sbS == 1 and bar_index > sbSexp)
+            sbS := 0
+        else if sbS == 1 and bar_index > sbSb and high >= sbSlvl - 0.1 * atrV and close <= sbSlvl
+            sbS := 2
+            sbSrHigh := high
+            sbSrLow := low
+            sbSexp := bar_index + 5
+            sbSpbR := pctB
+        else if sbS == 2
+            sbSrHigh := math.max(sbSrHigh, high)
+            if bar_index > sbSexp and not (close < sbSrLow and close < open)
+                sbS := 0
+
+// ─── 6. Confirmations, MSS triggers and score ──────────────────────────────
+f_div(pxNow, pxRef, oscNow, oscRef, bull) => bull ? pxNow < pxRef and oscNow > oscRef : pxNow > pxRef and oscNow < oscRef
+
+refL = not na(lastPHbar) and lastPHbar > mrLpb ? lastPH : bar_index > mrLi0 ? mrLsweepHi : na
+refS = not na(lastPLbar) and lastPLbar > mrSpb ? lastPL : bar_index > mrSi0 ? mrSsweepLo : na
+trigMRL = mrL and mrLrec and close > mrLlvl and okCtx and (regime == 0 or regime == 1) and close > refL and close[1] <= refL
+trigMRS = mrS and mrSrec and close < mrSlvl and okCtx and (regime == 0 or regime == 1) and close < refS and close[1] >= refS
+trigTCL = tcL and tcCtxL and bar_index > tcLi0 and lastPHbar >= tcLi0 - 8 and close > lastPH and close[1] <= lastPH
+trigTCS = tcS and tcCtxS and bar_index > tcSi0 and lastPLbar >= tcSi0 - 8 and close < lastPL and close[1] >= lastPL
+trigSBL = sbL == 2 and okCtx and close > sbLrHigh and close > open
+trigSBS = sbS == 2 and okCtx and close < sbSrLow and close < open
+
+f_score(dirn, sweep, bbx, rsiOk, pbOk, adxOk) =>
+    2 * (bias == dirn ? 1 : 0) + (sTrend == dirn ? 1 : 0) + 2 * (sweep ? 1 : 0) + (bbx ? 1 : 0) + 1 + (rsiOk ? 1 : 0) + (pbOk ? 1 : 0) + (adxOk ? 1 : 0)
+
+mrLrsiOk = mrLrsiMin < rsiOS or f_div(mrLlow, mrLlvl, mrLrsiLow, mrLrsiPiv, true)
+mrLpbOk  = (mrLpbMin < 0 and pctB > 0) or f_div(mrLlow, mrLlvl, mrLpctLow, mrLpctPiv, true)
+mrSrsiOk = mrSrsiMax > rsiOB or f_div(mrShigh, mrSlvl, mrSrsiHigh, mrSrsiPiv, false)
+mrSpbOk  = (mrSpbMax > 1 and pctB < 1) or f_div(mrShigh, mrSlvl, mrSpctHigh, mrSpctPiv, false)
+
+int sigDir = 0
+int sigScore = 0
+string sigSetup = ""
+float sigSwing = na
+if trigMRL
+    s = f_score(1, true, mrLbbx, mrLrsiOk, mrLpbOk, sAdx < adxWeak)
+    if s > sigScore
+        sigDir := 1
+        sigScore := s
+        sigSetup := "BB LIQUIDITY REVERSAL"
+        sigSwing := mrLlow
+if trigMRS
+    s = f_score(-1, true, mrSbbx, mrSrsiOk, mrSpbOk, sAdx < adxWeak)
+    if s > sigScore
+        sigDir := -1
+        sigScore := s
+        sigSetup := "BB LIQUIDITY REVERSAL"
+        sigSwing := mrShigh
+if trigTCL
+    s = f_score(1, tcLsw, true, tcLrsiMin >= 40 and rsiV > 50, pctB > pctB[1] and tcLpbMin <= 0.6, sAdx > adxTrend and sAdx > sAdx3)
+    if s > sigScore
+        sigDir := 1
+        sigScore := s
+        sigSetup := "BB TREND CONTINUATION"
+        sigSwing := tcLlow
+if trigTCS
+    s = f_score(-1, tcSsw, true, tcSrsiMax <= 60 and rsiV < 50, pctB < pctB[1] and tcSpbMax >= 0.4, sAdx > adxTrend and sAdx > sAdx3)
+    if s > sigScore
+        sigDir := -1
+        sigScore := s
+        sigSetup := "BB TREND CONTINUATION"
+        sigSwing := tcShigh
+if trigSBL
+    s = f_score(1, true, true, sbLrsi > 55 and rsiV >= 50, sbLpb > 1 and sbLpbR >= 0.5, adxV > adxV[3] and adxV > adxWeak)
+    if s > sigScore
+        sigDir := 1
+        sigScore := s
+        sigSetup := "BB SQUEEZE BREAKOUT"
+        sigSwing := sbLrLow
+if trigSBS
+    s = f_score(-1, true, true, sbSrsi < 45 and rsiV <= 50, sbSpb < 0 and sbSpbR <= 0.5, adxV > adxV[3] and adxV > adxWeak)
+    if s > sigScore
+        sigDir := -1
+        sigScore := s
+        sigSetup := "BB SQUEEZE BREAKOUT"
+        sigSwing := sbSrHigh
+// never against the HTF bias; neutral bias needs every non-bias point (8/8)
+if sigDir != 0 and (bias == -sigDir or (bias == 0 and sigScore < 8))
+    sigDir := 0
+if sigDir != 0
+    mrL := false
+    mrS := false
+    tcL := false
+    tcS := false
+    sbL := 0
+    sbS := 0
+
+// ─── 9/10. Filters, daily guard, position sizing ───────────────────────────
+inLondon = not na(time(timeframe.period, "0700-1600", "UTC"))
+inNY     = not na(time(timeframe.period, "1200-2100", "UTC"))
+inAsia   = not na(time(timeframe.period, "2300-0700", "UTC"))
+sessOk = (useLondon and inLondon) or (useNY and inNY) or (useAsia and inAsia)
+newsOk = not useNews or ((time < news1 - newsBefore * 60000 or time > news1 + newsAfter * 60000) and (time < news2 - newsBefore * 60000 or time > news2 + newsAfter * 60000))
+sprOk  = spreadPips * pipSz <= maxSprAtr / 100 * atrV
+
+var int tradesToday = 0
+var int lossesToday = 0
+var float netAtDay = 0.0
+var float eqAtDay = 0.0
+var float netAtEntry = 0.0
+newDay = ta.change(time("D")) != 0
+posChg = ta.change(strategy.position_size) != 0
+if newDay
+    tradesToday := 0
+    lossesToday := 0
+    netAtDay := strategy.netprofit
+    eqAtDay := strategy.equity
+if strategy.position_size == 0 and strategy.position_size[1] != 0 and strategy.netprofit - netAtEntry < 0
+    lossesToday += 1
+dayPL = strategy.netprofit - netAtDay
+dailyStop = dayPL <= -dailyLossP / 100 * math.max(eqAtDay, 1)
+guardOk = tradesToday < maxTrades and lossesToday < maxLosses and not dailyStop
+
+entryPx = close
+stopPx  = sigDir == 1 ? sigSwing - slBufAtr * atrV : sigSwing + slBufAtr * atrV
+riskD   = sigDir == 1 ? entryPx - stopPx : stopPx - entryPx
+opp     = sigDir == 1 ? f_nearest(majHi, entryPx, true) : f_nearest(majLo, entryPx, false)
+roomR   = na(opp) or riskD <= 0 ? 99.0 : math.abs(opp - entryPx) / riskD
+slOk    = riskD > 0 and riskD <= maxSlAtr * atrV
+fx      = request.currency_rate(syminfo.currency, "USD", ignore_invalid_currency=true)
+qtyRaw  = useFixedLot ? fixedUnits : strategy.equity * riskPct / 100 / (riskD * syminfo.pointvalue * (na(fx) ? 1 : fx))
+canTrade = sigDir != 0 and sigScore >= minScore and sessOk and newsOk and sprOk and slOk and roomR >= minRR and guardOk and strategy.position_size == 0
+
+// ─── 11. Entries and trade management ──────────────────────────────────────
+var float eP = na
+var float sP = na
+var float rD = na
+var float t1 = na
+var float t2 = na
+var float t3 = na
+var float q0 = na
+var float bestPx = na
+var float curStop = na
+var bool tp1Done = false
+if canTrade
+    q0 := math.max(math.floor(qtyRaw), 1)
+    eP := entryPx
+    sP := stopPx
+    rD := riskD
+    curStop := stopPx
+    tp1Done := false
+    bestPx := entryPx
+    t1 := eP + sigDir * tp1R * rD
+    t2 := eP + sigDir * tp2R * rD
+    t3 := eP + sigDir * tp3R * rD
+    netAtEntry := strategy.netprofit
+    tradesToday += 1
+    strategy.entry(sigDir == 1 ? "L" : "S", sigDir == 1 ? strategy.long : strategy.short, qty=q0)
+    alert("BB SNIPER " + (sigDir == 1 ? "BUY " : "SELL ") + syminfo.ticker + " | " + sigSetup + " | score " + str.tostring(sigScore) + "/10" +
+         " | entry " + str.tostring(eP, format.mintick) + " SL " + str.tostring(sP, format.mintick) + " TP1 " + str.tostring(t1, format.mintick) +
+         " TP2 " + str.tostring(t2, format.mintick) + " TP3 " + str.tostring(t3, format.mintick) + " | risk " + str.tostring(riskPct) + "%", alert.freq_once_per_bar_close)
+
+inPos = strategy.position_size != 0
+dirP  = strategy.position_size > 0 ? 1 : -1
+if inPos
+    bestPx := dirP == 1 ? math.max(bestPx, high) : math.min(bestPx, low)
+    if not tp1Done and math.abs(strategy.position_size) < q0
+        tp1Done := true
+        alert("BB SNIPER TP1 hit " + syminfo.ticker, alert.freq_once_per_bar_close)
+    if tp1Done and useBE
+        be = eP + dirP * beBufR * rD
+        curStop := dirP == 1 ? math.max(curStop, be) : math.min(curStop, be)
+    if trailOn != "None" and (bestPx - eP) * dirP >= trailAfterR * rD
+        tr = trailOn == "ATR" ? bestPx - dirP * trailAtr * atrV : trailOn == "EMA20" ? emaF : trailOn == "BB middle" ? basis : (dirP == 1 ? lastPL : lastPH)
+        curStop := dirP == 1 ? math.max(curStop, tr) : math.min(curStop, tr)
+qa = math.floor(q0 * tp1Q / 100)
+qb = math.floor(q0 * tp2Q / 100)
+qc = q0 - qa - qb
+if inPos or canTrade
+    idp = canTrade ? (sigDir == 1 ? "L" : "S") : (dirP == 1 ? "L" : "S")
+    if q0 >= 3 and qa >= 1 and qb >= 1
+        if not tp1Done
+            strategy.exit("TP1", idp, qty=qa, limit=t1, stop=curStop)
+        strategy.exit("TP2", idp, qty=qb, limit=t2, stop=curStop)
+        strategy.exit("TP3", idp, qty=qc, limit=t3, stop=curStop)
+    else
+        strategy.exit("TP3", idp, limit=t3, stop=curStop)    // position too small to split
+
+// ─── 15. Plots, labels, alerts ─────────────────────────────────────────────
+plot(upper, "BB upper", color=color.new(color.gray, 0))
+plot(basis, "BB basis", color=color.new(color.orange, 0))
+plot(lower, "BB lower", color=color.new(color.gray, 0))
+plot(emaF, "EMA20", color=color.new(color.blue, 0))
+plot(emaS, "EMA200", color=color.new(color.black, 0), linewidth=2)
+plotshape(canTrade and sigDir == 1, "BUY", shape.labelup, location.belowbar, color.new(color.green, 0), text="BB▲", textcolor=color.white)
+plotshape(canTrade and sigDir == -1, "SELL", shape.labeldown, location.abovebar, color.new(color.red, 0), text="BB▼", textcolor=color.white)
+plot(inPos ? curStop : na, "Stop", color=color.red, style=plot.style_linebr)
+
+if canTrade
+    label.new(bar_index, sigDir == 1 ? low : high, sigSetup + "\nScore " + str.tostring(sigScore) + "/10 " + (sigScore >= 9 ? "A+" : "A"),
+         style=sigDir == 1 ? label.style_label_up : label.style_label_down, color=color.new(sigDir == 1 ? color.green : color.red, 20), textcolor=color.white, size=size.small)
+
+var table tb = table.new(position.top_right, 2, 7, bgcolor=color.new(color.white, 0), border_color=color.gray, border_width=1)
+if barstate.islast
+    wr = strategy.closedtrades > 0 ? 100.0 * strategy.wintrades / strategy.closedtrades : na
+    table.cell(tb, 0, 0, "BB SNIPER", text_color=color.black)
+    table.cell(tb, 1, 0, mode + " ≥" + str.tostring(minScore), text_color=color.black)
+    table.cell(tb, 0, 1, "Bias", text_color=color.black)
+    table.cell(tb, 1, 1, bias == 1 ? "BULLISH" : bias == -1 ? "BEARISH" : "NEUTRAL", text_color=color.black)
+    table.cell(tb, 0, 2, "Regime", text_color=color.black)
+    table.cell(tb, 1, 2, regime == 2 ? "TREND UP" : regime == -2 ? "TREND DOWN" : regime == 3 ? "SQUEEZE" : regime == 0 ? "RANGING" : "TRANSITIONAL", text_color=color.black)
+    table.cell(tb, 0, 3, "Trades today", text_color=color.black)
+    table.cell(tb, 1, 3, str.tostring(tradesToday) + "/" + str.tostring(maxTrades), text_color=color.black)
+    table.cell(tb, 0, 4, "Losses today", text_color=color.black)
+    table.cell(tb, 1, 4, str.tostring(lossesToday) + "/" + str.tostring(maxLosses), text_color=color.black)
+    table.cell(tb, 0, 5, "Backtest win rate", text_color=color.black)
+    table.cell(tb, 1, 5, na(wr) ? "n/a" : str.tostring(wr, "#.0") + "% (" + str.tostring(strategy.closedtrades) + ")", text_color=color.black)
+    table.cell(tb, 0, 6, "Status", text_color=color.black)
+    table.cell(tb, 1, 6, dailyStop ? "DAILY LOSS LIMIT" : not guardOk ? "DAY LIMIT HIT" : "ACTIVE", text_color=color.black)
+
+// Alert conditions (create them from the TradingView alert dialog)
+alertcondition(canTrade and sigScore >= 9, "A+ setup", "BB SNIPER A+ setup {{ticker}}")
+alertcondition(canTrade and sigScore == 8, "A setup", "BB SNIPER A setup {{ticker}}")
+alertcondition(canTrade, "Entry", "BB SNIPER entry {{ticker}} {{close}}")
+alertcondition(inPos and posChg and math.abs(strategy.position_size) < q0 and math.abs(strategy.position_size[1]) == q0, "TP1", "BB SNIPER TP1 {{ticker}}")
+alertcondition(inPos and math.abs(strategy.position_size) <= qc and math.abs(strategy.position_size[1]) > qc, "TP2", "BB SNIPER TP2 {{ticker}}")
+alertcondition(strategy.position_size == 0 and strategy.position_size[1] != 0 and strategy.netprofit > strategy.netprofit[1], "TP3 / profitable close", "BB SNIPER position closed in profit {{ticker}}")
+alertcondition(strategy.position_size == 0 and strategy.position_size[1] != 0 and strategy.netprofit < strategy.netprofit[1], "Stop loss", "BB SNIPER stop loss {{ticker}}")
+alertcondition(dailyStop and not dailyStop[1], "Daily loss limit", "BB SNIPER daily loss limit reached")
+alertcondition(tradesToday >= maxTrades and tradesToday[1] < maxTrades, "Max daily trades", "BB SNIPER max daily trades reached")
+alertcondition(bwPct < squeezePct and bwPct[1] >= squeezePct, "BB squeeze", "BB SNIPER squeeze {{ticker}}")
+alertcondition(swL or swH, "Liquidity sweep", "BB SNIPER liquidity sweep {{ticker}}")
+alertcondition((close > lastPH and close[1] <= lastPH) or (close < lastPL and close[1] >= lastPL), "Market structure shift", "BB SNIPER MSS {{ticker}}")

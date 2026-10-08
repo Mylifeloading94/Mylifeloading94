@@ -2,6 +2,27 @@
 
 **Data:** TradingView OHLCV, OANDA feed, pulled through the Tradingview_Ai connector on 2026-10-08. 30 symbols (28 FX pairs, XAUUSD, SPX500USD).
 **Window:** the last 90 completed trading days, **2026-06-04 → 2026-10-07**.
+
+> ## ⚠️ CORRECTION (2026-10-08, 16:45 UTC): this supersedes the headline results below
+> **The bug:** the first version of the engine counted a Target 1 touch on the **same candle the limit order filled**. On a 30-minute candle you can't know whether price hit the target before or after the fill, so that was optimistic.
+>
+> **The fix:** on the fill candle only a stop touch now counts, never a target. Where M15 data exists (the last 52 days), fills and exits are worked out on M15 candles.
+>
+> **H4→M30, score 70+, after the fix:**
+>
+> | Measure | Value |
+> |---|---|
+> | Trades | 83 |
+> | Win rate | 59% |
+> | Profit factor | **1.02** |
+> | Average per trade | +0.01R |
+> | Net | +0.8R |
+> | Max drawdown | 5.8R |
+>
+> **What it means:** this is close to break-even, so **the strategy as specified has no proven edge**. The account figures in sections 8–11 and the 0.20-lot addendum are therefore too high.
+>
+> **What's next:** an improvement search with separate selection and hold-out periods is in `RESEARCH.md`.
+
 **Everything below is a historical backtest.** The live GBPJPY order posted to Telegram today is not part of it.
 
 ---

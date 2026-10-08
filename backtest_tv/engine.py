@@ -6,6 +6,7 @@ that have fully closed, indicators at bar j use data <= j, entries are limit
 orders filled only by trade-through on later bars.
 """
 import json, math, os, datetime as dt
+from functools import lru_cache
 from collections import defaultdict
 
 DATA = os.path.join(os.path.dirname(__file__), "data")
@@ -24,11 +25,12 @@ def pip(sym):
     return 0.01 if "JPY" in sym else 0.1 if sym == "XAUUSD" else 1.0 if sym == "SPX500USD" else 0.0001
 
 
+@lru_cache(maxsize=None)
 def load(sym, tf):
     if tf in ("4h", "1D"):
         return resample(load(sym, "1h"), TF_SEC[tf])
     bars = json.load(open(os.path.join(DATA, f"{sym}_{tf}.json")))
-    return [(b["t"], b["o"], b["h"], b["l"], b["c"]) for b in bars]
+    return tuple((b["t"], b["o"], b["h"], b["l"], b["c"]) for b in bars)
 
 
 def resample(bars, sec):
@@ -143,6 +145,10 @@ CFG = dict(L_entry=3, L_int=2, sweep_lookback=60, mss_window=12, disp_atr=1.0, f
 
 def find_trades(sym, entry_tf, bias_tf, cfg=CFG, start_ts=0, end_ts=1e18):
     bars = load(sym, entry_tf); sec = TF_SEC[entry_tf]
+    fine_tf = {"30m": "15m", "1h": "30m", "15m": None}.get(entry_tf) if cfg.get("fine", True) else None
+    fine = load(sym, fine_tf) if fine_tf else None
+    fine_t = [b[0] for b in fine] if fine else []
+    fine_sec = TF_SEC[fine_tf] if fine_tf else None
     hb = load(sym, bias_tf); htf = HTF(hb, TF_SEC[bias_tf])
     A = atr(bars); R, P, S, M = tdi(bars); etr, _ = structure(bars, cfg["L_entry"])
     P_ = pip(sym); spread = SPREAD[sym] * P_
@@ -219,7 +225,10 @@ def find_trades(sym, entry_tf, bias_tf, cfg=CFG, start_ts=0, end_ts=1e18):
             if btr != side or brng is None or None in brng: continue
             bh, bl = brng
             if bh <= bl: continue
-            entry = (fvg[0] + fvg[1]) / 2
+            if cfg.get("entry") == "edge":   # near edge of the gap (fills more often, wider R)
+                entry = fvg[1] if side == 1 else fvg[0]
+            else:                             # consequent encroachment (50% of the gap)
+                entry = (fvg[0] + fvg[1]) / 2
             pd = (entry - bl) / (bh - bl)
             in_pd = (pd <= cfg["pd_max"]) if side == 1 else (pd >= 1 - cfg["pd_max"])
             if (side == 1 and pd >= 1.0) or (side == -1 and pd <= 0.0): continue  # beyond HTF range: no DOL left
@@ -256,7 +265,19 @@ def find_trades(sym, entry_tf, bias_tf, cfg=CFG, start_ts=0, end_ts=1e18):
             score = 40 + 10 * in_pd + 5 * deep + 10 * kz + 10 * tdi_ok + 5 * tdi_strong + \
                 (10 if div == "regular" else 7 if div == "hidden" else 0) + 10 * (room >= cfg["dol_min"])
             # --- order lifecycle: limit at FVG CE, trade-through fill, honest exits ---
-            res = simulate(bars, j, side, entry, stop, tp1, tp2, spread, P_, cfg["fill_window"])
+            res = None
+            if fine and fine_t[0] <= T_close:
+                import bisect
+                jf = bisect.bisect_left(fine_t, T_close) - 1   # last fine bar closing at T_close
+                if 0 <= jf < len(fine) and fine_t[jf] + fine_sec == T_close:
+                    res = simulate(fine, jf, side, entry, stop, tp1, tp2, spread, P_,
+                                   cfg["fill_window"] * (sec // fine_sec), cfg.get("partial", True))
+                    if res is not None: res["res_tf"] = fine_tf
+                    elif True: res = "skip"
+            if res is None:
+                res = simulate(bars, j, side, entry, stop, tp1, tp2, spread, P_, cfg["fill_window"], cfg.get("partial", True))
+                if res is not None: res["res_tf"] = entry_tf
+            if res == "skip": res = None
             if res is None: continue
             trades.append(dict(sym=sym, entry_tf=entry_tf, bias_tf=bias_tf, side="BUY" if side == 1 else "SELL",
                                signal_t=T_close, session=sess, entry=entry, stop=stop, tp1=tp1, tp2=tp2,
@@ -268,7 +289,7 @@ def find_trades(sym, entry_tf, bias_tf, cfg=CFG, start_ts=0, end_ts=1e18):
     return trades
 
 
-def simulate(bars, j, side, entry, stop, tp1, tp2, spread, P_, window):
+def simulate(bars, j, side, entry, stop, tp1, tp2, spread, P_, window, partial=True):
     n = len(bars); fill = None
     for k in range(j + 1, min(n, j + 1 + window)):
         t, o, h, l, c = bars[k]
@@ -280,6 +301,13 @@ def simulate(bars, j, side, entry, stop, tp1, tp2, spread, P_, window):
         if (side == 1 and l <= entry - P_) or (side == -1 and h >= entry + P_):
             fill = k; break
     if fill is None: return None
+    return manage(bars, fill, side, entry, stop, tp1, tp2, spread, partial)
+
+
+def manage(bars, fill, side, entry, stop, tp1, tp2, spread, partial=True, fill_bar_open=False):
+    """Manage a filled position bar by bar. fill_bar_open=True: market fill at the bar's open, so the
+    whole fill bar is after entry (stop/targets on it count, stop first on ties)."""
+    n = len(bars)
     risk = abs(entry - stop); cost = spread / risk
     half_done = False; mfe = mae = 0.0
     for k in range(fill, n):
@@ -291,8 +319,15 @@ def simulate(bars, j, side, entry, stop, tp1, tp2, spread, P_, window):
         hit_stop = (l <= cur_stop) if side == 1 else (h >= cur_stop)
         hit_tp1 = (h >= tp1) if side == 1 else (l <= tp1)
         hit_tp2 = (h >= tp2) if side == 1 else (l <= tp2)
-        if k == fill and ((side == 1 and l <= stop) or (side == -1 and h >= stop)):
-            return out(bars, fill, k, -1.0 - cost, "SL (fill bar)", mfe, mae)
+        if k == fill and not fill_bar_open:
+            # intrabar order unknown on the fill bar: a stop touch is a loss, a target touch is NOT credited
+            if (side == 1 and l <= stop) or (side == -1 and h >= stop):
+                return out(bars, fill, k, -1.0 - cost, "SL (fill bar)", mfe, mae)
+            continue
+        if not partial:
+            if hit_stop: return out(bars, fill, k, -1.0 - cost, "SL", mfe, mae)
+            if hit_tp2: return out(bars, fill, k, abs(tp2 - entry) / risk - cost, "TP", mfe, mae)
+            continue
         if hit_stop:  # stop wins any tie with a target on the same bar
             r = (0.5 * abs(tp1 - entry) / risk + 0.0) - cost if half_done else -1.0 - cost
             return out(bars, fill, k, r, "BE after TP1" if half_done else "SL", mfe, mae)

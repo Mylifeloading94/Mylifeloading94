@@ -34,8 +34,15 @@
     "stop": 0.69894,
     "tp1": 0.69644,
     "tp2": 0.69457,
-    "status": "pending",
-    "events": [],
+    "status": "expired",
+    "events": [
+      {
+        "type": "expired",
+        "time_utc": "2026-10-08T02:40:00Z",
+        "price": 0.69642,
+        "note": "price reached TP1 (0.69644) before the entry filled"
+      }
+    ],
     "result_pips": null
   }
 ]

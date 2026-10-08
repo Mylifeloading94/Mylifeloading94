@@ -361,7 +361,7 @@ Over the full 90 trading days that works out to about 0.92 trades per day.
 | $1,000 | without XAUUSD | 81 | 70.4% | +$523.77 | +52.4% | 11.1% | $1,523.77 | 1.78 |
 
 **Why gold flips the result:**
-- **The size problem:** a fixed lot ignores stop size. The two gold trades had M30 stops of about $22, so each risked about **$440 at 0.20 lots**. That's 88% of a $500 account on one trade.
+- **The size problem:** a fixed lot ignores stop size. The two gold trades had M30 stops of $14.19 and $22.08, which at 0.20 lots risked **$284 and $442**. The larger one was 88% of a $500 account on one trade.
 - **The damage:** those two losses cost **−$739.56**, more than all 81 other trades made together (+$523.77).
 - **Without gold:** 0.20 lots risks a median **$21 per trade**, which is 4.3% of $500 or 2.1% of $1,000. The largest single risk is $66 (13% of $500).
 

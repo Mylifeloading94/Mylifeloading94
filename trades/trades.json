@@ -1,59 +1,77 @@
 [
-  {
-    "id": "2026-10-08-EURUSD-S1",
-    "demo": true,
-    "pair": "EURUSD",
-    "flag": "🇪🇺🇺🇸",
-    "symbol": "OANDA:EURUSD",
-    "side": "SELL",
-    "created_utc": "2026-10-08T01:15:00Z",
-    "entry": 1.12204,
-    "stop": 1.12414,
-    "tp1": 1.11994,
-    "tp2": 1.11679,
-    "status": "expired",
-    "events": [
-      {
-        "type": "expired",
-        "time_utc": "2026-10-08T01:31:00Z",
-        "price": 1.11977,
-        "note": "price reached TP1 (1.11994) before the entry filled"
-      }
-    ],
-    "result_pips": null
-  },
-  {
-    "id": "2026-10-08-AUDUSD-S1",
-    "demo": false,
-    "pair": "AUDUSD",
-    "flag": "🇦🇺🇺🇸",
-    "symbol": "OANDA:AUDUSD",
-    "side": "SELL",
-    "created_utc": "2026-10-08T01:50:00Z",
-    "entry": 0.69769,
-    "stop": 0.69894,
-    "tp1": 0.69644,
-    "tp2": 0.69457,
-    "status": "expired",
-    "events": [
-      {
-        "type": "expired",
-        "time_utc": "2026-10-08T02:40:00Z",
-        "price": 0.69642,
-        "note": "price reached TP1 (0.69644) before the entry filled"
-      },
-      {
-        "type": "reinstated",
-        "time_utc": "2026-10-08T02:46:00Z",
-        "note": "cancel rule changed to structure-based (rule A); expiry on a 0.2-pip TP1 touch was too strict"
-      },
-      {
-        "type": "expired",
-        "time_utc": "2026-10-08T14:15:00Z",
-        "price": 0.69698,
-        "note": "rule A: M15 structure flipped bullish (CHoCH above 0.69622, M15 close 0.69698) before entry filled; order cancelled, never filled"
-      }
-    ],
-    "result_pips": null
-  }
+ {
+  "id": "2026-10-08-EURUSD-S1",
+  "demo": true,
+  "pair": "EURUSD",
+  "flag": "🇪🇺🇺🇸",
+  "symbol": "OANDA:EURUSD",
+  "side": "SELL",
+  "created_utc": "2026-10-08T01:15:00Z",
+  "entry": 1.12204,
+  "stop": 1.12414,
+  "tp1": 1.11994,
+  "tp2": 1.11679,
+  "status": "expired",
+  "events": [
+   {
+    "type": "expired",
+    "time_utc": "2026-10-08T01:31:00Z",
+    "price": 1.11977,
+    "note": "price reached TP1 (1.11994) before the entry filled"
+   }
+  ],
+  "result_pips": null
+ },
+ {
+  "id": "2026-10-08-AUDUSD-S1",
+  "demo": false,
+  "pair": "AUDUSD",
+  "flag": "🇦🇺🇺🇸",
+  "symbol": "OANDA:AUDUSD",
+  "side": "SELL",
+  "created_utc": "2026-10-08T01:50:00Z",
+  "entry": 0.69769,
+  "stop": 0.69894,
+  "tp1": 0.69644,
+  "tp2": 0.69457,
+  "status": "expired",
+  "events": [
+   {
+    "type": "expired",
+    "time_utc": "2026-10-08T02:40:00Z",
+    "price": 0.69642,
+    "note": "price reached TP1 (0.69644) before the entry filled"
+   },
+   {
+    "type": "reinstated",
+    "time_utc": "2026-10-08T02:46:00Z",
+    "note": "cancel rule changed to structure-based (rule A); expiry on a 0.2-pip TP1 touch was too strict"
+   },
+   {
+    "type": "expired",
+    "time_utc": "2026-10-08T14:15:00Z",
+    "price": 0.69698,
+    "note": "rule A: M15 structure flipped bullish (CHoCH above 0.69622, M15 close 0.69698) before entry filled; order cancelled, never filled"
+   }
+  ],
+  "result_pips": null
+ },
+ {
+  "id": "2026-10-08-GBPJPY-B1",
+  "demo": false,
+  "pair": "GBPJPY",
+  "flag": "🇬🇧🇯🇵",
+  "symbol": "OANDA:GBPJPY",
+  "side": "BUY",
+  "order_type": "limit",
+  "created_utc": "2026-10-08T16:05:00Z",
+  "entry": 208.92,
+  "stop": 208.77,
+  "tp1": 209.07,
+  "tp2": 209.29,
+  "status": "pending",
+  "events": [],
+  "result_pips": null,
+  "note": "4H discount (~21% of range), 1H+15m bullish, 15m BOS 209.04 displacement 14:15; limit at 62% OTE of 208.62->209.40 leg; DOL bearish FVG 209.37 = 3R room; posted outside killzone at user request"
+ }
 ]

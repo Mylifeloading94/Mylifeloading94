@@ -1,0 +1,2022 @@
+{
+ "AUDCAD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.173,
+   "net_r": 0.173,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.173,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.2125,
+   "net_r": 0.425,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.2125,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 5,
+   "wr": 0.6,
+   "pf": 0.3551401869158879,
+   "avg_r": -0.3036,
+   "net_r": -1.518,
+   "max_dd_r": 1.796,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.2786666666666667,
+   "avg_loss": -1.177,
+   "pos_weeks": 0.6
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.8885,
+   "net_r": 1.777,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.8885,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 2,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.1515,
+   "net_r": -2.303,
+   "max_dd_r": 2.303,
+   "max_cw": 0,
+   "max_cl": 2,
+   "avg_win": 0,
+   "avg_loss": -1.1515,
+   "pos_weeks": 0.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 3,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.7953333333333333,
+   "net_r": 2.386,
+   "max_dd_r": 0,
+   "max_cw": 3,
+   "max_cl": 0,
+   "avg_win": 0.7953333333333333,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  }
+ },
+ "AUDCHF": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "AUDJPY": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.324,
+   "net_r": 0.324,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.324,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.001,
+   "net_r": 1.001,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.001,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 3,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.37266666666666665,
+   "net_r": 1.1179999999999999,
+   "max_dd_r": 0,
+   "max_cw": 3,
+   "max_cl": 0,
+   "avg_win": 0.37266666666666665,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.199,
+   "net_r": -1.199,
+   "max_dd_r": 1.199,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.199,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.378,
+   "net_r": 0.378,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.378,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.372,
+   "net_r": 1.372,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.372,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  }
+ },
+ "AUDNZD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 1.118188795088258,
+   "avg_r": 0.07700000000000007,
+   "net_r": 0.15400000000000014,
+   "max_dd_r": 1.303,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.457,
+   "avg_loss": -1.303,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.457,
+   "net_r": 1.457,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.457,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.5468615649183146,
+   "avg_r": 0.21199999999999997,
+   "net_r": 0.6359999999999999,
+   "max_dd_r": 1.163,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.8995,
+   "avg_loss": -1.163,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.163,
+   "net_r": -1.163,
+   "max_dd_r": 1.163,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.163,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.129,
+   "net_r": -1.129,
+   "max_dd_r": 1.129,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.129,
+   "pos_weeks": 0.0
+  }
+ },
+ "AUDUSD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 5,
+   "wr": 0.6,
+   "pf": 0.6245074862096138,
+   "avg_r": -0.19060000000000002,
+   "net_r": -0.9530000000000001,
+   "max_dd_r": 1.483,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.5283333333333333,
+   "avg_loss": -1.2690000000000001,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 0.5066334991708126,
+   "avg_r": -0.19833333333333333,
+   "net_r": -0.595,
+   "max_dd_r": 1.206,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.3055,
+   "avg_loss": -1.206,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.3743961352657004,
+   "avg_r": 0.15499999999999997,
+   "net_r": 0.4649999999999999,
+   "max_dd_r": 1.242,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.8534999999999999,
+   "avg_loss": -1.242,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.278,
+   "net_r": -1.278,
+   "max_dd_r": 1.278,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.278,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.467,
+   "net_r": 1.467,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.467,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.9955,
+   "net_r": 1.991,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.9955,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  }
+ },
+ "CADCHF": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.1454696591853699,
+   "avg_r": -0.514,
+   "net_r": -1.028,
+   "max_dd_r": 1.203,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.175,
+   "avg_loss": -1.203,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 2,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.2605,
+   "net_r": -2.521,
+   "max_dd_r": 2.521,
+   "max_cw": 0,
+   "max_cl": 2,
+   "avg_win": 0,
+   "avg_loss": -1.2605,
+   "pos_weeks": 0.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "CADJPY": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 2.2014563106796117,
+   "avg_r": 0.49500000000000005,
+   "net_r": 1.485,
+   "max_dd_r": 1.236,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 1.3605,
+   "avg_loss": -1.236,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.30901639344262294,
+   "avg_r": -0.4215,
+   "net_r": -0.843,
+   "max_dd_r": 1.22,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.377,
+   "avg_loss": -1.22,
+   "pos_weeks": 0.5
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.284,
+   "net_r": 0.284,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.284,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.432,
+   "net_r": 0.432,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.432,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "CHFJPY": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.157,
+   "net_r": -1.157,
+   "max_dd_r": 1.157,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.157,
+   "pos_weeks": 0.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.0356234096692112,
+   "avg_r": 0.013999999999999993,
+   "net_r": 0.04199999999999998,
+   "max_dd_r": 1.179,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.6105,
+   "avg_loss": -1.179,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.2625698324022346,
+   "avg_r": -0.396,
+   "net_r": -0.792,
+   "max_dd_r": 1.074,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.282,
+   "avg_loss": -1.074,
+   "pos_weeks": 0.5
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 2,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.1605,
+   "net_r": -2.321,
+   "max_dd_r": 2.321,
+   "max_cw": 0,
+   "max_cl": 2,
+   "avg_win": 0,
+   "avg_loss": -1.1605,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "EURAUD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 4,
+   "wr": 0.25,
+   "pf": 0.45076523245740685,
+   "avg_r": -0.47550000000000003,
+   "net_r": -1.9020000000000001,
+   "max_dd_r": 3.463,
+   "max_cw": 1,
+   "max_cl": 3,
+   "avg_win": 1.561,
+   "avg_loss": -1.1543333333333334,
+   "pos_weeks": 0.25
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.242,
+   "net_r": -1.242,
+   "max_dd_r": 1.242,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.242,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 5,
+   "wr": 0.6,
+   "pf": 0.8699397071490095,
+   "avg_r": -0.060399999999999995,
+   "net_r": -0.302,
+   "max_dd_r": 2.0330000000000004,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.6733333333333333,
+   "avg_loss": -1.161,
+   "pos_weeks": 0.5
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.289,
+   "net_r": 0.289,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.289,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.1,
+   "net_r": -1.1,
+   "max_dd_r": 1.1,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.1,
+   "pos_weeks": 0.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 3,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.1046666666666667,
+   "net_r": -3.314,
+   "max_dd_r": 3.314,
+   "max_cw": 0,
+   "max_cl": 3,
+   "avg_win": 0,
+   "avg_loss": -1.1046666666666667,
+   "pos_weeks": 0.0
+  }
+ },
+ "EURCAD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 4,
+   "wr": 0.5,
+   "pf": 0.2056612118531623,
+   "avg_r": -0.44899999999999995,
+   "net_r": -1.7959999999999998,
+   "max_dd_r": 2.016,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.23249999999999998,
+   "avg_loss": -1.1305,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.518,
+   "net_r": 1.518,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.518,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 2.4679213002566294,
+   "avg_r": 0.572,
+   "net_r": 1.716,
+   "max_dd_r": 1.169,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.4425,
+   "avg_loss": -1.169,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.089,
+   "net_r": 1.089,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.089,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.2549019607843137,
+   "avg_r": -0.45599999999999996,
+   "net_r": -0.9119999999999999,
+   "max_dd_r": 1.224,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.312,
+   "avg_loss": -1.224,
+   "pos_weeks": 0.5
+  }
+ },
+ "EURCHF": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.879032258064516,
+   "avg_r": -0.06750000000000006,
+   "net_r": -0.13500000000000012,
+   "max_dd_r": 1.116,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.981,
+   "avg_loss": -1.116,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.323,
+   "net_r": -1.323,
+   "max_dd_r": 1.323,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.323,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 4,
+   "wr": 0.75,
+   "pf": 0.6801266825019795,
+   "avg_r": -0.10099999999999998,
+   "net_r": -0.4039999999999999,
+   "max_dd_r": 1.263,
+   "max_cw": 3,
+   "max_cl": 1,
+   "avg_win": 0.28633333333333333,
+   "avg_loss": -1.263,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.222,
+   "net_r": 0.222,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.222,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.178,
+   "net_r": -1.178,
+   "max_dd_r": 1.178,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.178,
+   "pos_weeks": 0.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "EURGBP": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.2235,
+   "net_r": 0.447,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.2235,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.123,
+   "net_r": 1.123,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.123,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 2,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.1524999999999999,
+   "net_r": -2.3049999999999997,
+   "max_dd_r": 2.3049999999999997,
+   "max_cw": 0,
+   "max_cl": 2,
+   "avg_win": 0,
+   "avg_loss": -1.1524999999999999,
+   "pos_weeks": 0.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "EURJPY": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.3333333333333333,
+   "pf": 0.750663129973475,
+   "avg_r": -0.18799999999999994,
+   "net_r": -0.5639999999999998,
+   "max_dd_r": 1.134,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.698,
+   "avg_loss": -1.1309999999999998,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.128,
+   "net_r": -1.128,
+   "max_dd_r": 1.128,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.128,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 4,
+   "wr": 0.75,
+   "pf": 2.898305084745763,
+   "avg_r": 0.532,
+   "net_r": 2.128,
+   "max_dd_r": 1.121,
+   "max_cw": 3,
+   "max_cl": 1,
+   "avg_win": 1.083,
+   "avg_loss": -1.121,
+   "pos_weeks": 0.75
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.073,
+   "net_r": -1.073,
+   "max_dd_r": 1.073,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.073,
+   "pos_weeks": 0.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 1.5069897483690589,
+   "avg_r": 0.272,
+   "net_r": 0.544,
+   "max_dd_r": 1.073,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.617,
+   "avg_loss": -1.073,
+   "pos_weeks": 0.5
+  }
+ },
+ "EURNZD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 5,
+   "wr": 0.6,
+   "pf": 0.9489082969432314,
+   "avg_r": -0.02340000000000002,
+   "net_r": -0.1170000000000001,
+   "max_dd_r": 1.991,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.7243333333333334,
+   "avg_loss": -1.145,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 0.5331674958540631,
+   "avg_r": -0.18766666666666665,
+   "net_r": -0.563,
+   "max_dd_r": 1.206,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.3215,
+   "avg_loss": -1.206,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.2839999999999998,
+   "net_r": 2.5679999999999996,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 1.2839999999999998,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.15,
+   "net_r": -1.15,
+   "max_dd_r": 1.15,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.15,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.195,
+   "net_r": 1.195,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.195,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 2,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.138,
+   "net_r": -2.276,
+   "max_dd_r": 2.276,
+   "max_cw": 0,
+   "max_cl": 2,
+   "avg_win": 0,
+   "avg_loss": -1.138,
+   "pos_weeks": 0.0
+  }
+ },
+ "EURUSD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 1.4040852575488456,
+   "avg_r": 0.22750000000000004,
+   "net_r": 0.45500000000000007,
+   "max_dd_r": 1.126,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.581,
+   "avg_loss": -1.126,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.37434554973821993,
+   "avg_r": -0.35849999999999993,
+   "net_r": -0.7169999999999999,
+   "max_dd_r": 1.146,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.429,
+   "avg_loss": -1.146,
+   "pos_weeks": 0.5
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 2,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.1215,
+   "net_r": -2.243,
+   "max_dd_r": 2.243,
+   "max_cw": 0,
+   "max_cl": 2,
+   "avg_win": 0,
+   "avg_loss": -1.1215,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.424,
+   "net_r": 0.424,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.424,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.054,
+   "net_r": -1.054,
+   "max_dd_r": 1.054,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.054,
+   "pos_weeks": 0.0
+  }
+ },
+ "GBPAUD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 3,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.7386666666666667,
+   "net_r": 2.216,
+   "max_dd_r": 0,
+   "max_cw": 3,
+   "max_cl": 0,
+   "avg_win": 0.7386666666666667,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.0329052969502408,
+   "avg_r": 0.013666666666666641,
+   "net_r": 0.040999999999999925,
+   "max_dd_r": 1.246,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.6435,
+   "avg_loss": -1.246,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.36,
+   "net_r": 0.36,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.36,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.193,
+   "net_r": -1.193,
+   "max_dd_r": 1.193,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.193,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.101,
+   "net_r": -1.101,
+   "max_dd_r": 1.101,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.101,
+   "pos_weeks": 0.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "GBPCAD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.3333333333333333,
+   "pf": 0.6278973509933775,
+   "avg_r": -0.2996666666666667,
+   "net_r": -0.899,
+   "max_dd_r": 2.416,
+   "max_cw": 1,
+   "max_cl": 2,
+   "avg_win": 1.517,
+   "avg_loss": -1.208,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.164,
+   "net_r": -1.164,
+   "max_dd_r": 1.164,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.164,
+   "pos_weeks": 0.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.13,
+   "net_r": -1.13,
+   "max_dd_r": 1.13,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.13,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.355,
+   "net_r": 0.355,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.355,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 3,
+   "wr": 0.3333333333333333,
+   "pf": 0.1455399061032864,
+   "avg_r": -0.6673333333333334,
+   "net_r": -2.0020000000000002,
+   "max_dd_r": 2.3430000000000004,
+   "max_cw": 1,
+   "max_cl": 2,
+   "avg_win": 0.341,
+   "avg_loss": -1.1715,
+   "pos_weeks": 0.3333333333333333
+  }
+ },
+ "GBPCHF": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 0.32993730407523514,
+   "avg_r": -0.285,
+   "net_r": -0.855,
+   "max_dd_r": 1.276,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.21050000000000002,
+   "avg_loss": -1.276,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.742,
+   "net_r": 1.484,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.742,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.251,
+   "net_r": 0.251,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.251,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.20822837951301426,
+   "avg_r": -0.47150000000000003,
+   "net_r": -0.9430000000000001,
+   "max_dd_r": 1.191,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.248,
+   "avg_loss": -1.191,
+   "pos_weeks": 0.5
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.248,
+   "net_r": 0.248,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.248,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  }
+ },
+ "GBPJPY": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.27,
+   "net_r": -1.27,
+   "max_dd_r": 1.27,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.27,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 4,
+   "wr": 0.75,
+   "pf": 3.0312213039485765,
+   "avg_r": 0.5529999999999999,
+   "net_r": 2.2119999999999997,
+   "max_dd_r": 1.089,
+   "max_cw": 3,
+   "max_cl": 1,
+   "avg_win": 1.1003333333333332,
+   "avg_loss": -1.089,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.1869999999999998,
+   "net_r": 2.3739999999999997,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 1.1869999999999998,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.31583793738489874,
+   "avg_r": -0.37150000000000005,
+   "net_r": -0.7430000000000001,
+   "max_dd_r": 1.086,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.343,
+   "avg_loss": -1.086,
+   "pos_weeks": 0.5
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.343,
+   "net_r": 0.343,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.343,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  }
+ },
+ "GBPNZD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 5,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.1642,
+   "net_r": -5.821,
+   "max_dd_r": 5.821000000000001,
+   "max_cw": 0,
+   "max_cl": 5,
+   "avg_win": 0,
+   "avg_loss": -1.1642,
+   "pos_weeks": 0.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 4,
+   "wr": 0.25,
+   "pf": 0.0997506234413965,
+   "avg_r": -0.81225,
+   "net_r": -3.249,
+   "max_dd_r": 3.609,
+   "max_cw": 1,
+   "max_cl": 3,
+   "avg_win": 0.36,
+   "avg_loss": -1.203,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 4,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.33275,
+   "net_r": 1.331,
+   "max_dd_r": 0,
+   "max_cw": 4,
+   "max_cl": 0,
+   "avg_win": 0.33275,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.2775,
+   "net_r": 0.555,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.2775,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.35250000000000004,
+   "net_r": 0.7050000000000001,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.35250000000000004,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 3,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.7716666666666666,
+   "net_r": 2.315,
+   "max_dd_r": 0,
+   "max_cw": 3,
+   "max_cl": 0,
+   "avg_win": 0.7716666666666666,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  }
+ },
+ "GBPUSD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 7,
+   "wr": 0.2857142857142857,
+   "pf": 0.1187764399609502,
+   "avg_r": -0.7737142857142858,
+   "net_r": -5.416,
+   "max_dd_r": 5.416,
+   "max_cw": 1,
+   "max_cl": 3,
+   "avg_win": 0.365,
+   "avg_loss": -1.2292,
+   "pos_weeks": 0.16666666666666666
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.286,
+   "net_r": -1.286,
+   "max_dd_r": 1.286,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.286,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 5,
+   "wr": 0.6,
+   "pf": 1.0810810810810811,
+   "avg_r": 0.038400000000000004,
+   "net_r": 0.192,
+   "max_dd_r": 1.253,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.8533333333333334,
+   "avg_loss": -1.184,
+   "pos_weeks": 0.6
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.4930491195551436,
+   "avg_r": 0.17733333333333334,
+   "net_r": 0.532,
+   "max_dd_r": 1.079,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.8055,
+   "avg_loss": -1.079,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.2953736654804269,
+   "avg_r": 0.1106666666666666,
+   "net_r": 0.3319999999999998,
+   "max_dd_r": 1.124,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.728,
+   "avg_loss": -1.124,
+   "pos_weeks": 0.6666666666666666
+  }
+ },
+ "NZDCAD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.3333333333333333,
+   "pf": 0.09880355075260516,
+   "avg_r": -0.7783333333333333,
+   "net_r": -2.335,
+   "max_dd_r": 2.335,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.256,
+   "avg_loss": -1.2955,
+   "pos_weeks": 0.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 4,
+   "wr": 0.25,
+   "pf": 0.06565786098999743,
+   "avg_r": -0.91075,
+   "net_r": -3.643,
+   "max_dd_r": 3.643,
+   "max_cw": 1,
+   "max_cl": 2,
+   "avg_win": 0.256,
+   "avg_loss": -1.2996666666666667,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 5,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.5074,
+   "net_r": 2.537,
+   "max_dd_r": 0,
+   "max_cw": 5,
+   "max_cl": 0,
+   "avg_win": 0.5074,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.209,
+   "net_r": -1.209,
+   "max_dd_r": 1.209,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.209,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.042,
+   "net_r": 1.042,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.042,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 4,
+   "wr": 0.5,
+   "pf": 0.8233018056749785,
+   "avg_r": -0.10275,
+   "net_r": -0.411,
+   "max_dd_r": 1.169,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.9575,
+   "avg_loss": -1.163,
+   "pos_weeks": 0.6666666666666666
+  }
+ },
+ "NZDCHF": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.5535,
+   "net_r": 1.107,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.5535,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.17,
+   "net_r": 0.17,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.17,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.3624382207578254,
+   "avg_r": 0.1466666666666667,
+   "net_r": 0.44000000000000006,
+   "max_dd_r": 1.214,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 0.827,
+   "avg_loss": -1.214,
+   "pos_weeks": 0.6666666666666666
+  }
+ },
+ "NZDJPY": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.519247219846022,
+   "avg_r": 0.20233333333333328,
+   "net_r": 0.6069999999999999,
+   "max_dd_r": 1.169,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.8879999999999999,
+   "avg_loss": -1.169,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 5,
+   "wr": 0.2,
+   "pf": 0.22372528616024975,
+   "avg_r": -0.7460000000000001,
+   "net_r": -3.7300000000000004,
+   "max_dd_r": 4.805000000000001,
+   "max_cw": 1,
+   "max_cl": 4,
+   "avg_win": 1.075,
+   "avg_loss": -1.20125,
+   "pos_weeks": 0.2
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.97,
+   "net_r": 1.94,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 0.97,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.179,
+   "net_r": -1.179,
+   "max_dd_r": 1.179,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.179,
+   "pos_weeks": 0.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.7455470737913483,
+   "avg_r": 0.293,
+   "net_r": 0.879,
+   "max_dd_r": 1.179,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.029,
+   "avg_loss": -1.179,
+   "pos_weeks": 0.6666666666666666
+  }
+ },
+ "NZDUSD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 5,
+   "wr": 0.4,
+   "pf": 0.1377295492487479,
+   "avg_r": -0.6198,
+   "net_r": -3.099,
+   "max_dd_r": 3.099,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.2475,
+   "avg_loss": -1.1980000000000002,
+   "pos_weeks": 0.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 5,
+   "wr": 0.4,
+   "pf": 0.13613861386138612,
+   "avg_r": -0.6282,
+   "net_r": -3.141,
+   "max_dd_r": 3.3810000000000002,
+   "max_cw": 1,
+   "max_cl": 2,
+   "avg_win": 0.2475,
+   "avg_loss": -1.212,
+   "pos_weeks": 0.5
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 5,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.3756,
+   "net_r": 6.878,
+   "max_dd_r": 0,
+   "max_cw": 5,
+   "max_cl": 0,
+   "avg_win": 1.3756,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.157,
+   "net_r": 1.157,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.157,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 2.792888888888889,
+   "avg_r": 0.6723333333333334,
+   "net_r": 2.0170000000000003,
+   "max_dd_r": 1.125,
+   "max_cw": 2,
+   "max_cl": 1,
+   "avg_win": 1.5710000000000002,
+   "avg_loss": -1.125,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.32,
+   "net_r": 1.32,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.32,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  }
+ },
+ "SPX500USD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 6,
+   "wr": 0.3333333333333333,
+   "pf": 0.20474346563407556,
+   "avg_r": -0.5476666666666666,
+   "net_r": -3.286,
+   "max_dd_r": 3.2859999999999996,
+   "max_cw": 1,
+   "max_cl": 2,
+   "avg_win": 0.42300000000000004,
+   "avg_loss": -1.033,
+   "pos_weeks": 0.4
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 1.0406189555125727,
+   "avg_r": 0.02100000000000002,
+   "net_r": 0.04200000000000004,
+   "max_dd_r": 1.034,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.076,
+   "avg_loss": -1.034,
+   "pos_weeks": 0.5
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 4,
+   "wr": 0.5,
+   "pf": 0.417029511369134,
+   "avg_r": -0.30124999999999996,
+   "net_r": -1.2049999999999998,
+   "max_dd_r": 1.603,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.43100000000000005,
+   "avg_loss": -1.0335,
+   "pos_weeks": 0.5
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.088,
+   "net_r": 1.088,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 1.088,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.009,
+   "net_r": -1.009,
+   "max_dd_r": 1.009,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.009,
+   "pos_weeks": 0.0
+  }
+ },
+ "USDCAD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.6666666666666666,
+   "pf": 1.3746056782334384,
+   "avg_r": 0.1583333333333333,
+   "net_r": 0.4749999999999999,
+   "max_dd_r": 1.268,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.8714999999999999,
+   "avg_loss": -1.268,
+   "pos_weeks": 0.6666666666666666
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.163,
+   "net_r": -1.163,
+   "max_dd_r": 1.163,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.163,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 1.1794409377817854,
+   "avg_r": 0.09950000000000003,
+   "net_r": 0.19900000000000007,
+   "max_dd_r": 1.109,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.308,
+   "avg_loss": -1.109,
+   "pos_weeks": 0.5
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.321,
+   "net_r": 0.321,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.321,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "USDCHF": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.16399999999999998,
+   "avg_r": -0.5225,
+   "net_r": -1.045,
+   "max_dd_r": 1.25,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.205,
+   "avg_loss": -1.25,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 3,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.2286666666666666,
+   "net_r": -3.686,
+   "max_dd_r": 3.686,
+   "max_cw": 0,
+   "max_cl": 3,
+   "avg_win": 0,
+   "avg_loss": -1.2286666666666666,
+   "pos_weeks": 0.0
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 3,
+   "wr": 0.3333333333333333,
+   "pf": 0.15894039735099338,
+   "avg_r": -0.6349999999999999,
+   "net_r": -1.9049999999999998,
+   "max_dd_r": 2.2649999999999997,
+   "max_cw": 1,
+   "max_cl": 2,
+   "avg_win": 0.36,
+   "avg_loss": -1.1324999999999998,
+   "pos_weeks": 0.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 1,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.149,
+   "net_r": -1.149,
+   "max_dd_r": 1.149,
+   "max_cw": 0,
+   "max_cl": 1,
+   "avg_win": 0,
+   "avg_loss": -1.149,
+   "pos_weeks": 0.0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "USDJPY": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.6635,
+   "net_r": 3.327,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 1.6635,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.3534322820037106,
+   "avg_r": -0.34850000000000003,
+   "net_r": -0.6970000000000001,
+   "max_dd_r": 1.078,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.381,
+   "avg_loss": -1.078,
+   "pos_weeks": 0.5
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 5,
+   "wr": 0.6,
+   "pf": 1.6789328426862926,
+   "avg_r": 0.2952,
+   "net_r": 1.4760000000000002,
+   "max_dd_r": 1.8599999999999999,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.2166666666666666,
+   "avg_loss": -1.087,
+   "pos_weeks": 0.75
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 2,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 1.0675,
+   "net_r": 2.135,
+   "max_dd_r": 0,
+   "max_cw": 2,
+   "max_cl": 0,
+   "avg_win": 1.0675,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 0
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 0
+  }
+ },
+ "XAUUSD": {
+  "Scalp  H4 bias -> M15 entry": {
+   "n": 4,
+   "wr": 0.5,
+   "pf": 1.0083210964268232,
+   "avg_r": 0.0042500000000000315,
+   "net_r": 0.017000000000000126,
+   "max_dd_r": 2.043,
+   "max_cw": 2,
+   "max_cl": 2,
+   "avg_win": 1.03,
+   "avg_loss": -1.0215,
+   "pos_weeks": 0.5
+  },
+  "Scalp  H1 bias -> M15 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.46229187071498534,
+   "avg_r": -0.27449999999999997,
+   "net_r": -0.5489999999999999,
+   "max_dd_r": 1.021,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.472,
+   "avg_loss": -1.021,
+   "pos_weeks": 0.5
+  },
+  "Intra  H4 bias -> M30 entry": {
+   "n": 2,
+   "wr": 0.0,
+   "pf": 0.0,
+   "avg_r": -1.0205,
+   "net_r": -2.041,
+   "max_dd_r": 2.041,
+   "max_cw": 0,
+   "max_cl": 2,
+   "avg_win": 0,
+   "avg_loss": -1.0205,
+   "pos_weeks": 0.0
+  },
+  "Intra  H1 bias -> M30 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 1.66090297790586,
+   "avg_r": 0.3440000000000001,
+   "net_r": 0.6880000000000002,
+   "max_dd_r": 1.041,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 1.729,
+   "avg_loss": -1.041,
+   "pos_weeks": 0.5
+  },
+  "Intra  H4 bias -> H1 entry": {
+   "n": 2,
+   "wr": 0.5,
+   "pf": 0.48374384236453205,
+   "avg_r": -0.26199999999999996,
+   "net_r": -0.5239999999999999,
+   "max_dd_r": 1.015,
+   "max_cw": 1,
+   "max_cl": 1,
+   "avg_win": 0.491,
+   "avg_loss": -1.015,
+   "pos_weeks": 0.5
+  },
+  "Intra  D1 bias -> H1 entry": {
+   "n": 1,
+   "wr": 1.0,
+   "pf": Infinity,
+   "avg_r": 0.47,
+   "net_r": 0.47,
+   "max_dd_r": 0,
+   "max_cw": 1,
+   "max_cl": 0,
+   "avg_win": 0.47,
+   "avg_loss": 0,
+   "pos_weeks": 1.0
+  }
+ }
+}

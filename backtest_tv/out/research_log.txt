@@ -1,0 +1,103 @@
+A 4h ce True 2.0 1.0 0.3 7
+A 4h ce True 2.0 1.0 0.6 14
+A 4h ce True 2.0 1.5 0.3 21
+A 4h ce True 2.0 1.5 0.6 28
+A 4h ce True 3.0 1.0 0.3 35
+A 4h ce True 3.0 1.0 0.6 41
+A 4h ce True 3.0 1.5 0.3 48
+A 4h ce True 3.0 1.5 0.6 55
+A 4h ce False 2.0 1.0 0.3 62
+A 4h ce False 2.0 1.0 0.6 69
+A 4h ce False 2.0 1.5 0.3 76
+A 4h ce False 2.0 1.5 0.6 83
+A 4h ce False 3.0 1.0 0.3 90
+A 4h ce False 3.0 1.0 0.6 97
+A 4h ce False 3.0 1.5 0.3 104
+A 4h ce False 3.0 1.5 0.6 110
+A 4h edge True 2.0 1.0 0.3 117
+A 4h edge True 2.0 1.0 0.6 124
+A 4h edge True 2.0 1.5 0.3 130
+A 4h edge True 2.0 1.5 0.6 137
+A 4h edge True 3.0 1.0 0.3 144
+A 4h edge True 3.0 1.0 0.6 150
+A 4h edge True 3.0 1.5 0.3 157
+A 4h edge True 3.0 1.5 0.6 164
+A 4h edge False 2.0 1.0 0.3 171
+A 4h edge False 2.0 1.0 0.6 177
+A 4h edge False 2.0 1.5 0.3 184
+A 4h edge False 2.0 1.5 0.6 190
+A 4h edge False 3.0 1.0 0.3 197
+A 4h edge False 3.0 1.0 0.6 203
+A 4h edge False 3.0 1.5 0.3 210
+A 4h edge False 3.0 1.5 0.6 217
+A 1h ce True 2.0 1.0 0.3 223
+A 1h ce True 2.0 1.0 0.6 230
+A 1h ce True 2.0 1.5 0.3 237
+A 1h ce True 2.0 1.5 0.6 244
+A 1h ce True 3.0 1.0 0.3 251
+A 1h ce True 3.0 1.0 0.6 258
+A 1h ce True 3.0 1.5 0.3 265
+A 1h ce True 3.0 1.5 0.6 271
+A 1h ce False 2.0 1.0 0.3 278
+A 1h ce False 2.0 1.0 0.6 285
+A 1h ce False 2.0 1.5 0.3 292
+A 1h ce False 2.0 1.5 0.6 299
+A 1h ce False 3.0 1.0 0.3 305
+A 1h ce False 3.0 1.0 0.6 312
+A 1h ce False 3.0 1.5 0.3 319
+A 1h ce False 3.0 1.5 0.6 326
+A 1h edge True 2.0 1.0 0.3 333
+A 1h edge True 2.0 1.0 0.6 339
+A 1h edge True 2.0 1.5 0.3 346
+A 1h edge True 2.0 1.5 0.6 353
+A 1h edge True 3.0 1.0 0.3 359
+A 1h edge True 3.0 1.0 0.6 366
+A 1h edge True 3.0 1.5 0.3 373
+A 1h edge True 3.0 1.5 0.6 380
+A 1h edge False 2.0 1.0 0.3 387
+A 1h edge False 2.0 1.0 0.6 393
+A 1h edge False 2.0 1.5 0.3 400
+A 1h edge False 2.0 1.5 0.6 407
+A 1h edge False 3.0 1.0 0.3 414
+A 1h edge False 3.0 1.0 0.6 421
+A 1h edge False 3.0 1.5 0.3 428
+A 1h edge False 3.0 1.5 0.6 435
+B done 445
+C done 447
+
+configs: 292  with IS n>=30: 96  OOS PF>1 among them: 44
+family A: 60 configs, OOS PF>1: 40
+family B: 24 configs, OOS PF>1: 2
+family C: 12 configs, OOS PF>1: 2
+
+TOP 10 by IS t-score:
+A SMC 4h->M30 entry=edge partial=True tp=3.0 disp=1.0 stop=0.3 score>=70 noTDIext=False
+   IS  n= 44 wr= 66% pf=1.43 avgR=+0.17 net=  +7.4 dd= 4.3 t=1.08
+   OOS n= 33 wr= 55% pf=0.77 avgR=-0.12 net=  -3.9 dd= 9.9 t=-0.67
+A SMC 4h->M30 entry=edge partial=True tp=2.0 disp=1.0 stop=0.3 score>=70 noTDIext=False
+   IS  n= 44 wr= 66% pf=1.36 avgR=+0.14 net=  +6.2 dd= 4.3 t=0.94
+   OOS n= 33 wr= 55% pf=0.93 avgR=-0.03 net=  -1.1 dd= 7.9 t=-0.18
+A SMC 4h->M30 entry=edge partial=True tp=3.0 disp=1.0 stop=0.6 score>=70 noTDIext=False
+   IS  n= 43 wr= 63% pf=1.30 avgR=+0.13 net=  +5.4 dd= 4.2 t=0.78
+   OOS n= 33 wr= 55% pf=0.77 avgR=-0.12 net=  -3.8 dd= 9.8 t=-0.66
+A SMC 4h->M30 entry=edge partial=True tp=2.0 disp=1.0 stop=0.3 score>=70 noTDIext=True
+   IS  n= 30 wr= 67% pf=1.23 avgR=+0.09 net=  +2.6 dd= 4.3 t=0.51
+   OOS n= 25 wr= 56% pf=0.99 avgR=-0.01 net=  -0.2 dd= 5.2 t=-0.03
+A SMC 4h->M30 entry=ce partial=True tp=2.0 disp=1.0 stop=0.3 score>=70 noTDIext=True
+   IS  n= 36 wr= 64% pf=1.20 avgR=+0.09 net=  +3.1 dd= 4.0 t=0.51
+   OOS n= 27 wr= 63% pf=1.21 avgR=+0.09 net=  +2.4 dd= 4.7 t=0.44
+A SMC 4h->M30 entry=edge partial=True tp=2.0 disp=1.0 stop=0.6 score>=70 noTDIext=False
+   IS  n= 43 wr= 63% pf=1.18 avgR=+0.08 net=  +3.2 dd= 4.2 t=0.50
+   OOS n= 33 wr= 55% pf=0.95 avgR=-0.03 net=  -0.9 dd= 7.8 t=-0.15
+A SMC 4h->M30 entry=edge partial=True tp=3.0 disp=1.0 stop=0.3 score>=70 noTDIext=True
+   IS  n= 30 wr= 67% pf=1.22 avgR=+0.08 net=  +2.5 dd= 4.3 t=0.47
+   OOS n= 25 wr= 56% pf=0.75 avgR=-0.13 net=  -3.1 dd= 7.0 t=-0.62
+A SMC 4h->M30 entry=ce partial=True tp=3.0 disp=1.0 stop=0.6 score>=70 noTDIext=True
+   IS  n= 34 wr= 65% pf=1.17 avgR=+0.07 net=  +2.4 dd= 3.5 t=0.41
+   OOS n= 25 wr= 64% pf=1.08 avgR=+0.03 net=  +0.8 dd= 5.1 t=0.17
+A SMC 4h->M30 entry=ce partial=True tp=3.0 disp=1.0 stop=0.3 score>=70 noTDIext=True
+   IS  n= 36 wr= 64% pf=1.16 avgR=+0.07 net=  +2.4 dd= 3.5 t=0.40
+   OOS n= 27 wr= 63% pf=1.17 avgR=+0.07 net=  +2.0 dd= 5.4 t=0.35
+A SMC 4h->M30 entry=ce partial=True tp=2.0 disp=1.0 stop=0.6 score>=70 noTDIext=True
+   IS  n= 34 wr= 65% pf=1.16 avgR=+0.07 net=  +2.2 dd= 3.5 t=0.39
+   OOS n= 25 wr= 64% pf=1.06 avgR=+0.02 net=  +0.6 dd= 5.1 t=0.13

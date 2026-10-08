@@ -3,7 +3,7 @@
 `trades.json` is the single source of truth for every signal (demo and live).
 
 **Lifecycle:** `pending` (limit not filled) -> `open` (filled) -> `tp1` (TP1 hit, stop moved to entry) -> `closed`.
-A pending setup becomes `expired` if price reaches TP1 before the entry fills, or the stop level is hit before the entry fills.
+A pending limit order stays live like a real broker order. It is cancelled (`expired`) only on STRUCTURE invalidation: (a) an M15 candle closes beyond the stop level, or (b) the M15 structure flips against the idea (e.g. a sell setup whose M15 turns bullish). Touching the TP1 level before the entry fills does NOT cancel it by itself.
 
 **Honest-fill rules (same as sniper-smc):**
 - A limit fills only on trade-through (1 pip beyond the entry), never on a touch.
